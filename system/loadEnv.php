@@ -1,7 +1,7 @@
 <?php
 
 function loadEnv() {
-    $envFile = __DIR__ . '/.env';
+    $envFile = __DIR__ . '/.env-example';
     if (!file_exists($envFile)) {
         return;
     }
