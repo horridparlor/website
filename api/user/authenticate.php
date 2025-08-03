@@ -11,14 +11,8 @@ function authenticate(Database $database): string
     $username = $database->getStringParam('username');
     $password = $database->getStringParam('password');
     $sql = <<<SQL
-        SELECT user.id, firstname, lastname, passwordHash,
-        CASE
-            WHEN role.id IS NOT NULL THEN role.accessRights
-            ELSE IFNULL(user.accessRights, "{}")
-        END AS accessRights
+        SELECT user.id, firstname, lastname, passwordHash, accessRights
         FROM user
-        LEFT JOIN userRole role
-            ON role.id = user.roleId
         WHERE username = :username
     SQL;
     $replacements = array(
