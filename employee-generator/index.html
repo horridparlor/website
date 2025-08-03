@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Employee Generator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Roboto Mono', monospace;
+      background-color: #0f0f0f;
+      color: #fff;
+      padding: 2rem;
+      background-image: radial-gradient(#333 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    h2 {
+      text-align: center;
+      font-size: 2rem;
+      color: #00ffcc;
+      margin-bottom: 2rem;
+    }
+
+    .info-box {
+      max-width: 600px;
+      margin: auto;
+      background-color: #1e1e1e;
+      padding: 2rem;
+      border-radius: 12px;
+      border: 2px solid #00ffcc;
+      box-shadow: 0 0 10px #00ffcc;
+      line-height: 1.6;
+      font-size: 16px;
+    }
+
+    .info-box div {
+      margin-bottom: 1rem;
+    }
+
+    .info-container {
+     max-width: 600px;
+     margin: auto;
+    }
+
+    .home-btn {
+      display: inline-block;
+      margin-top: 2rem;
+      display: inline-block;
+      background: linear-gradient(90deg, #ff0066, #ff6600);
+      color: #fff;
+      padding: 12px 24px;
+      font-size: 16px;
+      border-radius: 8px;
+      text-decoration: none;
+      box-shadow: 0 0 10px #ff0066;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .home-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 20px #ff0066;
+    }
+    
+    .copy-btn {
+        background-color: #424c5b;
+        color: #424c5b;
+        border: none;
+        border-radius: 6px;
+        padding: 4px 8px;
+        margin-left: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 1em;
+      }
+    
+      .copy-btn:hover {
+        background-color: #2e5c6d;
+        color: #eee;
+      }
+    
+      .copy-btn:active {
+        background-color: #65ccf2;
+        color: #fff;
+      }
+  </style>
+</head>
+<body>
+
+  <h2>Employee Generator</h2>
+  <div class="info-container">
+    <div class="info-box" id="employeeBox">
+      <div>
+        <strong>Etunimi:</strong> 
+        <span id="firstName">Matti</span>
+        <button class="copy-btn" onclick="copyText('firstName')">📎</button>
+      </div>
+      <div>
+        <strong>Sukunimi:</strong> 
+        <span id="lastName">Meikäläinen</span>
+        <button class="copy-btn" onclick="copyText('lastName')">📎</button>
+      </div>
+      <div>
+        <strong>Henkilötunnus:</strong> 
+        <span id="hetu">010101-123A</span>
+        <button class="copy-btn" onclick="copyText('hetu')">📎</button>
+      </div>
+      <div>
+        <strong>IBAN:</strong> 
+        <span id="iban">FI47 1234 5612 3456 78</span>
+        <button class="copy-btn" onclick="copyText('iban')">📎</button>
+      </div>
+      <div>
+        <strong>BIC:</strong> 
+        <span id="bic">NDEAFIHH</span>
+        <button class="copy-btn" onclick="copyText('bic')">📎</button>
+      </div>
+    </div>
+
+  <a href="/" class="home-btn">← Takaisin kotiin</a>
+  </div>
+
+  <script>
+    const maleNames = ["Mikko", "Juha", "Antti", "Pekka", "Lauri"];
+    const femaleNames = ["Anna", "Tiina", "Sari", "Laura", "Katja"];
+    const lastNames = ["Virtanen", "Korhonen", "Nieminen", "Mäkinen", "Hämäläinen"];
+
+    function randomItem(arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    function getRandomDate(over18 = true) {
+      const start = new Date();
+      start.setFullYear(start.getFullYear() - (over18 ? 100 : 0));
+      const end = new Date();
+      end.setFullYear(end.getFullYear() - 18);
+      const date = new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
+      const dd = String(date.getDate()).padStart(2, '0');
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const yy = String(date.getFullYear()).slice(-2);
+      const century = date.getFullYear() < 2000 ? '-' : 'A';
+      return { dd, mm, yy, fullYear: date.getFullYear(), century };
+    }
+
+    function generateHetu() {
+      const { dd, mm, yy, fullYear, century } = getRandomDate();
+      const nnn = String(Math.floor(Math.random() * 900) + 100);
+      const base = `${dd}${mm}${yy}${century}${nnn}`;
+      const checksumChars = '0123456789ABCDEFHJKLMNPRSTUVWXY';
+      const checkIndex = parseInt(`${dd}${mm}${yy}${nnn}`, 10) % 31;
+      return base + checksumChars[checkIndex];
+    }
+    
+    function generateFinnishIban() {
+      const bankCode = String(Math.floor(101010 + Math.random() * 198990));
+      const accountNumber = String(Math.floor(10000000 + Math.random() * 90000000)); // 8-digit account number
+      const bban = bankCode + accountNumber;
+      const rearranged = bban + 'FI00';
+      const numericIban = rearranged.replace(/[A-Z]/g, c => c.charCodeAt(0) - 55);
+      const mod97 = BigInt(numericIban) % 97n;
+      const checkDigits = String(98n - mod97).padStart(2, '0');
+      const iban = `FI${checkDigits}${bban}`;
+      return iban.match(/.{1,4}/g).join(' ');
+    }
+
+    function generateEmployee() {
+      const gender = Math.random() < 0.5 ? 'male' : 'female';
+      const firstName = gender === 'male' ? randomItem(maleNames) : randomItem(femaleNames);
+      const lastName = randomItem(lastNames);
+      const hetu = generateHetu();
+      const iban = generateFinnishIban();
+
+      document.getElementById('firstName').textContent = firstName;
+      document.getElementById('lastName').textContent = lastName;
+      document.getElementById('hetu').textContent = hetu;
+      document.getElementById('iban').textContent = iban;
+    }
+    
+    function copyText(elementId) {
+        const text = document.getElementById(elementId).innerText;
+        navigator.clipboard.writeText(text).then(() => {
+          console.log(`Copied: ${text}`);
+        });
+      }
+
+    window.addEventListener('DOMContentLoaded', generateEmployee);
+  </script>
+
+</body>
+</html>

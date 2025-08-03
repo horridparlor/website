@@ -1,0 +1,36 @@
+services:
+  rakuel-back:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/var/www/html/
+      - ./images:/var/www/images
+    ports:
+      - "8000:80"
+    depends_on:
+      - rakuel-mysql
+    networks:
+      - rakuel-network
+
+  rakuel-mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: rakuel
+      MYSQL_USER: metaRakuel
+      MYSQL_PASSWORD: password
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d
+    networks:
+      - rakuel-network
+
+volumes:
+  mysql_data:
+  shared:
+
+networks:
+  rakuel-network:

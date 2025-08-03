@@ -1,0 +1,11 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^role/([0-9]+)$ role.php?roleId=$1 [L,QSA]
+    RewriteRule ^user/([0-9]+)$ user.php?userId=$1 [L,QSA]
+    RewriteCond %{REQUEST_URI} !\.php$
+    RewriteRule ^(.+)$ $1.php [L,QSA]
+    RewriteCond %{HTTP:Authorization} ^(.*)
+    RewriteRule .* - [e=HTTP_AUTHORIZATION:%1]
+</IfModule>

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JSON Formatter</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Roboto Mono', monospace;
+      background-color: #0f0f0f;
+      color: #fff;
+      padding: 2rem;
+      background-image: radial-gradient(#333 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    h2 {
+      text-align: center;
+      font-size: 2rem;
+      color: #00ffcc;
+      margin-bottom: 2rem;
+    }
+
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+    }
+
+    textarea {
+      width: 100%;
+      max-width: 600px;
+      height: 300px;
+      font-family: 'Roboto Mono', monospace;
+      font-size: 14px;
+      padding: 15px;
+      box-sizing: border-box;
+      background-color: #1e1e1e;
+      color: #00ffcc;
+      border: 2px solid #00ffcc;
+      border-radius: 8px;
+      transition: all 0.3s ease;
+    }
+
+    #output {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    #output.visible {
+      opacity: 1;
+      transform: translateY(0);
+      transition: all 1s ease;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+      margin-top: 1rem;
+      flex-wrap: wrap;
+    }
+
+    button, .home-btn {
+      padding: 12px 24px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      text-decoration: none;
+      text-align: center;
+      display: inline-block;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    button {
+      background: linear-gradient(90deg, #00ffcc, #00ccff);
+      color: #000;
+      box-shadow: 0 0 10px #00ffcc;
+    }
+
+    button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 20px #00ffcc;
+    }
+
+    .home-btn {
+      background: linear-gradient(90deg, #ff0066, #ff6600);
+      color: #fff;
+      box-shadow: 0 0 10px #ff0066;
+    }
+
+    .home-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 20px #ff0066;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #00cc88;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+      font-size: 14px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s ease;
+      z-index: 1000;
+    }
+
+    .toast.show {
+      opacity: 1;
+    }
+
+    .toast.error {
+      background-color: #ff0033;
+    }
+
+    @media (min-width: 768px) {
+      textarea {
+        width: 45%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h2>JSON Formatter</h2>
+
+  <div class="container">
+    <textarea id="input" placeholder="Liitä URL-koodattu JSON tähän..."></textarea>
+    <textarea id="output" placeholder="Muotoiltu JSON ilmestyy tähän..." readonly></textarea>
+  </div>
+
+  <div class="buttons">
+    <button id="convertBtn">Prettify JSON</button>
+    <a href="/" class="home-btn">← Takaisin kotiin</a>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const input = document.getElementById('input');
+    const output = document.getElementById('output');
+    const button = document.getElementById('convertBtn');
+    const toast = document.getElementById('toast');
+
+    function showAnimatedOutput(text) {
+      output.classList.remove('visible');
+      output.value = '';
+      setTimeout(() => {
+        output.value = text;
+        output.classList.add('visible');
+      }, 50);
+    }
+
+    function showToast(message, isError = false) {
+      toast.textContent = message;
+      toast.className = 'toast' + (isError ? ' error' : '');
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2500);
+    }
+
+    button.addEventListener('click', () => {
+      let encoded = input.value.trim();
+      if (!encoded) {
+        showAnimatedOutput('Liitä ensin URL-koodattu JSON!');
+        showToast('Tyhjä syöte. Liitä JSON ensin.', true);
+        return;
+      }
+
+      if (encoded.startsWith('params=')) {
+        encoded = encoded.substring(7);
+      }
+
+      try {
+        const decoded = decodeURIComponent(encoded);
+        const json = JSON.parse(decoded);
+        const pretty = JSON.stringify(json, null, 2);
+        showAnimatedOutput(pretty);
+        showToast('Valmis!');
+      } catch (err) {
+        showAnimatedOutput('Virhe: ' + err.message);
+        showToast('JSON ei ole kelvollinen!', true);
+      }
+    });
+  </script>
+
+</body>
+</html>

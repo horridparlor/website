@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rakuel – Suomen kovin rap-artisti</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Roboto:wght@300;500&family=Material+Icons&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Roboto', sans-serif;
+      background-color: #111;
+      background-image: linear-gradient(to bottom, rgba(17,17,17,0.7), #111), url('/images/banner.png'), radial-gradient(#333 1px, transparent 1px);
+      background-size: 100% auto, 100% auto, 20px 20px;
+      background-repeat: no-repeat, no-repeat, repeat;
+      background-position: top center, top center, top left;
+      color: #fff;
+      overflow-x: hidden;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 2rem;
+      background-color: rgba(0, 0, 0, 0.7);
+      position: relative;
+      flex-wrap: wrap;
+    }
+
+    .overlay-img {
+      width: 200px;
+      height: auto;
+      margin-right: 2rem;
+    }
+
+    .header-text {
+      flex-grow: 1;
+    }
+
+    h1 {
+      font-family: 'Anton', sans-serif;
+      font-size: 3rem;
+      color: #00ffcc;
+      margin: 0;
+    }
+
+    .subtitle {
+      font-size: 1.5rem;
+      font-weight: 300;
+      margin-top: 0.5rem;
+    }
+
+    .social-icons {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .social-icons a {
+      color: #00ffcc;
+      font-size: 2rem;
+      text-decoration: none;
+      transition: transform 0.2s;
+    }
+
+    .social-icons a:hover {
+      transform: scale(1.3);
+      color: #00ccaa;
+    }
+
+    .description {
+      max-width: 800px;
+      margin: 2rem auto;
+      font-size: 1.2rem;
+      text-align: center;
+    }
+
+    .buttons {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: 1.5rem;
+    }
+
+    .button {
+      padding: 0.8rem 1.5rem;
+      background-color: #00ffcc;
+      color: #000;
+      text-decoration: none;
+      font-weight: bold;
+      border-radius: 8px;
+      transition: background 0.3s;
+    }
+
+    .button:hover {
+      background-color: #00ccaa;
+    }
+
+    .email-highlight {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #fff;
+      background-color: #ff0066;
+      padding: 1rem 2rem;
+      border-radius: 10px;
+      display: inline-block;
+      margin: 1rem auto;
+      box-shadow: 0 0 15px #ff0066;
+    }
+
+    .contact-section {
+      background-color: #222;
+      padding: 3rem 1rem;
+      margin-top: 3rem;
+      text-align: center;
+    }
+
+    .contact-section h2 {
+      color: #00ffcc;
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+
+    .contact-form {
+      max-width: 500px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    input, textarea {
+      padding: 0.8rem;
+      border-radius: 5px;
+      border: none;
+      font-size: 1rem;
+    }
+
+    input[type="submit"] {
+      background-color: #00ffcc;
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    input[type="submit"]:hover {
+      background-color: #00ccaa;
+    }
+
+    footer {
+      text-align: center;
+      font-size: 0.9rem;
+      color: #aaa;
+      padding: 1rem;
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <img src="/images/overlay.png" alt="Rakuel" class="overlay-img" />
+    <div class="header-text">
+      <h1>Rakuel</h1>
+      <p class="subtitle">Suomen kovin rap-artisti – tulossa kovaa vauhtia, ja odottaa juuri sinua!</p>
+    </div>
+    <div class="social-icons">
+      <a href="https://open.spotify.com/artist/6zEclwyLsW20Rp4ui3vGNS" target="_blank" title="Spotify"><span class="material-icons">music_note</span></a>
+      <a href="https://www.instagram.com/saunaeero/" target="_blank" title="Instagram"><span class="material-icons">photo_camera</span></a>
+      <a href="https://www.tiktok.com/@saunaeero" target="_blank" title="TikTok"><span class="material-icons">videocam</span></a>
+      <a href="https://www.youtube.com/@saunaeero" target="_blank" title="YouTube"><span class="material-icons">smart_display</span></a>
+      <a href="https://store.steampowered.com/search/?developer=Eero%20Laine" target="_blank" title="Steam"><span class="material-icons">sports_esports</span></a>
+    </div>
+  </header>
+
+  <main class="description">
+    <p>Rakuel on Tampereelta kotoisin oleva nouseva tähti, joka ravistelee koko Suomen rap-skeneä. Hänen tyyliinsä yhdistyvät katujen kauhu, lyriikat nerokkuuden ja huulluuden väliltä. Show, joka ei jätä ketään kylmäksi. Rakuel ei ole pelkkä artisti – hän on ilmiö!</p>
+
+    <div class="buttons">
+      <a href="/json-formatter" class="button">JSON Formatter</a>
+      <a href="/employee-generator" class="button">Employee Generator</a>
+    </div>
+
+    <div class="email-highlight">
+      Ota yhteyttä: <a href="mailto:eero@rakuel.com" style="color: white;">eero@rakuel.com</a>
+    </div>
+  </main>
+
+  <section class="contact-section">
+    <h2>Keikkatarjoukset</h2>
+    <p>Voit lähettää tarjouksen alla olevalla lomakkeella tai suoraan sähköpostiin: <strong>eero@rakuel.com</strong></p>
+    <form class="contact-form" action="mailto:eero@rakuel.com" method="POST" enctype="text/plain">
+      <input type="email" name="email" placeholder="Sähköpostiosoitteesi" required />
+      <textarea name="offer" rows="5" placeholder="Kirjoita tarjouksesi..." required></textarea>
+      <input type="submit" value="Lähetä tarjous" />
+    </form>
+  </section>
+
+  <footer>
+    © 2025 Rakuel – Kaikki oikeudet pidätetään
+  </footer>
+
+</body>
+</html>
