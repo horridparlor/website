@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hardest – Card Gallery</title>
+  <link rel="stylesheet" href="../../styles.css" />
+  <style>
+    /* Extend the provided styles.css with page-specific styles */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 2rem;
+      background: rgba(0,0,0,0.6);
+      border-bottom: 1px solid #222;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .topbar h1 { font-size: 2rem; margin: 0; }
+    .home-link { text-decoration: none; margin-right: 1rem }
+
+    .filters-wrap {
+      display: grid;
+      grid-template-columns: repeat(10, minmax(140px, 1fr));
+      gap: .75rem;
+      padding: 1rem 2rem 0 2rem;
+    }
+    .mark-down {
+      margin-bottom: 1rem;
+    }
+    .filters-wrap label { font-size: .9rem; color: #aaa; }
+    .filters-wrap input, .filters-wrap select {
+      width: 100%;
+      background: #1a1a1a;
+      color: #fff;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: .6rem .8rem;
+      outline: none;
+    }
+
+    .view-toggle {
+      display: flex;
+      gap: .5rem;
+      align-items: center;
+      padding: 1rem 2rem;
+    }
+    .toggle-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .5rem .9rem;
+      border-radius: 8px;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      color: #fff;
+      cursor: pointer;
+      user-select: none;
+    }
+    .toggle-btn.active { border-color: #00ffcc; box-shadow: 0 0 0 2px rgba(0,255,204,.1); }
+
+    .results { padding: 1rem 2rem 3rem 2rem; }
+
+    /* Gallery */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+    .card {
+      background: #181818;
+      border: 1px solid #222;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,.3);
+      display: flex;
+      flex-direction: column;
+    }
+    .card img { width: 100%; height: 390px; object-fit: cover; background: #0d0d0d; }
+    .card .meta { padding: .75rem .9rem; display: grid; gap: .25rem; font-size: .95rem; }
+    .kv { color: #aaa; font-size: .85rem; }
+
+    /* Data form table */
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: .6rem .75rem; border-bottom: 1px solid #222; }
+    th { color: #00ffcc; position: sticky; top: 0; background: #0f0f0f; }
+    .table-wrap { overflow: auto; border: 1px solid #222; border-radius: 12px; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      right: 1rem;
+      bottom: 1rem;
+      background: #ff0066;
+      color: #fff;
+      padding: .9rem 1rem;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(255,0,102,.5);
+      z-index: 50;
+      display: none;
+    }
+    .empty { text-align: center; color: #aaa; padding: 2rem; }
+
+    @media (max-width: 1200px) {
+      .filters-wrap { grid-template-columns: repeat(2, minmax(140px, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+<header class="topbar">
+  <a class="home-link button" href="/">Home</a>
+  <div class="header-text">
+    <h1>Hardest – Card Gallery</h1>
+    <div class="subtitle">Browse and filter every revealed card.</div>
+  </div>
+</header>
+
+<!-- Filters: 10 controls -->
+<section class="filters">
+  <div class="filters-wrap" id="filters">
+    <div>
+      <label for="f-name">Name</label>
+      <input id="f-name" type="text" placeholder="Search name" />
+    </div>
+    <div>
+      <label for="f-keywords">Keywords</label>
+      <input id="f-keywords" type="text" placeholder="e.g. buried, pair" />
+    </div>
+    <div>
+      <label for="f-type">Type</label>
+      <select id="f-type">
+        <option value="">Any</option>
+        <option>Rock</option>
+        <option>Paper</option>
+        <option>Scissor</option>
+        <option>Gun</option>
+        <option>Mimic</option>
+        <option>God</option>
+      </select>
+    </div>
+    <div>
+      <label for="f-house">House</label>
+      <select id="f-house">
+        <option value="">Any</option>
+        <option>Champion</option>
+        <option>Delusional</option>
+        <option>Demonic</option>
+        <option>Divine</option>
+        <option>Hightech</option>
+        <option>Kawaii</option>
+        <option>God</option>
+        <option>Scam</option>
+      </select>
+    </div>
+    <div>
+      <label for="f-rarity">Rarity</label>
+      <select id="f-rarity">
+        <option value="">Any</option>
+        <option>Common</option>
+        <option>Rare</option>
+        <option>Super-rare</option>
+      </select>
+    </div>
+    <div>
+      <label for="f-releaseYear">Release Year</label>
+      <select id="f-releaseYear">
+        <option value="">Any</option>
+        <option>2025</option>
+      </select>
+    </div>
+    <!-- Fill to 10 controls with UX helpers (these don't affect filtering logic but keep the 10-bar layout consistent) -->
+    <div>
+      <label>&nbsp;</label>
+      <button id="clear-filters" class="button" type="button">Clear</button>
+    </div>
+    <div>
+    <label>&nbsp;</label>
+      <a id="share-link" class="button" href="#">Share</a>
+    </div>
+    <div>
+      <label>&nbsp;</label>
+      <div style="height:40px"></div>
+    </div>
+    <div>
+      <label>&nbsp;</label>
+      <div style="height:40px"></div>
+    </div>
+  </div>
+</section>
+
+<!-- View toggle -->
+<div class="view-toggle">
+  <button id="btn-gallery" class="toggle-btn active" type="button" title="Card Gallery">
+    🖼️ <span>Card Gallery</span>
+  </button>
+  <button id="btn-table" class="toggle-btn" type="button" title="Data Form">
+    📇 <span>Data Form</span>
+  </button>
+</div>
+
+<!-- Results -->
+<section class="results">
+  <div id="empty" class="empty" style="display:none;">No cards found</div>
+
+  <div id="gallery" class="grid" aria-live="polite"></div>
+
+  <div id="table-view" class="table-wrap" style="display:none;">
+    <table>
+      <thead>
+      <tr>
+        <th>id</th>
+        <th>name</th>
+        <th>type</th>
+        <th>keywords</th>
+        <th>house</th>
+        <th>rarity</th>
+        <th>releaseVersion</th>
+        <th>releaseYear</th>
+      </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </div>
+</section>
+
+<div id="toast" class="toast">Failed to load cards. Please try refreshing.</div>
+
+<div class="buttons">
+  <a href="https://store.steampowered.com/app/3435450/Hardest/" target="_blank" rel="noopener" class="button mark-down">
+    Hardest on Steam
+  </a>
+</div>
+
+<script>
+  (() => {
+    const API_URL = '../../api/hardest/cards';
+    const qs = new URLSearchParams(location.search);
+
+    // Elements
+    const el = {
+      name: document.getElementById('f-name'),
+      keywords: document.getElementById('f-keywords'),
+      type: document.getElementById('f-type'),
+      house: document.getElementById('f-house'),
+      rarity: document.getElementById('f-rarity'),
+      releaseYear: document.getElementById('f-releaseYear'),
+      clear: document.getElementById('clear-filters'),
+      share: document.getElementById('share-link'),
+      galleryBtn: document.getElementById('btn-gallery'),
+      tableBtn: document.getElementById('btn-table'),
+      gallery: document.getElementById('gallery'),
+      tableWrap: document.getElementById('table-view'),
+      tableBody: document.getElementById('table-body'),
+      toast: document.getElementById('toast'),
+      empty: document.getElementById('empty'),
+    };
+
+    // State
+    let allCards = [];
+    let view = qs.get('view') || 'gallery';
+
+    // Helpers
+    const showToast = (msg) => {
+      el.toast.textContent = msg || el.toast.textContent;
+      el.toast.style.display = 'block';
+      setTimeout(() => { el.toast.style.display = 'none'; }, 4000);
+    };
+
+    const setQueryParam = (key, value) => {
+      const url = new URL(location.href);
+      if (value === undefined || value === null || value === '') {
+        url.searchParams.delete(key);
+      } else {
+        url.searchParams.set(key, value);
+      }
+      history.replaceState({}, '', url);
+      el.share.href = url.toString();
+    };
+
+    const applyURLToControls = () => {
+      el.name.value = qs.get('name') || '';
+      el.keywords.value = qs.get('keywords') || '';
+      el.type.value = qs.get('type') || '';
+      el.house.value = qs.get('house') || '';
+      el.rarity.value = qs.get('rarity') || '';
+      el.releaseYear.value = qs.get('releaseYear') || '';
+    };
+
+    const controlsToURL = () => {
+      setQueryParam('name', el.name.value.trim());
+      setQueryParam('keywords', el.keywords.value.trim());
+      setQueryParam('type', el.type.value);
+      setQueryParam('house', el.house.value);
+      setQueryParam('rarity', el.rarity.value);
+      setQueryParam('releaseYear', el.releaseYear.value);
+      setQueryParam('view', view);
+    };
+
+    const normalize = (s) => (s || '').toString().toLowerCase();
+
+    const matchKeywords = (cardKeywords, input) => {
+      if (!input) return true;
+      const tokens = input.split(',').join(' ').split(/\s+/).map(t => t.trim()).filter(Boolean);
+      const hay = normalize(Array.isArray(cardKeywords) ? cardKeywords.join(' ') : String(cardKeywords));
+      return tokens.every(t => hay.includes(normalize(t)));
+    };
+
+    const filterCards = () => {
+      const name = normalize(el.name.value);
+      const kw = normalize(el.keywords.value);
+      const type = normalize(el.type.value);
+      const house = normalize(el.house.value);
+      const rarity = normalize(el.rarity.value);
+      const releaseYear = el.releaseYear.value; // keep as string
+
+      const out = allCards.filter(c => {
+        const nameOk = !name || normalize(c.name).includes(name);
+        const kwOk = matchKeywords(c.keywords, kw);
+        const typeOk = !type || normalize(c.type) === type;
+        const houseOk = !house || normalize(c.house) === house;
+        const rarityOk = !rarity || normalize(c.rarity) === rarity;
+        const yearOk = !releaseYear || String(c.releaseYear) === releaseYear;
+        return nameOk && kwOk && typeOk && houseOk && rarityOk && yearOk;
+      });
+      render(out);
+    };
+
+    const ensureViewButtons = () => {
+      el.galleryBtn.classList.toggle('active', view === 'gallery');
+      el.tableBtn.classList.toggle('active', view === 'table');
+      el.gallery.style.display = (view === 'gallery') ? 'grid' : 'none';
+      el.tableWrap.style.display = (view === 'table') ? 'block' : 'none';
+    };
+
+    const render = (cards) => {
+      // empty state
+      if (!cards.length) {
+        el.empty.style.display = 'block';
+        el.gallery.innerHTML = '';
+        el.tableBody.innerHTML = '';
+        return;
+      } else {
+        el.empty.style.display = 'none';
+      }
+
+      if (view === 'gallery') {
+        el.gallery.innerHTML = cards.map(c => `
+            <article class="card" aria-label="Card ${c.name}">
+              <img alt="${c.name}" src="../card-art/${c.id}.png" onerror="this.src=''; this.style.height='0';" />
+              <div class="meta">
+                <div><strong>#${c.id}</strong> — ${c.name}</div>
+                <div class="kv">keywords: ${Array.isArray(c.keywords) ? c.keywords.join(', ') : c.keywords}</div>
+                <div class="kv">house: ${c.house} • rarity: ${c.rarity}</div>
+                <div class="kv">releaseVersion: ${c.releaseVersion ?? '-'} • releaseYear: ${c.releaseYear ?? '-'}</div>
+              </div>
+            </article>
+          `).join('');
+      } else {
+        el.tableBody.innerHTML = cards.map(c => `
+            <tr>
+              <td>${c.id}</td>
+              <td>${c.name}</td>
+              <td>${c.type}</td>
+              <td>${Array.isArray(c.keywords) ? c.keywords.join(', ') : c.keywords}</td>
+              <td>${c.house}</td>
+              <td>${c.rarity}</td>
+              <td>${c.releaseVersion ?? '-'}</td>
+              <td>${c.releaseYear ?? '-'}</td>
+            </tr>
+          `).join('');
+      }
+    };
+
+    // Event wiring
+    ['input', 'change'].forEach(evt => {
+      [el.name, el.keywords, el.type, el.house, el.rarity, el.releaseYear].forEach(ctrl => {
+        ctrl.addEventListener(evt, () => { controlsToURL(); filterCards(); });
+      });
+    });
+
+    el.clear.addEventListener('click', () => {
+      el.name.value = '';
+      el.keywords.value = '';
+      el.type.value = '';
+      el.house.value = '';
+      el.rarity.value = '';
+      el.releaseYear.value = '';
+      controlsToURL();
+      filterCards();
+    });
+
+    el.galleryBtn.addEventListener('click', () => {
+      view = 'gallery';
+      ensureViewButtons();
+      controlsToURL();
+      filterCards();
+    });
+    el.tableBtn.addEventListener('click', () => {
+      view = 'table';
+      ensureViewButtons();
+      controlsToURL();
+      filterCards();
+    });
+
+    // Initial load
+    (async function init() {
+      applyURLToControls();
+      ensureViewButtons();
+      try {
+        const res = await fetch(API_URL, { method: 'GET' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        allCards = Array.isArray(data) ? data : (data.cards || []);
+        allCards = allCards.map(card => ({
+          ...card,
+          releaseYear: card.releaseDate ? card.releaseDate.split("-")[0] : null
+        }));
+      } catch (err) {
+        showToast('Failed to load cards. Please try refreshing.');
+        allCards = [];
+      }
+      controlsToURL();
+      filterCards();
+    })();
+  })();
+
+  document.getElementById('share-link').addEventListener('click', function (e) {
+    e.preventDefault(); // stop it from navigating
+
+    const url = window.location.href; // get current page URL
+    navigator.clipboard.writeText(url)
+            .then(() => {
+              alert('URL copied to clipboard!');
+            })
+            .catch(err => {
+              console.error('Failed to copy URL:', err);
+            });
+  });
+</script>
+</body>
+</html>
