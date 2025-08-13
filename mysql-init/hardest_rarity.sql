@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Aug 13, 2025 at 05:55 PM
+-- Generation Time: Aug 13, 2025 at 07:39 PM
 -- Server version: 10.6.22-MariaDB-cll-lve
 -- PHP Version: 8.4.10
 
@@ -39,7 +39,8 @@ CREATE TABLE `hardest_rarity` (
 INSERT INTO `hardest_rarity` (`id`, `name`) VALUES
 (1, 'Common'),
 (2, 'Rare'),
-(3, 'Super-rare');
+(3, 'Super-rare'),
+(4, 'Short-printed');
 
 --
 -- Indexes for dumped tables
@@ -59,7 +60,7 @@ ALTER TABLE `hardest_rarity`
 -- AUTO_INCREMENT for table `hardest_rarity`
 --
 ALTER TABLE `hardest_rarity`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
