@@ -1,5 +1,5 @@
 images/
-.htaccess
+/.htaccess
 .idea
 *.env
 hardest/card-art
