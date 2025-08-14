@@ -106,6 +106,22 @@
     @media (max-width: 1200px) {
       .filters-wrap { grid-template-columns: repeat(2, minmax(140px, 1fr)); }
     }
+
+    #export-btn {
+      background-color: #4CAF50; /* Green */
+      color: white;
+      padding: 10px 20px;
+      margin: 15px 0;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background 0.3s ease;
+    }
+
+    #export-btn:hover {
+      background-color: #45a049;
+    }
   </style>
 </head>
 <body>
@@ -233,14 +249,15 @@
     <table>
       <thead>
       <tr>
-        <th>id</th>
-        <th>name</th>
-        <th>type</th>
-        <th>keywords</th>
-        <th>house</th>
-        <th>rarity</th>
-        <th>releaseVersion</th>
-        <th>releaseYear</th>
+        <th>Id</th>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Keywords</th>
+        <th>House</th>
+        <th>Rarity</th>
+        <th>Release Version</th>
+        <th>Release Year</th>
+        <th><button id="export-btn">Export CSV</button></th>
       </tr>
       </thead>
       <tbody id="table-body"></tbody>
@@ -527,6 +544,35 @@
             .catch(err => {
               console.error('Failed to copy URL:', err);
             });
+  });
+
+  document.addEventListener("click", function (e) {
+    const btn = e.target.closest("#export-btn"); // your header button
+    if (!btn) return; // ignore other clicks
+
+    const table = btn.closest("table");
+    if (!table) {
+      console.error("Export button is not inside a table.");
+      return;
+    }
+
+    const rows = Array.from(table.rows);
+    const csvLines = rows.map((row, i) => {
+      const cells = i === 0 ? Array.from(row.cells).slice(0, -1) : Array.from(row.cells);
+      const parts = cells.map((cell) => {
+        const text = cell.innerText.replace(/"/g, '""');
+        return `"${text}"`;
+      });
+      return parts.join(",");
+    });
+
+    const blob = new Blob([csvLines.join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "table_data.csv";
+    a.click();
+    URL.revokeObjectURL(url);
   });
 </script>
 </body>
