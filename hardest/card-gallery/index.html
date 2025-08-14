@@ -141,6 +141,7 @@
         <option>Bedrock</option>
         <option>Zipper</option>
         <option>Rockstar</option>
+        <option>Multi</option>
       </select>
     </div>
     <div>
@@ -180,6 +181,16 @@
       <select id="f-releaseYear">
         <option value="">Any</option>
         <option>2025</option>
+      </select>
+    </div>
+    <div>
+      <label for="f-orderBy">Order By</label>
+      <select id="f-orderBy">
+        <option value="newest">Newest</option>
+        <option value="name">Name</option>
+        <option value="type">Type</option>
+        <option value="rarity">Rarity</option>
+        <option value="oldest">Oldest</option>
       </select>
     </div>
     <!-- Fill to 10 controls with UX helpers (these don't affect filtering logic but keep the 10-bar layout consistent) -->
@@ -259,6 +270,7 @@
       rarity: document.getElementById('f-rarity'),
       releaseVersion: document.getElementById('f-releaseVersion'),
       releaseYear: document.getElementById('f-releaseYear'),
+      orderBy: document.getElementById('f-orderBy'),
       clear: document.getElementById('clear-filters'),
       share: document.getElementById('share-link'),
       galleryBtn: document.getElementById('btn-gallery'),
@@ -300,6 +312,7 @@
       el.rarity.value = qs.get('rarity') || '';
       el.releaseVersion.value = qs.get('releaseVersion') || '';
       el.releaseYear.value = qs.get('releaseYear') || '';
+      el.orderBy.value = qs.get('orderBy') || 'newest';
     };
 
     const controlsToURL = () => {
@@ -310,6 +323,7 @@
       setQueryParam('rarity', el.rarity.value);
       setQueryParam('releaseVersion', el.releaseVersion.value);
       setQueryParam('releaseYear', el.releaseYear.value);
+      setQueryParam('orderBy', el.orderBy.value);
       setQueryParam('view', view);
     };
 
@@ -322,6 +336,44 @@
       return tokens.every(t => hay.includes(normalize(t)));
     };
 
+    const getTypeOrder = (type) => {
+      switch (type) {
+        case 'Rock':
+          return 1;
+        case 'Paper':
+          return 2;
+        case 'Scissor':
+          return 3;
+        case 'Bedrock':
+          return 4;
+        case 'Zipper':
+          return 5;
+        case 'Rockstar':
+          return 6;
+        case 'Mimic':
+          return 7;
+        case 'Gun':
+          return 8;
+        case 'God':
+          return 9;
+      }
+      return 0;
+    }
+
+    const getRarityOrder = (type) => {
+      switch (type) {
+        case 'Super-rare':
+          return 1;
+        case 'Rare':
+          return 2;
+        case 'Short-printed':
+          return 3;
+        case 'Common':
+          return 4;
+      }
+      return 0;
+    }
+
     const filterCards = () => {
       const name = normalize(el.name.value);
       const kw = normalize(el.keywords.value);
@@ -330,18 +382,37 @@
       const rarity = normalize(el.rarity.value);
       const releaseVersion = normalize(el.releaseVersion.value);
       const releaseYear = el.releaseYear.value; // keep as string
+      const orderBy = normalize(el.orderBy.value);
 
       const out = allCards.filter(c => {
         const nameOk = !name || normalize(c.name).includes(name);
         const kwOk = matchKeywords(c.keywords, kw);
-        const typeOk = !type || normalize(c.type) === type;
+        const typeOk = !type || (type === 'multi' ? ['bedrock', 'zipper', 'rockstar'].includes(normalize(c.type)) : normalize(c.type) === type);
         const houseOk = !house || normalize(c.house) === house;
         const rarityOk = !rarity || normalize(c.rarity) === rarity;
         const versionOk = !releaseVersion || normalize(c.releaseVersion) === releaseVersion;
         const yearOk = !releaseYear || String(c.releaseYear) === releaseYear;
         return nameOk && kwOk && typeOk && houseOk && rarityOk && versionOk && yearOk;
       });
-      render(out);
+
+      let ordered = out.sort((a, b) => b.id - a.id);
+
+      switch (el.orderBy.value) {
+        case 'name':
+          ordered = out.sort((a, b) => a.name.localeCompare(b.name));
+          break;
+        case 'type':
+          ordered = out.sort((a, b) => getTypeOrder(a.type) - getTypeOrder(b.type));
+          break;
+        case 'rarity':
+          ordered = out.sort((a, b) => getRarityOrder(a.rarity) - getRarityOrder(b.rarity));
+          break;
+        case 'oldest':
+          ordered = out.sort((a, b) => a.id - b.id);
+          break;
+      }
+
+      render(ordered);
     };
 
     const ensureViewButtons = () => {
@@ -363,7 +434,7 @@
       }
 
       if (view === 'gallery') {
-        el.gallery.innerHTML = cards.map(c => `
+        el.gallery.innerHTML = cards.slice(0, 35).map(c => `
             <article class="card" aria-label="Card ${c.name}">
               <img alt="${c.name}" src="../card-art/${c.id}.png" onerror="this.src=''; this.style.height='0';" />
               <div class="meta">
@@ -392,7 +463,7 @@
 
     // Event wiring
     ['input', 'change'].forEach(evt => {
-      [el.name, el.keywords, el.type, el.house, el.rarity, el.releaseVersion, el.releaseYear].forEach(ctrl => {
+      [el.name, el.keywords, el.type, el.house, el.rarity, el.releaseVersion, el.releaseYear, el.orderBy].forEach(ctrl => {
         ctrl.addEventListener(evt, () => { controlsToURL(); filterCards(); });
       });
     });
@@ -404,6 +475,7 @@
       el.house.value = '';
       el.rarity.value = '';
       el.releaseYear.value = '';
+      el.orderBy.value = 'newest';
       controlsToURL();
       filterCards();
     });
@@ -432,6 +504,7 @@
         allCards = Array.isArray(data) ? data : (data.cards || []);
         allCards = allCards.map(card => ({
           ...card,
+          name: card.name.replace(/\[.*?\]/g, ""),
           releaseYear: card.releaseDate ? card.releaseDate.split("-")[0] : null
         }));
       } catch (err) {
