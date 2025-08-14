@@ -168,6 +168,14 @@
       </select>
     </div>
     <div>
+      <label for="f-releaseVersion">Release Version</label>
+      <select id="f-releaseVersion">
+        <option value="">Any</option>
+        <option>v0.7</option>
+        <option>v0.8</option>
+      </select>
+    </div>
+    <div>
       <label for="f-releaseYear">Release Year</label>
       <select id="f-releaseYear">
         <option value="">Any</option>
@@ -249,6 +257,7 @@
       type: document.getElementById('f-type'),
       house: document.getElementById('f-house'),
       rarity: document.getElementById('f-rarity'),
+      releaseVersion: document.getElementById('f-releaseVersion'),
       releaseYear: document.getElementById('f-releaseYear'),
       clear: document.getElementById('clear-filters'),
       share: document.getElementById('share-link'),
@@ -289,6 +298,7 @@
       el.type.value = qs.get('type') || '';
       el.house.value = qs.get('house') || '';
       el.rarity.value = qs.get('rarity') || '';
+      el.releaseVersion.value = qs.get('releaseVersion') || '';
       el.releaseYear.value = qs.get('releaseYear') || '';
     };
 
@@ -298,6 +308,7 @@
       setQueryParam('type', el.type.value);
       setQueryParam('house', el.house.value);
       setQueryParam('rarity', el.rarity.value);
+      setQueryParam('releaseVersion', el.releaseVersion.value);
       setQueryParam('releaseYear', el.releaseYear.value);
       setQueryParam('view', view);
     };
@@ -317,6 +328,7 @@
       const type = normalize(el.type.value);
       const house = normalize(el.house.value);
       const rarity = normalize(el.rarity.value);
+      const releaseVersion = normalize(el.releaseVersion.value);
       const releaseYear = el.releaseYear.value; // keep as string
 
       const out = allCards.filter(c => {
@@ -325,8 +337,9 @@
         const typeOk = !type || normalize(c.type) === type;
         const houseOk = !house || normalize(c.house) === house;
         const rarityOk = !rarity || normalize(c.rarity) === rarity;
+        const versionOk = !releaseVersion || normalize(c.releaseVersion) === releaseVersion;
         const yearOk = !releaseYear || String(c.releaseYear) === releaseYear;
-        return nameOk && kwOk && typeOk && houseOk && rarityOk && yearOk;
+        return nameOk && kwOk && typeOk && houseOk && rarityOk && versionOk && yearOk;
       });
       render(out);
     };
@@ -379,7 +392,7 @@
 
     // Event wiring
     ['input', 'change'].forEach(evt => {
-      [el.name, el.keywords, el.type, el.house, el.rarity, el.releaseYear].forEach(ctrl => {
+      [el.name, el.keywords, el.type, el.house, el.rarity, el.releaseVersion, el.releaseYear].forEach(ctrl => {
         ctrl.addEventListener(evt, () => { controlsToURL(); filterCards(); });
       });
     });
