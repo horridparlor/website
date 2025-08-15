@@ -87,6 +87,7 @@
         <option value="newest">Newest</option>
         <option value="name">Name</option>
         <option value="type">Type</option>
+        <option value="house">House</option>
         <option value="rarity">Rarity</option>
         <option value="oldest">Oldest</option>
       </select>
@@ -288,6 +289,28 @@
       return 0;
     }
 
+    const getHouseOrder = (house) => {
+      switch (house) {
+        case 'Champion':
+          return 1;
+        case 'Delusional':
+          return 2;
+        case 'Demonic':
+          return 3;
+        case 'Divine':
+          return 4;
+        case 'Hightech':
+          return 5;
+        case 'Kawaii':
+          return 6;
+        case 'Scam':
+          return 7;
+        case 'God':
+          return 8;
+      }
+      return 0;
+    }
+
     const getRarityOrder = (type) => {
       switch (type) {
         case 'Super-rare':
@@ -320,7 +343,7 @@
           const nameOk = !name || normalize(k.name).includes(name);
           const descOk = !kw || normalize(k.description).includes(kw);
           const typeOk = !type || matchKeywords(k.types, type);
-          const houseOk = !house || matchKeywords(k.houses, type) === house;
+          const houseOk = !house || matchKeywords(k.houses, house);
           const rarityOk = !rarity || normalize(k.rarity) === rarity;
           const versionOk = !releaseVersion || normalize(k.releaseVersion) === releaseVersion;
           const yearOk = !releaseYear || String(k.releaseYear) === releaseYear;
@@ -349,6 +372,9 @@
           break;
         case 'type':
           orderedCards = orderedCards.sort((a, b) => getTypeOrder(a.type) - getTypeOrder(b.type));
+          break;
+        case 'house':
+          orderedCards = orderedCards.sort((a, b) => getHouseOrder(a.house) - getHouseOrder(b.house));
           break;
         case 'rarity':
           orderedCards = orderedCards.sort((a, b) => getRarityOrder(a.rarity) - getRarityOrder(b.rarity));
@@ -497,15 +523,35 @@
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
         allKeywords = Array.isArray(data) ? data : (data.keywords || []);
-        allKeywords = allKeywords.map(keyword => ({
-          ...keyword,
-          description: keyword.description.replace(/\[.*?\]/g, ""),
-          cardsWith: 0,
-          rarity: 'Super-rare',
-          types: ['Rock'],
-          houses: ['Divine'],
-          releaseYear: keyword.releaseDate ? keyword.releaseDate.split("-")[0] : null
-        }));
+        allKeywords = allKeywords.map(keyword => {
+          const cardsWith = allCards.filter(card => card.keywords.includes(keyword.name));
+          const cardCount = cardsWith.length;
+          const types = cardsWith.reduce((acc, card) => {
+            if (!acc.includes(card.type)) acc.push(card.type);
+            return acc;
+          }, []);
+          const houses = cardsWith.reduce((acc, card) => {
+            if (!acc.includes(card.house)) acc.push(card.house);
+            return acc;
+          }, []);
+          let rarity = 'Short-printed';
+          if (cardCount > 5) {
+            rarity = 'Common';
+          } else if (cardCount > 1) {
+            rarity = 'Rare';
+          } else if (cardCount > 0) {
+            rarity = 'Super-rare';
+          }
+          return {
+            ...keyword,
+            description: keyword.description.replace(/\[.*?\]/g, ""),
+            cardsWith: cardCount,
+            rarity: rarity,
+            types: types.sort((a, b) => getTypeOrder(a) - getTypeOrder(b)).join(', '),
+            houses: houses.sort((a, b) => getHouseOrder(a) - getHouseOrder(b)).join(', '),
+            releaseYear: keyword.releaseDate ? keyword.releaseDate.split("-")[0] : null
+          };
+        });
       } catch (err) {
         showToast('Failed to load keywords. Please try refreshing.');
         allKeywords = [];
