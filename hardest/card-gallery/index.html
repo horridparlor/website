@@ -409,6 +409,14 @@
       el.keywordsWrap.style.display = (view === 'keywords') ? 'block' : 'none';
     };
 
+    const escapeHtml = (s) =>
+            String(s)
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#39;");
+
     const render = (cards, keywords) => {
       // empty state
       if (!cards.length) {
@@ -419,19 +427,33 @@
       } else {
         el.empty.style.display = 'none';
       }
-
       if (view === 'gallery') {
-        el.gallery.innerHTML = cards.slice(0, 35).map(c => `
-            <article class="card" aria-label="Card ${c.name}">
-              <img alt="${c.name}" src="../card-art/${c.id}.png" onerror="this.src=''; this.style.height='0';" />
-              <div class="meta">
-                <div><strong>#${c.id}</strong> — ${c.name}</div>
-                <div class="kv">keywords: ${Array.isArray(c.keywords) ? c.keywords.join(', ') : c.keywords}</div>
-                <div class="kv">house: ${c.house} • rarity: ${c.rarity}</div>
-                <div class="kv">releaseVersion: ${c.releaseVersion ?? '-'} • releaseYear: ${c.releaseYear ?? '-'}</div>
-              </div>
-            </article>
-          `).join('');
+        el.gallery.innerHTML = cards.slice(0, 35).map(c => {
+          const kws = Array.isArray(c.keywords)
+                  ? c.keywords.filter(k => k != null && k !== '')
+                  : (c.keywords ? [c.keywords] : []);
+
+          const keywordsHtml = kws
+                  .map((kw, i) => {
+                    const safeKw = escapeHtml(kw);
+                    const description = allKeywords.find(kw => kw.name === safeKw).description;
+                    const safeDescription = escapeHtml(description);
+                    return `<span title="${safeKw} – ${safeDescription}">${safeKw}</span>`;
+                  })
+                  .join(', ');
+
+          return `
+      <article class="card" aria-label="Card ${escapeHtml(c.name)}">
+        <img alt="${escapeHtml(c.name)}" src="../card-art/${c.id}.png" onerror="this.src=''; this.style.height='0';" />
+        <div class="meta">
+          <div><strong>#${c.id}</strong> — ${escapeHtml(c.name)}</div>
+          <div class="kv">keywords: ${keywordsHtml}</div>
+          <div class="kv">house: ${escapeHtml(c.house)} • rarity: ${escapeHtml(c.rarity)}</div>
+          <div class="kv">releaseVersion: ${c.releaseVersion ?? '-'} • releaseYear: ${c.releaseYear ?? '-'}</div>
+        </div>
+      </article>
+    `;
+        }).join('');
       } else if (view === 'table') {
         el.tableBody.innerHTML = cards.map(c => `
             <tr>
