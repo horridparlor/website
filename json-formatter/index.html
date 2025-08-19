@@ -15,21 +15,19 @@
       background-image: radial-gradient(#333 1px, transparent 1px);
       background-size: 20px 20px;
     }
-
     h2 {
       text-align: center;
       font-size: 2rem;
       color: #00ffcc;
       margin-bottom: 2rem;
     }
-
     .container {
       display: flex;
       flex-wrap: wrap;
       gap: 20px;
       justify-content: center;
+      align-items: flex-start;
     }
-
     textarea {
       width: 100%;
       max-width: 600px;
@@ -44,18 +42,61 @@
       border-radius: 8px;
       transition: all 0.3s ease;
     }
-
-    #output {
+    /* UUSI: JSON-katselin */
+    .json-output {
+      width: 100%;
+      max-width: 600px;
+      min-height: 300px;
+      box-sizing: border-box;
+      background-color: #1e1e1e;
+      border: 2px solid #00ffcc;
+      border-radius: 8px;
+      padding: 12px 14px;
+      overflow: auto;
+      font-size: 14px;
+      line-height: 1.4;
       opacity: 0;
       transform: translateY(10px);
-    }
-
-    #output.visible {
-      opacity: 1;
-      transform: translateY(0);
       transition: all 1s ease;
     }
+    .json-output.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    /* Värit ja typografia */
+    .k { color: #ffcc66; }   /* avain */
+    .s { color: #a6e22e; }   /* string */
+    .n { color: #66d9ef; }   /* number */
+    .b { color: #ff6; }      /* boolean */
+    .nl{ color: #f92672; }   /* null */
+    .meta { color:#00ccff; opacity:.9; } /* { } / [ ] tiivistelmä */
 
+    /* details/summary tyylit */
+    details { margin-left: 16px; }
+    summary {
+      cursor: pointer;
+      list-style: none;
+      position: relative;
+      padding-left: 16px;
+      user-select: none;
+    }
+    /* Nuolikolmio */
+    summary::before {
+      content: "▶";
+      position: absolute;
+      left: 0;
+      top: 0;
+      transform: translateY(1px) rotate(0deg);
+      transition: transform .15s ease;
+      font-size: 10px;
+      color: #00ffcc;
+    }
+    details[open] > summary::before {
+      transform: translateY(1px) rotate(90deg);
+    }
+    /* Rivit */
+    .line { white-space: pre-wrap; margin: 2px 0; }
+    .sep { color:#888; } /* : ja , */
     .buttons {
       display: flex;
       gap: 15px;
@@ -63,7 +104,6 @@
       margin-top: 1rem;
       flex-wrap: wrap;
     }
-
     button, .home-btn {
       padding: 12px 24px;
       font-size: 16px;
@@ -76,125 +116,173 @@
       display: inline-block;
       transition: transform 0.2s, box-shadow 0.2s;
     }
-
     button {
       background: linear-gradient(90deg, #00ffcc, #00ccff);
       color: #000;
       box-shadow: 0 0 10px #00ffcc;
     }
-
-    button:hover {
-      transform: scale(1.05);
-      box-shadow: 0 0 20px #00ffcc;
-    }
-
+    button:hover { transform: scale(1.05); box-shadow: 0 0 20px #00ffcc; }
     .home-btn {
       background: linear-gradient(90deg, #ff0066, #ff6600);
       color: #fff;
       box-shadow: 0 0 10px #ff0066;
     }
-
-    .home-btn:hover {
-      transform: scale(1.05);
-      box-shadow: 0 0 20px #ff0066;
-    }
-
+    .home-btn:hover { transform: scale(1.05); box-shadow: 0 0 20px #ff0066; }
     .toast {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background-color: #00cc88;
-      color: white;
-      padding: 12px 20px;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.3);
-      font-size: 14px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.5s ease;
-      z-index: 1000;
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background-color: #00cc88; color: white; padding: 12px 20px; border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3); font-size: 14px; opacity: 0; pointer-events: none;
+      transition: opacity 0.5s ease; z-index: 1000;
     }
-
-    .toast.show {
-      opacity: 1;
-    }
-
-    .toast.error {
-      background-color: #ff0033;
-    }
-
+    .toast.show { opacity: 1; }
+    .toast.error { background-color: #ff0033; }
     @media (min-width: 768px) {
-      textarea {
-        width: 45%;
-      }
+      textarea { width: 45%; }
+      .json-output { width: 45%; }
     }
   </style>
 </head>
 <body>
 
-  <h2>JSON Formatter</h2>
+<h2>JSON Formatter</h2>
 
-  <div class="container">
-    <textarea id="input" placeholder="Liitä URL-koodattu JSON tähän..."></textarea>
-    <textarea id="output" placeholder="Muotoiltu JSON ilmestyy tähän..." readonly></textarea>
-  </div>
+<div class="container">
+  <textarea id="input" placeholder="Liitä URL-koodattu JSON tähän..."></textarea>
+  <!-- MUUTOS: textarea -> div katselimeksi -->
+  <div id="output" class="json-output" aria-live="polite"></div>
+</div>
 
-  <div class="buttons">
-    <button id="convertBtn">Prettify JSON</button>
-    <a href="/" class="home-btn">← Takaisin kotiin</a>
-  </div>
+<div class="buttons">
+  <button id="convertBtn">Prettify JSON</button>
+  <a href="/" class="home-btn">← Takaisin kotiin</a>
+</div>
 
-  <div id="toast" class="toast"></div>
+<div id="toast" class="toast"></div>
 
-  <script>
-    const input = document.getElementById('input');
-    const output = document.getElementById('output');
-    const button = document.getElementById('convertBtn');
-    const toast = document.getElementById('toast');
+<script>
+  const input = document.getElementById('input');
+  const output = document.getElementById('output');
+  const button = document.getElementById('convertBtn');
+  const toast = document.getElementById('toast');
 
-    function showAnimatedOutput(text) {
-      output.classList.remove('visible');
-      output.value = '';
-      setTimeout(() => {
-        output.value = text;
-        output.classList.add('visible');
-      }, 50);
+  function showToast(message, isError = false) {
+    toast.textContent = message;
+    toast.className = 'toast' + (isError ? ' error' : '');
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2500);
+  }
+
+  function showAnimatedOutput(node) {
+    output.classList.remove('visible');
+    output.replaceChildren(); // tyhjennä
+    setTimeout(() => {
+      output.appendChild(node);
+      output.classList.add('visible');
+    }, 50);
+  }
+
+  // ===== JSON -> DOM (collapsable) =====
+  function renderJSON(value, keyLabel) {
+    // Primitiiivien formatteri
+    const span = (cls, text) => {
+      const el = document.createElement('span');
+      el.className = cls;
+      el.textContent = text;
+      return el;
+    };
+
+    if (value === null) return span('nl', 'null');
+
+    const type = typeof value;
+    if (type === 'string') return span('s', `"${value}"`);
+    if (type === 'number') return span('n', String(value));
+    if (type === 'boolean') return span('b', String(value));
+
+    // Array tai Object
+    const isArray = Array.isArray(value);
+    const keys = isArray ? value.map((_, i) => i) : Object.keys(value);
+
+    const details = document.createElement('details');
+    details.open = true;
+
+    const summary = document.createElement('summary');
+    const wrapper = document.createElement('span');
+    wrapper.className = 'meta';
+
+    const bracketOpen = isArray ? '[' : '{';
+    const bracketClose = isArray ? ']' : '}';
+    const labelText = isArray
+            ? `${bracketOpen} Array · ${keys.length} ${keys.length === 1 ? 'item' : 'items'} ${bracketClose}`
+            : `${bracketOpen} Object · ${keys.length} ${keys.length === 1 ? 'key' : 'keys'} ${bracketClose}`;
+
+    if (keyLabel !== undefined) {
+      // näytä avain ennen tiivistelmää
+      const keySpan = document.createElement('span');
+      keySpan.className = 'k';
+      keySpan.textContent = keyLabel;
+      summary.appendChild(keySpan);
+      summary.appendChild(span('sep', ': '));
     }
 
-    function showToast(message, isError = false) {
-      toast.textContent = message;
-      toast.className = 'toast' + (isError ? ' error' : '');
-      toast.classList.add('show');
-      setTimeout(() => {
-        toast.classList.remove('show');
-      }, 2500);
-    }
+    wrapper.textContent = labelText;
+    summary.appendChild(wrapper);
+    details.appendChild(summary);
 
-    button.addEventListener('click', () => {
-      let encoded = input.value.trim();
-      if (!encoded) {
-        showAnimatedOutput('Liitä ensin URL-koodattu JSON!');
-        showToast('Tyhjä syöte. Liitä JSON ensin.', true);
-        return;
-      }
+    // Lapset
+    keys.forEach((k) => {
+      const line = document.createElement('div');
+      line.className = 'line';
 
-      if (encoded.startsWith('params=')) {
-        encoded = encoded.substring(7);
+      if (isArray) {
+        // [index]: value
+        const idx = document.createElement('span');
+        idx.className = 'k';
+        idx.textContent = `[${k}]`;
+        line.appendChild(idx);
+        line.appendChild(span('sep', ': '));
+        line.appendChild(renderJSON(value[k]));
+      } else {
+        // key: value
+        const keySpan = document.createElement('span');
+        keySpan.className = 'k';
+        keySpan.textContent = k;
+        line.appendChild(keySpan);
+        line.appendChild(span('sep', ': '));
+        line.appendChild(renderJSON(value[k]));
       }
-
-      try {
-        const decoded = decodeURIComponent(encoded);
-        const json = JSON.parse(decoded);
-        const pretty = JSON.stringify(json, null, 2);
-        showAnimatedOutput(pretty);
-        showToast('Valmis!');
-      } catch (err) {
-        showAnimatedOutput('Virhe: ' + err.message);
-        showToast('JSON ei ole kelvollinen!', true);
-      }
+      details.appendChild(line);
     });
-  </script>
+
+    return details;
+  }
+
+  function parseAndRender(encoded) {
+    if (!encoded) {
+      showAnimatedOutput(document.createTextNode('Liitä ensin URL-koodattu JSON!'));
+      showToast('Tyhjä syöte. Liitä JSON ensin.', true);
+      return;
+    }
+
+    if (encoded.startsWith('params=')) encoded = encoded.substring(7);
+
+    try {
+      const decoded = decodeURIComponent(encoded);
+      const json = JSON.parse(decoded);
+      const tree = renderJSON(json);
+      showAnimatedOutput(tree);
+      showToast('Valmis!');
+    } catch (err) {
+      const errorEl = document.createElement('div');
+      errorEl.textContent = 'Virhe: ' + err.message;
+      showAnimatedOutput(errorEl);
+      showToast('JSON ei ole kelvollinen!', true);
+    }
+  }
+
+  button.addEventListener('click', () => {
+    parseAndRender(input.value.trim());
+  });
+</script>
 
 </body>
 </html>
