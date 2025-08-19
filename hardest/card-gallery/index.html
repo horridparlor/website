@@ -123,6 +123,9 @@
   <button id="btn-keywords" class="toggle-btn" type="button" title="Keywords">
     🔑 <span>Keywords</span>
   </button>
+  <button id="btn-macros" class="toggle-btn" type="button" title="Macros">
+    🌍 <span>Macros</span>
+  </button>
 </div>
 
 <!-- Results -->
@@ -169,6 +172,28 @@
       <tbody id="keywords-body"></tbody>
     </table>
   </div>
+
+  <div id="macros-view" class="table-wrap" style="display:none;">
+    <table>
+      <thead>
+      <tr>
+        <th>Name</th>
+        <th>Total</th>
+        <th>(%)</th>
+        <th>Commons</th>
+        <th>(%)</th>
+        <th>Rares</th>
+        <th>(%)</th>
+        <th>Super-rares</th>
+        <th>(%)</th>
+        <th>Short-printed</th>
+        <th>(%)</th>
+        <th><button id="macros-export-btn" class="export-btn">Export Macros</button></th>
+      </tr>
+      </thead>
+      <tbody id="macros-body"></tbody>
+    </table>
+  </div>
 </section>
 
 <div id="toast" class="toast">Failed to load cards. Please try refreshing.</div>
@@ -201,11 +226,14 @@
       galleryBtn: document.getElementById('btn-gallery'),
       tableBtn: document.getElementById('btn-table'),
       keywordsBtn: document.getElementById('btn-keywords'),
+      macrosBtn: document.getElementById('btn-macros'),
       gallery: document.getElementById('gallery'),
       tableWrap: document.getElementById('table-view'),
       tableBody: document.getElementById('table-body'),
       keywordsWrap: document.getElementById('keywords-view'),
       keywordsBody: document.getElementById('keywords-body'),
+      macrosWrap: document.getElementById('macros-view'),
+      macrosBody: document.getElementById('macros-body'),
       toast: document.getElementById('toast'),
       empty: document.getElementById('empty'),
     };
@@ -213,7 +241,8 @@
     // State
     let allCards = [];
     let allKeywords = [];
-    let view = qs.get('view') || 'gallery' || 'keywords';
+    let macros = [];
+    let view = qs.get('view') || 'gallery' || 'keywords' || 'macros';
 
     // Helpers
     const showToast = (msg) => {
@@ -325,6 +354,123 @@
       return 0;
     }
 
+    const toPercentage = (float) => {
+      const value = float * 100;
+      return `${Number.isInteger(value) ? value : value.toFixed(2)}%`;
+    };
+
+    const calculateMacros = () => {
+      const macroTemplate = {
+        'name': '',
+        'commons': 0,
+        'commonsPercentage': 0,
+        'rares': 0,
+        'raresPercentage': 0,
+        'superRares': 0,
+        'superRaresPercentage': 0,
+        'shortPrinted': 0,
+        'shortPrintedPercentage': 0,
+        'total': 0,
+        'totalPercentage': 0
+      }
+      const commons = allCards.filter(c => c.rarity === 'Common');
+      const rares = allCards.filter(c => c.rarity === 'Rare');
+      const superRares = allCards.filter(c => c.rarity === 'Super-rare');
+      const shortPrinted = allCards.filter(c => c.rarity === 'Short-printed');
+
+      const buildAMacro = (name, filter) => {
+        const filteredCommons = commons.filter(c => filter(c));
+        const filteredRares = rares.filter(c => filter(c));
+        const filteredSuperRares = superRares.filter(c => filter(c));
+        const filteredShortPrinted = shortPrinted.filter(c => filter(c));
+        const combinedLength = filteredCommons.length + filteredRares.length + filteredSuperRares.length + filteredShortPrinted.length
+        return {
+          'name': name,
+          'commons': filteredCommons.length,
+          'commonsPercentage': toPercentage(filteredCommons.length / commons.length),
+          'rares': filteredRares.length,
+          'raresPercentage': toPercentage(filteredRares.length / rares.length),
+          'superRares': filteredSuperRares.length,
+          'superRaresPercentage': toPercentage(filteredSuperRares.length / superRares.length),
+          'shortPrinted': filteredShortPrinted.length,
+          'shortPrintedPercentage': toPercentage(filteredShortPrinted.length / shortPrinted.length),
+          'total': combinedLength,
+          'totalPercentage': toPercentage(combinedLength / allCards.length)
+        }
+      }
+
+      const rockFilter = (card) => { return card.type === 'Rock' };
+      const paperFilter = (card) => { return card.type === 'Paper' };
+      const scissorFilter = (card) => { return card.type === 'Scissor' };
+      const gunFilter = (card) => { return card.type === 'Gun' };
+      const mimicFilter = (card) => { return card.type === 'Mimic' };
+      const godFilter = (card) => { return card.type === 'God' };
+      const bedrockFilter = (card) => { return card.type === 'Bedrock' };
+      const zipperFilter = (card) => { return card.type === 'Zipper' };
+      const rockstarFilter = (card) => { return card.type === 'Rockstar' };
+      const uniFilter = (card) => { return [ 'Rock', 'Paper', 'Scissor', 'Gun', 'Mimic', 'God' ].includes(card.type) };
+      const multiFilter = (card) => { return [ 'Bedrock', 'Zipper', 'Rockstar' ].includes(card.type) };
+      const championFilter = (card) => { return card.house === 'Champion' };
+      const delusionalFilter = (card) => { return card.house === 'Delusional' };
+      const demonicFilter = (card) => { return card.house === 'Demonic' };
+      const divineFilter = (card) => { return card.house === 'Divine' };
+      const hightechFilter = (card) => { return card.house === 'Hightech' };
+      const kawaiiFilter = (card) => { return card.house === 'Kawaii' };
+      const godHouseFilter = (card) => { return card.house === 'God' };
+      const scamHouseFilter = (card) => { return card.house === 'Scam' };
+      const allFilter = () => { return true };
+
+      const rocks = buildAMacro('Rock', rockFilter);
+      const papers = buildAMacro('Paper ', paperFilter);
+      const scissors = buildAMacro('Scissor', scissorFilter);
+      const guns = buildAMacro('Gun', gunFilter);
+      const mimics = buildAMacro('Mimic', mimicFilter);
+      const gods = buildAMacro('God', godFilter);
+      const bedrocks = buildAMacro('Bedrock', bedrockFilter);
+      const zippers = buildAMacro('Zipper', zipperFilter);
+      const rockstars = buildAMacro('Rockstar', rockstarFilter);
+      const unis = buildAMacro('Uni', uniFilter);
+      const multis = buildAMacro('Multi', multiFilter);
+      const champions = buildAMacro('Champion', championFilter);
+      const delusionals = buildAMacro('Delusional', delusionalFilter);
+      const demonics = buildAMacro('Demonic', demonicFilter);
+      const divines = buildAMacro('Divine', divineFilter);
+      const hightechs = buildAMacro('Hightech', hightechFilter);
+      const kawaiis = buildAMacro('Kawaii', kawaiiFilter);
+      const godHouse = buildAMacro('God', godHouseFilter);
+      const scamHouse = buildAMacro('Scam', scamHouseFilter);
+      const all = buildAMacro('All', allFilter);
+
+      macros = [
+        rocks,
+        papers,
+        scissors,
+        guns,
+        mimics,
+        gods,
+        bedrocks,
+        zippers,
+        rockstars,
+        macroTemplate,
+
+        unis,
+        multis,
+        macroTemplate,
+
+        champions,
+        delusionals,
+        demonics,
+        divines,
+        hightechs,
+        kawaiis,
+        godHouse,
+        scamHouse,
+        macroTemplate,
+
+        all
+      ];
+    }
+
     const filterCards = () => {
       const name = normalize(el.name.value);
       const kw = normalize(el.keywords.value);
@@ -397,16 +543,20 @@
           break;
       }
 
-      render(orderedCards, orderedKeywords);
+      let orderedMacros = macros;
+
+      render(orderedCards, orderedKeywords, orderedMacros);
     };
 
     const ensureViewButtons = () => {
       el.galleryBtn.classList.toggle('active', view === 'gallery');
       el.tableBtn.classList.toggle('active', view === 'table');
       el.keywordsBtn.classList.toggle('active', view === 'keywords');
+      el.macrosBtn.classList.toggle('active', view === 'macros');
       el.gallery.style.display = (view === 'gallery') ? 'grid' : 'none';
       el.tableWrap.style.display = (view === 'table') ? 'block' : 'none';
       el.keywordsWrap.style.display = (view === 'keywords') ? 'block' : 'none';
+      el.macrosWrap.style.display = (view === 'macros') ? 'block' : 'none';
     };
 
     const escapeHtml = (s) =>
@@ -417,7 +567,7 @@
                     .replace(/"/g, "&quot;")
                     .replace(/'/g, "&#39;");
 
-    const render = (cards, keywords) => {
+    const render = (cards, keywords, macros) => {
       // empty state
       if (!cards.length) {
         el.empty.style.display = 'block';
@@ -467,7 +617,7 @@
               <td>${c.releaseYear ?? '-'}</td>
             </tr>
           `).join('');
-      } else {
+      } else if (view === 'keywords') {
         el.keywordsBody.innerHTML = keywords.map(k => `
           <tr>
             <td>${k.id}</td>
@@ -481,6 +631,33 @@
             <td>${k.releaseYear}</td>
           </tr>
         `).join('');
+      } else if (view === 'macros') {
+        el.macrosBody.innerHTML = macros.map(m => {
+          if (!m.name) {
+            // render horizontal line across all columns
+            return `
+          <tr>
+            <td colspan="11"><hr></td>
+          </tr>
+        `;
+            }
+
+            return `
+          <tr>
+            <td>${m.name}</td>
+            <td>${m.total}</td>
+            <td>${m.totalPercentage}</td>
+            <td>${m.commons}</td>
+            <td>${m.commonsPercentage}</td>
+            <td>${m.rares}</td>
+            <td>${m.raresPercentage}</td>
+            <td>${m.superRares}</td>
+            <td>${m.superRaresPercentage}</td>
+            <td>${m.shortPrinted}</td>
+            <td>${m.shortPrintedPercentage}</td>
+          </tr>
+        `;
+        }).join('');
       }
     };
 
@@ -521,6 +698,12 @@
       controlsToURL();
       filterCards();
     });
+    el.macrosBtn.addEventListener('click', () => {
+      view = 'macros';
+      ensureViewButtons();
+      controlsToURL();
+      filterCards();
+    });
 
     // Initial load
     (async function init() {
@@ -536,6 +719,7 @@
           name: card.name.replace(/\[.*?\]/g, ""),
           releaseYear: card.releaseDate ? card.releaseDate.split("-")[0] : null
         }));
+        calculateMacros();
       } catch (err) {
         showToast('Failed to load cards. Please try refreshing.');
         allCards = [];
@@ -628,6 +812,7 @@
   }
   addTableExport('export-btn', 'cards.csv');
   addTableExport('keywords-export-btn', 'keywords.csv');
+  addTableExport('macros-export-btn', 'macros.csv');
 </script>
 </body>
 </html>
