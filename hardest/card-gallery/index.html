@@ -418,6 +418,10 @@
       const kawaiiFilter = (card) => { return card.house === 'Kawaii' };
       const godHouseFilter = (card) => { return card.house === 'God' };
       const scamHouseFilter = (card) => { return card.house === 'Scam' };
+      const noKeywordFilter = (card) => { return card.keywords.length === 0 };
+      const oneKeywordFilter = (card) => { return card.keywords.length === 1 };
+      const twoKeywordFilter = (card) => { return card.keywords.length === 2 };
+      const threeKeywordFilter = (card) => { return card.keywords.length === 3 };
       const allFilter = () => { return true };
 
       const rocks = buildAMacro('Rock', rockFilter);
@@ -439,6 +443,10 @@
       const kawaiis = buildAMacro('Kawaii', kawaiiFilter);
       const godHouse = buildAMacro('God', godHouseFilter);
       const scamHouse = buildAMacro('Scam', scamHouseFilter);
+      const noKeyword = buildAMacro('Vanilla', noKeywordFilter);
+      const oneKeyword = buildAMacro('1 keyword', oneKeywordFilter);
+      const twoKeyword = buildAMacro('2 keywords', twoKeywordFilter);
+      const threeKeyword = buildAMacro('3 keywords', threeKeywordFilter);
       const all = buildAMacro('All', allFilter);
 
       macros = [
@@ -465,6 +473,12 @@
         kawaiis,
         godHouse,
         scamHouse,
+        macroTemplate,
+
+        noKeyword,
+        oneKeyword,
+        twoKeyword,
+        threeKeyword,
         macroTemplate,
 
         all
