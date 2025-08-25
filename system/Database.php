@@ -287,14 +287,8 @@ class Database
                 user.id id,
                 username,
                 TRIM(CONCAT(user.firstname, ' ', user.lastname)) AS displayName,
-                CASE
-                    WHEN role.id IS NOT NULL THEN role.accessRights
-                    ELSE IFNULL(user.accessRights, "{}")
-                END AS accessRights,
                 user.isActive
             FROM user
-            LEFT JOIN userRole role
-                ON role.id = user.roleId
             WHERE user.id = :userId
         SQL;
         $replacements = array(
@@ -317,16 +311,10 @@ class Database
                 user.id id,
                 username,
                 TRIM(CONCAT(user.firstname, ' ', user.lastname)) AS displayName,
-                CASE
-                    WHEN role.id IS NOT NULL THEN role.accessRights
-                    ELSE IFNULL(user.accessRights, "{}")
-                END AS accessRights,
                 user.isActive
             FROM authToken
             JOIN user
                 ON user.id = authToken.userId
-            LEFT JOIN userRole role
-                ON role.id = user.roleId
             WHERE token = :token
             AND expiration > NOW();
         SQL;
@@ -341,7 +329,7 @@ class Database
             return null;
         }
         $user = $user[0];
-        return new User(intval($user['id']), $user['username'], $user['displayName'], json_decode($user['accessRights']), boolval($user['isActive']));
+        return new User(intval($user['id']), $user['username'], $user['displayName'], new \stdClass(), boolval($user['isActive']));
     }
     public function getRequestData(): \stdClass {
         $requestData = json_decode(json_encode($this->params));
