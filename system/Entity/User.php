@@ -229,9 +229,9 @@ class User
     private function extractAdminRights(\stdClass $accessRights): array {
         $adminRights = array();
         foreach ($accessRights as $key => $value) {
-           if (in_array($key, ADMIN_RIGHTS) && !!$value) {
-               $adminRights[] = $key;
-           }
+            if (in_array($key, ADMIN_RIGHTS) && !!$value) {
+                $adminRights[] = $key;
+            }
         }
         sort($adminRights);
         return $adminRights;
