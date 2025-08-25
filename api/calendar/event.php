@@ -6,29 +6,46 @@ header('Content-Type: application/json');
 
 include("../../system/Database.php");
 
-function getEvents(Database $database): string
+function postEvent(Database $database): string
 {
-    $sql = <<<SQL
-        SELECT
-            event.id,
-            event.eventTypeId,
-            event.name,
-            event.location,
-            color.color,
-            event.date,
-            event.startTime,
-            event.endTime
-        FROM calendar_event event
-        JOIN calendar_eventType eventType
-            ON eventType.id = event.eventTypeId
-        JOIN calendar_color color
-            ON eventType.colorId = color.id
-        JOIN user
-            ON event.userId = :userId
-    SQL;
     $user = $database->getUser();
+    if (!$user) {
+        return $database->responseUnauthorized();
+    }
+    $sql = <<<SQL
+        INSERT INTO calendar_event (
+            userId,
+            date,
+            startTime,
+            endTime,
+            eventTypeId,
+            name,
+            location
+        )
+        VALUES (
+            :userId,
+            :date,
+            :startTime,
+            :endTime,
+            :eventTypeId,
+            :name,
+            :location
+        )
+    SQL;
+    $date = $database->getStringParam('date');
+    $startTime = $database->getStringParam('startTime');
+    $endTime = $database->getStringParam('endTime');
+    $eventTypeId = $database->getIntParam('eventType');
+    $name = $database->getStringParam('name');
+    $location = $database->getStringParam('location');
     $replacements = array(
-        'userId' => ['value' => $user->getId(), 'type' => PDO::PARAM_STR],
+        'userId' => ['value' => $user->getId(), 'type' => PDO::PARAM_INT],
+        'date' => ['value' => $date, 'type' => PDO::PARAM_STR],
+        'startTime' => ['value' => $startTime, 'type' => PDO::PARAM_STR],
+        'endTime' => ['value' => $endTime, 'type' => PDO::PARAM_STR],
+        'eventTypeId' => ['value' => $eventTypeId, 'type' => PDO::PARAM_INT],
+        'name' => ['value' => $name, 'type' => PDO::PARAM_STR],
+        'location' => ['value' => $location, 'type' => PDO::PARAM_STR]
     );
     $events = $database->query($sql, $replacements);
 
@@ -39,4 +56,4 @@ function getEvents(Database $database): string
 }
 
 $database = new Database();
-$database->handleRequest(null, 'getEvents');
+$database->handleRequest(null, 'postEvent');

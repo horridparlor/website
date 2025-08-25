@@ -309,3 +309,20 @@ footer { text-align: center; font-size: 0.9rem; color: #aaa; padding: 1rem; marg
 
 .event-item:hover { border-color: rgba(255,255,255,0.16); background: rgba(255,255,255,0.04); }
 .event-block:hover { border-color: rgba(255,255,255,0.18); background: rgba(255,255,255,0.08); }
+
+/* Modal readability fixes */
+.modal-header h3 {
+    color: #fff;
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.label {               /* covers non-field labels, like the Color pill row */
+    color: #bffcf0;
+}
+
+.color-preview-row .label {
+    /* ensure the Color label is readable even if .label is overridden elsewhere */
+    color: #bffcf0;
+}

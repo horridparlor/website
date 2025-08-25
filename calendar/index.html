@@ -97,6 +97,10 @@
                     <span class="label">Name</span>
                     <input id="eventName" type="text" required />
                 </label>
+                <label class="field">
+                    <span class="label">Date</span>
+                    <input id="eventDate" type="date" required />
+                </label>
 
                 <div class="grid two">
                     <label class="field">
@@ -197,6 +201,7 @@
     const eventForm = $('#eventForm');
     const eventTypeSel = $('#eventType');
     const eventName = $('#eventName');
+    const eventDate = $('#eventDate');
     const startTime = $('#startTime');
     const endTime = $('#endTime');
     const locationInput = $('#location');
@@ -251,17 +256,19 @@
         // Backend contract says: (eventType, name, startTime, endTime, location)
         // We'll include date as well if backend supports it; if not, it can ignore.
         const body = {
-            authToken: AUTH.token,
             eventType: payload.eventType,
             name: payload.name,
             startTime: payload.startTime,
             endTime: payload.endTime,
             location: payload.location,
-            date: payload.date // optional; harmless if ignored server-side
+            date: eventDate.value || SELECTED_DATE
         };
         const res = await fetch('../api/calendar/event', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${AUTH.token}`
+            },
             body: JSON.stringify(body)
         });
         if (!res.ok) throw new Error('Failed to create event');
@@ -473,6 +480,7 @@
         const slotIndex = Math.max(0, Math.min(47, Math.round(y/slotHeight)));
         const startMin = slotIndex * 30;
         const endMin = Math.min(24*60, startMin + 60);
+        eventDate.value = SELECTED_DATE || todayISO();
         startTime.value = hhmmFromMinutes(startMin);
         endTime.value = hhmmFromMinutes(endMin);
         // Reset name (will auto-fill if empty)
@@ -532,6 +540,7 @@
         // default to the next full hour
         const now = new Date();
         const start = now.getMinutes() > 0 ? (now.getHours()+1) * 60 : now.getHours() * 60;
+        eventDate.value = SELECTED_DATE || todayISO();
         startTime.value = hhmmFromMinutes(start);
         endTime.value = hhmmFromMinutes(Math.min(start + 60, 24*60));
         eventName.value = '';

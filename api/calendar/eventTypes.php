@@ -8,6 +8,10 @@ include("../../system/Database.php");
 
 function getEventTypes(Database $database): string
 {
+    $user = $database->getUser();
+    if (!$user) {
+        return $database->responseUnauthorized();
+    }
     $sql = <<<SQL
         SELECT
             eventType.id,
@@ -19,9 +23,8 @@ function getEventTypes(Database $database): string
             ON eventType.colorId = color.id
         WHERE eventType.userId = :userId
     SQL;
-    $user = $database->getUser();
     $replacements = array(
-        'userId' => ['value' => $user->getId(), 'type' => PDO::PARAM_STR],
+        'userId' => ['value' => $user->getId(), 'type' => PDO::PARAM_INT],
     );
     $eventTypes = $database->query($sql, $replacements);
 
