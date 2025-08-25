@@ -17,8 +17,13 @@ function getEventTypes(Database $database): string
         FROM calendar_eventType eventType
         JOIN calendar_color color
             ON eventType.colorId = color.id
+        WHERE eventType.userId = :userId
     SQL;
-    $eventTypes = $database->query($sql);
+    $user = $database->getUser();
+    $replacements = array(
+        'userId' => ['value' => $user->getId(), 'type' => PDO::PARAM_STR],
+    );
+    $eventTypes = $database->query($sql, $replacements);
 
     return $database->responseSuccess(array(
         "countOfEventTypes" => sizeof($eventTypes),
@@ -27,4 +32,4 @@ function getEventTypes(Database $database): string
 }
 
 $database = new Database();
-$database->handleRequest(null, 'getEventTypes');
+$database->handleRequest('getEventTypes');

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1:3307
--- Generation Time: Aug 25, 2025 at 06:19 AM
+-- Generation Time: Aug 25, 2025 at 02:29 PM
 -- Server version: 8.0.41
 -- PHP Version: 8.3.6
 
@@ -31,16 +31,17 @@ CREATE TABLE `calendar_eventType` (
   `id` int NOT NULL,
   `name` varchar(63) NOT NULL,
   `defaultEventName` varchar(63) NOT NULL,
-  `colorId` int NOT NULL
+  `colorId` int NOT NULL,
+  `userId` int NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Dumping data for table `calendar_eventType`
 --
 
-INSERT INTO `calendar_eventType` (`id`, `name`, `defaultEventName`, `colorId`) VALUES
-(1, 'Lecture', 'Lecture', 1),
-(2, 'Fun', 'Fun', 2);
+INSERT INTO `calendar_eventType` (`id`, `name`, `defaultEventName`, `colorId`, `userId`) VALUES
+(1, 'Lecture', 'Lecture', 1, 1),
+(2, 'Fun', 'Fun', 2, 1);
 
 --
 -- Indexes for dumped tables
@@ -53,7 +54,8 @@ ALTER TABLE `calendar_eventType`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `name` (`name`),
   ADD UNIQUE KEY `defaultEventName` (`defaultEventName`),
-  ADD KEY `colorId` (`colorId`);
+  ADD KEY `colorId` (`colorId`),
+  ADD KEY `userId` (`userId`);
 
 --
 -- AUTO_INCREMENT for dumped tables
@@ -73,7 +75,8 @@ ALTER TABLE `calendar_eventType`
 -- Constraints for table `calendar_eventType`
 --
 ALTER TABLE `calendar_eventType`
-  ADD CONSTRAINT `calendar_eventType_ibfk_1` FOREIGN KEY (`colorId`) REFERENCES `calendar_color` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT;
+  ADD CONSTRAINT `calendar_eventType_ibfk_1` FOREIGN KEY (`colorId`) REFERENCES `calendar_color` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  ADD CONSTRAINT `calendar_eventType_ibfk_2` FOREIGN KEY (`userId`) REFERENCES `user` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

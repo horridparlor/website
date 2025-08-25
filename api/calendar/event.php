@@ -24,17 +24,17 @@ function getEvents(Database $database): string
         JOIN calendar_color color
             ON eventType.colorId = color.id
         JOIN user
-            ON event.userId = user.id
+            ON event.userId = :userId
     SQL;
     $user = $database->getUser();
     $replacements = array(
         'userId' => ['value' => $user->getId(), 'type' => PDO::PARAM_STR],
     );
-    $keywords = $database->query($sql, $replacements);
+    $events = $database->query($sql, $replacements);
 
     return $database->responseSuccess(array(
-        "countOfKeywords" => sizeof($keywords),
-        "keywords" => $keywords
+        "countOfEvents" => sizeof($events),
+        "events" => $events
     ));
 }
 

@@ -2,6 +2,7 @@
 
 namespace system;
 require_once 'loadEnv.php';
+include 'Entity/User.php';
 
 enum RequestType: string {
     case GET = 'GET';
