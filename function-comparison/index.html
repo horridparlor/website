@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Function Comparison</title>
+  <!-- Use the site's global look & feel -->
+  <link rel="stylesheet" href="../styles.css" />
+  <style>
+    /* Page-specific enhancements that complement ../styles.css */
+    :root{
+      --accent:#00ffcc;
+      --accent-2:#00ccaa;
+      --hot:#ff0066;
+    }
+
+    .container{max-width:1100px;margin:2rem auto;padding:0 1rem}
+
+    .panel{
+      background:rgba(0,0,0,.6);
+      border:1px solid rgba(0,255,204,.2);
+      border-radius:16px; 
+      box-shadow:0 10px 30px rgba(0,0,0,.45);
+      padding:1rem 1rem 1.25rem;
+      backdrop-filter: blur(4px);
+    }
+
+    .titlebar{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+    .titlebar h1{margin:0;font-size:2.25rem;color:var(--accent)}
+    .subtitle{opacity:.9}
+
+    .controls{display:flex;flex-wrap:wrap;gap:.75rem;align-items:center;margin:.75rem 0 1rem}
+
+    .neo-input{
+      background:#111;border:1px solid #1f1f1f;color:#fff;border-radius:10px;padding:.6rem .8rem;outline:none;
+      transition:border .2s; min-width:7rem
+    }
+    .neo-input:focus{border-color:var(--accent)}
+
+    .button{cursor:pointer;border:none}
+    .button.secondary{background:#222;color:#fff}
+    .button.ghost{background:transparent;border:1px solid #333;color:#fff}
+
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+
+    .col{display:flex;flex-direction:column}
+    .col h3{margin:.25rem 0 .5rem;color:var(--accent)}
+
+    .rows{display:flex;flex-direction:column;gap:.4rem} /* EXACT 0.4rem between rows */
+
+    .row{display:grid;grid-template-columns: 2.5rem 1fr;align-items:center;gap:.6rem}
+    .row label{opacity:.8}
+    .row input[type="number"]{
+      width:100%;
+      background:#0e0e0e;border:1px solid #222;color:#fff;padding:.6rem .7rem;border-radius:10px;outline:none;
+      transition:border .2s, box-shadow .2s
+    }
+    .row input[type="number"]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,255,204,.1)}
+
+    .actions{display:flex;flex-wrap:wrap;gap:.6rem;justify-content:flex-end;margin-top:1rem}
+
+    .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;background:#181818;border:1px solid #2a2a2a;color:#ddd;border-radius:6px;padding:.25rem .4rem}
+
+    .results{margin-top:1.25rem}
+    .results table{width:100%;border-collapse:collapse;font-size:0.98rem}
+    .results th,.results td{border-top:1px solid #222;padding:.6rem .5rem;text-align:right}
+    .results th:first-child,.results td:first-child{text-align:left}
+    .results tr:hover td{background:rgba(255,255,255,.02)}
+
+    .pill{display:inline-block;padding:.35rem .6rem;border-radius:999px;background:#151515;border:1px solid #2a2a2a;color:#ddd}
+
+    /* Loading overlay with a 1s laser-bar animation */
+    .overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);z-index:9999}
+    .laser{
+      width:70%;max-width:720px;height:8px;border-radius:8px;background:#1a1a1a;overflow:hidden;box-shadow:0 0 20px rgba(0,255,204,.25) inset
+    }
+    .laser::before{
+      content:"";display:block;height:100%;width:25%;background:linear-gradient(90deg, transparent, var(--accent), transparent);
+      animation: sweep 1s linear infinite; filter: drop-shadow(0 0 8px var(--accent));
+    }
+    @keyframes sweep{from{transform:translateX(-30%)}to{transform:translateX(400%)}}
+
+    .helper{font-size:.9rem;opacity:.85}
+
+    .flex-gap{display:flex;gap:.5rem;flex-wrap:wrap}
+
+    .hidden{display:none !important}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="panel">
+      <div class="titlebar">
+        <div>
+          <h1>Function Comparison</h1>
+          <div class="subtitle">Enter runtime measurements (seconds, four decimals). Only filled slots are counted.</div>
+        </div>
+        <div class="flex-gap">
+          <button class="button ghost" id="homeBtn">Return Home</button>
+          <button class="button secondary" id="resetBtn" title="Clear inputs and saved data">Reset</button>
+        </div>
+      </div>
+
+      <div class="controls">
+        <label for="rowCount" class="helper"># of rows (step 5)</label>
+        <input id="rowCount" class="neo-input" type="number" min="5" step="5" value="20"/>
+        <span class="pill" id="filledInfo">F1: 0 • F2: 0</span>
+        <span class="helper">Tip: press <span class="kbd">Tab</span> to move, <span class="kbd">Enter</span> to calculate.</span>
+      </div>
+
+      <div class="grid">
+        <div class="col">
+          <h3>Function 1 Runtimes</h3>
+          <div id="col1" class="rows"></div>
+          <div class="flex-gap actions">
+            <button class="button" id="copyF1">Copy F1</button>
+            <button class="button" id="exportInputs">Export CSV (inputs)</button>
+            <label class="button ghost" for="importFile">Import CSV</label>
+            <input id="importFile" type="file" accept=".csv" class="hidden" />
+          </div>
+        </div>
+        <div class="col">
+          <h3>Function 2 Runtimes</h3>
+          <div id="col2" class="rows"></div>
+          <div class="flex-gap actions">
+            <button class="button" id="copyF2">Copy F2</button>
+            <button class="button" id="calcBtn">Calculate</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="results panel" id="results" style="margin-top:1rem;display:none">
+        <div class="titlebar" style="margin-bottom:.25rem">
+          <h3 style="margin:0;color:var(--accent)">Results</h3>
+          <div class="flex-gap">
+            <button class="button" id="exportResults">Export CSV (results)</button>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>Function 1</th>
+              <th>Function 2</th>
+              <th>Difference (F1 − F2)</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading overlay -->
+  <div class="overlay" id="overlay" aria-hidden="true">
+    <div class="laser"></div>
+  </div>
+
+  <script>
+    const LS_KEY = "func-compare-v1";
+
+    const el = {
+      col1: document.getElementById('col1'),
+      col2: document.getElementById('col2'),
+      rowCount: document.getElementById('rowCount'),
+      calcBtn: document.getElementById('calcBtn'),
+      resetBtn: document.getElementById('resetBtn'),
+      homeBtn: document.getElementById('homeBtn'),
+      results: document.getElementById('results'),
+      resultsBody: document.getElementById('resultsBody'),
+      overlay: document.getElementById('overlay'),
+      copyF1: document.getElementById('copyF1'),
+      copyF2: document.getElementById('copyF2'),
+      exportInputs: document.getElementById('exportInputs'),
+      importFile: document.getElementById('importFile'),
+      exportResults: document.getElementById('exportResults'),
+      filledInfo: document.getElementById('filledInfo'),
+    };
+
+    function loadState(){
+      try{ return JSON.parse(localStorage.getItem(LS_KEY)) || {}; }catch{return {}};
+    }
+    function saveState(partial){
+      const current = loadState();
+      localStorage.setItem(LS_KEY, JSON.stringify({...current, ...partial}));
+    }
+
+    function setRowCount(n){
+      n = Math.max(5, Math.min(500, Math.round(n/5)*5)); // clamp & step 5
+      el.rowCount.value = n;
+
+      const state = loadState();
+      const v1 = (state.v1 || []).slice(0, n);
+      const v2 = (state.v2 || []).slice(0, n);
+
+      renderColumn(el.col1, 'f1', n, v1);
+      renderColumn(el.col2, 'f2', n, v2);
+      updateFilledInfo();
+      saveState({rows:n});
+    }
+
+    function renderColumn(container, key, n, values){
+      container.innerHTML = '';
+      for(let i=0;i<n;i++){
+        const row = document.createElement('div');
+        row.className = 'row';
+        const label = document.createElement('label');
+        label.textContent = String(i+1).padStart(2,'0');
+        label.setAttribute('for', `${key}-${i}`);
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.inputmode = 'decimal';
+        input.step = '0.0001';
+        input.min = '0';
+        input.placeholder = '0.0000';
+        input.id = `${key}-${i}`;
+        if(values && values[i] !== undefined && values[i] !== null && values[i] !== ''){
+          input.value = Number(values[i]).toFixed(4);
+        }
+        input.addEventListener('blur', () => {
+          if(input.value !== ''){ input.value = to4(input.value); }
+        });
+        input.addEventListener('input', () => persistInputs());
+        input.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ doCalculate(); }});
+        row.appendChild(label); row.appendChild(input);
+        container.appendChild(row);
+      }
+    }
+
+    function to4(v){
+      const num = Number(v);
+      if(!isFinite(num)) return '';
+      return num.toFixed(4);
+    }
+
+    function getValues(col){
+      const inputs = col.querySelectorAll('input');
+      const arr = [];
+      inputs.forEach(i=>{ if(i.value !== '' && isFinite(Number(i.value))) arr.push(Number(i.value));});
+      return arr;
+    }
+
+    function stats(arr){
+      if(!arr.length) return {count:0,min:null,max:null,mean:null,median:null};
+      const sorted = [...arr].sort((a,b)=>a-b);
+      const min = sorted[0], max = sorted[sorted.length-1];
+      const sum = arr.reduce((a,b)=>a+b,0);
+      const mean = sum/arr.length;
+      const mid = Math.floor(sorted.length/2);
+      const median = (sorted.length%2? sorted[mid] : (sorted[mid-1]+sorted[mid])/2);
+      return {count:arr.length, min, max, mean, median};
+    }
+
+    function fmt(v){ return (v===null || v===undefined || Number.isNaN(v))? '—' : Number(v).toFixed(4); }
+
+    function diff(a,b){
+      if(a==null || b==null) return '—';
+      return (Number(a)-Number(b)).toFixed(4);
+    }
+
+    function updateFilledInfo(){
+      const c1 = getValues(el.col1).length;
+      const c2 = getValues(el.col2).length;
+      el.filledInfo.textContent = `F1: ${c1} • F2: ${c2}`;
+    }
+
+    function persistInputs(){
+      const rows = Number(el.rowCount.value)||20;
+      const v1 = Array.from(el.col1.querySelectorAll('input')).map(i=> i.value!==''? Number(i.value) : null);
+      const v2 = Array.from(el.col2.querySelectorAll('input')).map(i=> i.value!==''? Number(i.value) : null);
+      saveState({rows, v1, v2});
+      updateFilledInfo();
+    }
+
+    function doCalculate(){
+      // 1s laser loading
+      el.overlay.style.display = 'flex';
+      setTimeout(()=>{
+        const a = getValues(el.col1);
+        const b = getValues(el.col2);
+        const sa = stats(a);
+        const sb = stats(b);
+        const rows = [
+          ['Count', sa.count, sb.count, (sa.count && sb.count) ? (sa.count - sb.count) : '—'],
+          ['Min (s)', fmt(sa.min), fmt(sb.min), diff(sa.min, sb.min)],
+          ['Max (s)', fmt(sa.max), fmt(sb.max), diff(sa.max, sb.max)],
+          ['Mean (s)', fmt(sa.mean), fmt(sb.mean), diff(sa.mean, sb.mean)],
+          ['Median (s)', fmt(sa.median), fmt(sb.median), diff(sa.median, sb.median)],
+        ];
+        el.resultsBody.innerHTML = rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join('');
+        el.results.style.display = 'block';
+        el.overlay.style.display = 'none';
+      }, 1000);
+    }
+
+    function exportInputsCSV(){
+      const r = Number(el.rowCount.value)||20;
+      const a = Array.from(el.col1.querySelectorAll('input')).map(i=> i.value);
+      const b = Array.from(el.col2.querySelectorAll('input')).map(i=> i.value);
+      const lines = ["Function 1,Function 2"];
+      const maxLen = Math.max(a.length,b.length,r);
+      for(let i=0;i<maxLen;i++){
+        const v1 = a[i]||''; const v2 = b[i]||'';
+        lines.push(`${v1},${v2}`);
+      }
+      downloadCSV(lines.join('\n'), `measurements_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.csv`);
+    }
+
+    function exportResultsCSV(){
+      const rows = Array.from(el.resultsBody.querySelectorAll('tr')).map(tr=> Array.from(tr.children).map(td=> td.textContent));
+      const lines = ["Metric,Function 1,Function 2,Difference (F1 - F2)", ...rows.map(r=> r.join(','))];
+      downloadCSV(lines.join('\n'), `results_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.csv`);
+    }
+
+    function downloadCSV(text, filename){
+      const blob = new Blob([text], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importCSV(file){
+      const reader = new FileReader();
+      reader.onload = () => {
+        const text = reader.result.trim();
+        const lines = text.split(/\r?\n/);
+        let start = 0;
+        // skip header if present
+        if(lines[0].toLowerCase().includes('function') || lines[0].toLowerCase().includes('metric')) start = 1;
+        const vals1 = [], vals2 = [];
+        for(let i=start;i<lines.length;i++){
+          const parts = lines[i].split(',');
+          if(parts.length){
+            const p1 = parts[0]?.trim();
+            const p2 = parts[1]?.trim();
+            vals1.push(p1 && !isNaN(Number(p1)) ? Number(p1) : null);
+            vals2.push(p2 && !isNaN(Number(p2)) ? Number(p2) : null);
+          }
+        }
+        const n = Math.max(vals1.length, vals2.length, 5);
+        setRowCount(n);
+        // fill inputs
+        const i1 = el.col1.querySelectorAll('input');
+        const i2 = el.col2.querySelectorAll('input');
+        for(let i=0;i<n;i++){
+          if(i1[i]) i1[i].value = vals1[i]!=null ? to4(vals1[i]) : '';
+          if(i2[i]) i2[i].value = vals2[i]!=null ? to4(vals2[i]) : '';
+        }
+        persistInputs();
+      };
+      reader.readAsText(file);
+    }
+
+    function copyColumn(col){
+      const arr = getValues(col).map(v=> to4(v));
+      const text = arr.join('\n');
+      navigator.clipboard.writeText(text).then(()=>{
+        toast(`Copied ${arr.length} values.`);
+      });
+    }
+
+    function toast(msg){
+      const t = document.createElement('div');
+      t.textContent = msg;
+      t.style.cssText = `position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#151515;border:1px solid #2a2a2a;padding:.55rem .8rem;border-radius:10px;color:#ddd;z-index:99999;box-shadow:0 10px 30px rgba(0,0,0,.35)`;
+      document.body.appendChild(t);
+      setTimeout(()=>t.remove(), 1400);
+    }
+
+    // Event wiring
+    el.rowCount.addEventListener('change', ()=> setRowCount(Number(el.rowCount.value||20)) );
+    el.calcBtn.addEventListener('click', doCalculate);
+    el.resetBtn.addEventListener('click', ()=>{
+      if(!confirm('Reset all inputs and clear saved data?')) return;
+      localStorage.removeItem(LS_KEY);
+      setRowCount(20);
+      el.results.style.display = 'none';
+    });
+    el.homeBtn.addEventListener('click', ()=>{ 
+      // Go back if there is history, otherwise try ../index.html
+      if(history.length>1) history.back(); else location.href = '../index.html';
+    });
+    el.copyF1.addEventListener('click', ()=> copyColumn(el.col1));
+    el.copyF2.addEventListener('click', ()=> copyColumn(el.col2));
+    el.exportInputs.addEventListener('click', exportInputsCSV);
+    el.exportResults.addEventListener('click', exportResultsCSV);
+    el.importFile.addEventListener('change', (e)=>{ const f = e.target.files?.[0]; if(f) importCSV(f); e.target.value = ''; });
+
+    document.addEventListener('keydown', (e)=>{ if(e.key==='Enter' && (document.activeElement?.tagName==='INPUT')){ doCalculate(); }});
+
+    // Initial render
+    (function init(){
+      const state = loadState();
+      const rows = state.rows || 20;
+      setRowCount(rows);
+      // restore saved values
+      const i1 = el.col1.querySelectorAll('input');
+      const i2 = el.col2.querySelectorAll('input');
+      (state.v1||[]).forEach((v,idx)=>{ if(i1[idx]) i1[idx].value = (v!=null && v!=='')? to4(v) : '' });
+      (state.v2||[]).forEach((v,idx)=>{ if(i2[idx]) i2[idx].value = (v!=null && v!=='')? to4(v) : '' });
+      updateFilledInfo();
+    })();
+  </script>
+</body>
+</html>

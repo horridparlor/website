@@ -4,3 +4,4 @@ images/
 *.env
 hardest/card-art
 hardest/backups
+*error_log
