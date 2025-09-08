@@ -191,6 +191,9 @@
       </div>
 
       <div class="actions">
+        <button type="button" id="resetBtn" class="btn-export" style="background: linear-gradient(135deg, #ff6b6b, #ff1e56); color: white;">
+            Reset
+        </button>
         <button id="exportBtn" type="submit" class="btn-export">Export PDF</button>
       </div>
     </form>
@@ -252,7 +255,15 @@
       y += lineHeight * 2;
 
       // Text lines (one input line => one printed line)
-      const lines = (text || '').replace(/\r\n/g, '\n').split('\n');
+      let lines = (text || '').replace(/\r\n/g, '\n').split('\n');
+
+        while (lines.length && !lines[0].trim()) {
+          lines.shift();
+        }
+        while (lines.length && !lines[lines.length - 1].trim()) {
+          lines.pop();
+        }
+
 
       doc.setFont('helvetica', 'normal'); // reset for body
 
@@ -307,6 +318,75 @@
         }
       }, 1000);
     });
+    
+    document.getElementById('resetBtn').addEventListener('click', () => {
+        document.getElementById('pdfForm').reset();
+    });
+    
+      const form = document.getElementById('pdfForm');
+      const titleEl = document.getElementById('title');
+      const textEl  = document.getElementById('text');
+      const exportBtn = document.getElementById('exportBtn');
+      const resetBtn  = document.getElementById('resetBtn');
+    
+      function doReset() {
+        form.reset();
+        showLoading(false);
+        exportBtn.disabled = false;
+        titleEl.focus();
+      }
+    
+      resetBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        doReset();
+      });
+    
+      document.addEventListener('keydown', (e) => {
+        const isAccel = e.ctrlKey || e.metaKey;
+        if (!isAccel || e.shiftKey || e.altKey) return;
+    
+        const key = e.key.toLowerCase();
+        if (key === 'r') {
+          e.preventDefault();
+          doReset();
+        } else if (key === 'b') {
+          e.preventDefault();
+          textEl.focus();
+        } else if (key === 'g') {
+            e.preventDefault();
+            titleEl.focus();
+        } else if (key === 'e') {
+            e.preventDefault();
+            console.log(titleEl.value, textEl.value);
+            exportBtn.click();
+        }
+      });
+    
+      titleEl.setAttribute('aria-keyshortcuts', 'Control+T Meta+T');
+      textEl.setAttribute('aria-keyshortcuts', 'Control+B Meta+B');
+      
+      const savedTitle = localStorage.getItem('pdfTitle');
+      if (savedTitle) {
+        titleEl.value = savedTitle;
+      }
+    
+      titleEl.addEventListener('input', () => {
+        localStorage.setItem('pdfTitle', titleEl.value);
+      });
+    
+      function doReset() {
+        form.reset();
+        showLoading(false);
+        exportBtn.disabled = false;
+        titleEl.focus();
+    
+        localStorage.removeItem('pdfTitle');
+      }
+    
+      resetBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        doReset();
+      });
   </script>
 </body>
 </html>

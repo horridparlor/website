@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EK Industry -eater</title>
+  <!-- Base site styles from parent directory -->
+  <link rel="stylesheet" href="../styles.css" />
+  <!-- Minimal local styles for this tool UI -->
+  <style>
+    :root {
+      --accent: #00ffcc;
+      --accent-2: #00ccaa;
+      --bg-2: #1a1a1a;
+      --muted: #aaa;
+      --danger: #ff4d6d;
+      --card: #161616;
+      --border: #2a2a2a;
+    }
+    .app-wrap { max-width: 1200px; margin: 1rem auto 3rem; padding: 0 1rem; }
+    header.toolhdr {
+      display:flex; align-items:center; justify-content:space-between;
+      gap:1rem; padding: 1.25rem 1rem; background: rgba(0,0,0,0.5);
+      border-bottom: 1px solid var(--border);
+      border-radius: 12px; backdrop-filter: blur(6px);
+    }
+    .toolhdr h1 { font-family:'Anton', sans-serif; color: var(--accent); font-size: 2rem; margin:0; }
+    .hdr-actions { display:flex; gap:.5rem; flex-wrap:wrap; }
+    .btn { cursor:pointer; border:1px solid var(--border); background:#0d0d0d; color:#fff; padding:.6rem 1rem; border-radius:10px; font-weight:600; transition: transform .08s ease, background .2s ease, border-color .2s ease; }
+    .btn:hover { background:#151515; transform: translateY(-1px); }
+    .btn.primary { background: var(--accent); color:#000; border-color: transparent; }
+    .btn.primary:hover { background: var(--accent-2); }
+    .btn.danger { background: #2b0f16; border-color:#511826; color:#ffb3c1; }
+    .btn.link { background: transparent; border-color: transparent; color: var(--accent); text-decoration: underline; }
+
+    /* Tabs */
+    .tabs { margin:1.25rem 0; border-bottom:1px solid var(--border); display:flex; gap:.5rem; flex-wrap:wrap; }
+    .tab { padding:.7rem 1rem; border:1px solid var(--border); border-bottom:none; border-radius:10px 10px 0 0; background:#0b0b0b; color:#fff; cursor:pointer; }
+    .tab.active { background: var(--card); color: #fff; box-shadow: inset 0 -2px 0 var(--accent); }
+    .tabpanes { background: var(--card); border:1px solid var(--border); border-radius:0 12px 12px 12px; padding:1rem; }
+    .pane { display:none; }
+    .pane.active { display:block; }
+
+    /* Forms */
+    .grid { display:grid; gap: .75rem; }
+    .grid.cols-2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .grid.cols-4 { grid-template-columns: repeat(4, minmax(0,1fr)); }
+    .field { display:flex; flex-direction:column; gap:.35rem; }
+    .field label { font-size:.9rem; color: var(--muted); }
+    .field input[type="number"],
+    .field input[type="text"],
+    .field input[type="file"] {
+      background:#0f0f0f; color:#fff; border:1px solid var(--border); border-radius:10px; padding:.6rem .75rem;
+    }
+    .hint { color: var(--muted); font-size:.85rem; }
+
+    /* Dataset table */
+    .tablewrap { margin-top:1.25rem; background: var(--card); border:1px solid var(--border); border-radius:12px; overflow:auto; }
+    table { width:100%; border-collapse: collapse; }
+    thead th { position: sticky; top: 0; background:#0b0b0b; color:#ddd; border-bottom:1px solid var(--border); text-align:left; padding:.75rem; font-weight:700; }
+    tbody td { border-top:1px solid var(--border); padding:.55rem .6rem; }
+    tbody tr:hover { background:#121212; }
+    td[contenteditable="true"] { outline: none; border-radius: 6px; }
+    td[contenteditable="true"]:focus { box-shadow: 0 0 0 2px rgba(0,255,204,.35) inset; background:#101414; }
+    .controls { display:flex; gap:.5rem; flex-wrap:wrap; margin:.75rem 0; }
+    .muted { color: var(--muted); }
+
+    /* Loading bar: "super-modern laserlike" */
+    .laserbar { position: fixed; left:50%; top: 12vh; transform: translateX(-50%); width:min(680px, 92vw); background: rgba(0,0,0,.6); border:1px solid var(--border); border-radius:16px; padding:1rem; display:none; z-index: 9999; backdrop-filter: blur(6px); }
+    .laserbar.show { display:block; }
+    .laserbar .title { display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:.6rem; }
+    .laserbar .title span { font-weight:800; color:#fff; letter-spacing:.3px; }
+    .beam { height: 8px; border-radius: 999px; overflow:hidden; background: #0a0a0a; border:1px solid #133; }
+    .beam::before { content:""; display:block; width:0%; height:100%; background: linear-gradient(90deg, transparent, var(--accent), #8af6ff, var(--accent), transparent);
+      box-shadow: 0 0 22px #00e6ff, inset 0 0 8px rgba(0,0,0,.5);
+      animation: sweep .5s ease forwards; }
+    @keyframes sweep { to { width: 100%; } }
+
+    /* Footer spacing */
+    .spacer { height: 24px; }
+  </style>
+  <!-- Libraries for parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs" type="module"></script>
+</head>
+<body>
+  <div class="app-wrap">
+    <header class="toolhdr">
+      <h1>EK Industry -eater</h1>
+      <div class="hdr-actions">
+        <button class="btn" id="returnHomeBtn" title="Return Home">Return Home</button>
+        <button class="btn danger" id="resetBtn" title="Clear everything">Reset</button>
+      </div>
+    </header>
+
+    <section class="tabs" role="tablist" aria-label="Import modes">
+      <button class="tab active" data-tab="manual">Manual</button>
+      <button class="tab" data-tab="pdf">Import PDF</button>
+      <button class="tab" data-tab="csv">Import CSV</button>
+    </section>
+
+    <section class="tabpanes">
+      <!-- Manual Pane -->
+      <div class="pane active" id="pane-manual">
+        <div class="grid cols-4">
+          <div class="field">
+            <label for="manual-id">ID (int)</label>
+            <input type="number" id="manual-id" placeholder="e.g. 1" />
+            <div class="hint">Defaults to next available id.</div>
+          </div>
+          <div class="field">
+            <label for="manual-code">Code (int)</label>
+            <input type="number" id="manual-code" placeholder="e.g. 100" />
+          </div>
+          <div class="field">
+            <label for="manual-name">Name (string)</label>
+            <input type="text" id="manual-name" placeholder="e.g. Alan Nimi" />
+          </div>
+          <div class="field">
+            <label for="manual-industry">Industry (id)</label>
+            <input type="number" id="manual-industry" placeholder="e.g. 1500" />
+            <div class="hint">Defaults to 0.</div>
+          </div>
+        </div>
+        <div class="controls">
+          <button class="btn primary" id="manual-add">Insert</button>
+        </div>
+      </div>
+
+      <!-- PDF Pane -->
+      <div class="pane" id="pane-pdf">
+        <div class="grid cols-2">
+          <div class="field">
+            <label for="pdf-file">Select PDF (EK format)</label>
+            <input type="file" id="pdf-file" accept="application/pdf" />
+            <div class="hint">Reads rows starting under <em>“Ammattinimikkeet”</em>. Pattern: <strong>code</strong> then <strong>name</strong>. Captions in parentheses are ignored; trailing dots/spaces trimmed.</div>
+          </div>
+          <div class="grid cols-2">
+            <div class="field">
+              <label for="pdf-start-id">Starting ID</label>
+              <input type="number" id="pdf-start-id" />
+              <div class="hint">Defaults to next available id.</div>
+            </div>
+            <div class="field">
+              <label for="pdf-industry-id">Industry ID</label>
+              <input type="number" id="pdf-industry-id" value="0" />
+              <div class="hint">Default 0.</div>
+            </div>
+          </div>
+        </div>
+        <div class="controls">
+          <button class="btn" id="pdf-preview">Preview rows</button>
+          <button class="btn primary" id="pdf-commit" disabled>Add to dataset</button>
+        </div>
+        <div id="pdf-preview-area" class="muted"></div>
+      </div>
+
+      <!-- CSV Pane -->
+      <div class="pane" id="pane-csv">
+        <div class="grid cols-2">
+          <div class="field">
+            <label for="csv-file">Select CSV (code,name)</label>
+            <input type="file" id="csv-file" accept="text/csv,.csv" />
+          </div>
+          <div class="grid cols-2">
+            <div class="field">
+              <label for="csv-start-id">Starting ID</label>
+              <input type="number" id="csv-start-id" />
+              <div class="hint">Defaults to next available id.</div>
+            </div>
+            <div class="field">
+              <label for="csv-industry-id">Industry ID</label>
+              <input type="number" id="csv-industry-id" value="0" />
+              <div class="hint">Default 0.</div>
+            </div>
+          </div>
+        </div>
+        <div class="controls">
+          <button class="btn" id="csv-preview">Preview rows</button>
+          <button class="btn primary" id="csv-commit" disabled>Add to dataset</button>
+        </div>
+        <div id="csv-preview-area" class="muted"></div>
+      </div>
+    </section>
+
+    <!-- Dataset Section -->
+    <section style="margin-top:1.5rem">
+      <h2 style="color:var(--accent); margin:.2rem 0 0.6rem;">Loaded Dataset</h2>
+      <div class="controls">
+        <button class="btn danger" id="delete-selected">Delete selected</button>
+        <button class="btn" id="export-csv">Export CSV</button>
+        <button class="btn" id="export-sql">Export SQL</button>
+        <span class="muted" id="count-label"></span>
+      </div>
+      <div class="tablewrap">
+        <table id="data-table">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="check-all" /></th>
+              <th>ID</th>
+              <th>Code</th>
+              <th>Name</th>
+              <th>Industry</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="spacer"></div>
+  </div>
+
+  <!-- Laser Loading Bar -->
+  <div class="laserbar" id="laserbar" role="status" aria-live="polite">
+    <div class="title">
+      <span>Crunching Rows 🧠</span>
+      <span id="laser-caption" class="muted">Parsing…</span>
+    </div>
+    <div class="beam"></div>
+  </div>
+
+  <script type="module">
+    // pdf.js is an ES module in this build
+    import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs";
+
+    // Configure pdf.js worker (required for v4 ESM builds)
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.mjs";
+
+    /*** State & Persistence ***/
+    const LS_KEY = 'ek_professions';
+    const state = { rows: loadRows(), preview: [] };
+
+    function loadRows() {
+      try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; } catch { return []; }
+    }
+    function saveRows() { localStorage.setItem(LS_KEY, JSON.stringify(state.rows)); renderTable(); }
+    function nextId() { return state.rows.length ? Math.max(...state.rows.map(r=>r.id)) + 1 : 1; }
+
+    /*** Helpers ***/
+    const $ = sel => document.querySelector(sel);
+    const $$ = sel => Array.from(document.querySelectorAll(sel));
+
+    function showLaser(caption='Parsing…') { $('#laser-caption').textContent = caption; $('#laserbar').classList.add('show'); }
+    function hideLaser() { setTimeout(()=> $('#laserbar').classList.remove('show'), 500); } // ensure 0.5s visible
+
+    function cleanName(raw) {
+      let s = String(raw || '').trim();
+    
+      for (let i = 0; i < s.length; i++) {
+        if (s[i] === '.') {
+          const after = s.slice(i + 1).trimStart();
+          if (after.startsWith('(')) {
+            s = s.slice(0, i);
+            break;
+          }
+        }
+      }
+    
+      return s.trim();
+    }
+
+    function toCSV(rows) {
+      const header = 'id,code,name,industry';
+      const body = rows.map(r => [r.id, r.code, `'${String(r.name).replaceAll("'", "''")}'`, r.industry].join(','));
+      return [header, ...body].join('\n');
+    }
+
+    function toSQL(rows) {
+      const lines = rows.map(r => `(${r.id}, ${r.code}, '${String(r.name).replaceAll("'", "''")}', ${r.industry})`);
+      return `INSERT INTO cerp_ek_profession (id, code, name, industry) VALUES\n                ${lines.join(',\n                ')};`;
+    }
+
+    function download(filename, text) {
+      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    /*** Tabs ***/
+    $$('.tab').forEach(btn => btn.addEventListener('click', () => {
+      $$('.tab').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const name = btn.dataset.tab;
+      $$('.pane').forEach(p=>p.classList.remove('active'));
+      $(`#pane-${name}`).classList.add('active');
+    }));
+
+    /*** Header actions ***/
+    $('#resetBtn').addEventListener('click', () => {
+      if (!confirm('Clear dataset and local storage?')) return;
+      state.rows = []; saveRows();
+    });
+    $('#returnHomeBtn').addEventListener('click', () => { window.location.href = '/'; });
+
+    /*** Manual insert ***/
+    $('#manual-add').addEventListener('click', () => {
+      const id = Number($('#manual-id').value) || nextId();
+      const code = Number($('#manual-code').value);
+      const name = cleanName($('#manual-name').value);
+      const industry = Number($('#manual-industry').value || 0);
+      if (!code || !name) { alert('Code and name are required.'); return; }
+      state.rows.push({ id, code, name, industry }); saveRows();
+      // Clear fields
+      $('#manual-id').value = ''; $('#manual-code').value = ''; $('#manual-name').value = ''; $('#manual-industry').value='';
+    });
+
+    /*** CSV Import ***/
+    let csvPreviewRows = [];
+    $('#csv-preview').addEventListener('click', () => {
+      const file = $('#csv-file').files?.[0];
+      if (!file) return alert('Choose a CSV file first.');
+      const startId = Number($('#csv-start-id').value) || nextId();
+      const industryId = Number($('#csv-industry-id').value || 0);
+      showLaser('Crunching CSV…');
+      Papa.parse(file, {
+        header: false,
+        skipEmptyLines: true,
+        complete: (result) => {
+          const rows = result.data
+            .map(r => ({ code: Number(r[0]), name: cleanName(String(r[1]||'')) }))
+            .filter(r => r.code && r.name);
+          csvPreviewRows = rows.map((r, i) => ({ id: startId + i, code: r.code, name: r.name, industry: industryId }));
+          renderPreview('#csv-preview-area', csvPreviewRows);
+          const canCommit = csvPreviewRows.length > 0 && validIndustry($('#csv-industry-id'));
+            setDisabledWithReason($('#csv-commit'), !canCommit, 'Set a non-zero Industry ID to enable Add.');
+          hideLaser();
+        }
+      });
+    });
+    $('#csv-commit').addEventListener('click', () => {
+      if (!csvPreviewRows.length) return;
+
+      // Block if Industry is zero/null OR any preview row has industry 0
+      if (!validIndustry($('#csv-industry-id')) || csvPreviewRows.some(r => !r.industry)) {
+        alert('Set a non-zero Industry ID, then re-run Preview before adding.');
+        return;
+      }
+    
+      state.rows.push(...csvPreviewRows); saveRows();
+    
+      // Reset UI and state
+      csvPreviewRows = [];
+      $('#csv-preview-area').innerHTML = '<em class="muted">Added.</em>';
+      $('#csv-commit').disabled = true;
+      $('#csv-commit').title = '';
+    
+      // Reset industry (and related) to force choosing a new one next time
+      $('#csv-industry-id').value = '0';
+      $('#csv-start-id').value = '';
+      $('#csv-file').value = '';
+    });
+    
+    $('#csv-industry-id').addEventListener('input', () => {
+      const canCommit = csvPreviewRows.length > 0 && validIndustry($('#csv-industry-id'));
+      setDisabledWithReason($('#csv-commit'), !canCommit, 'Set a non-zero Industry ID to enable Add.');
+    });
+
+    /*** PDF Import ***/
+    let pdfPreviewRows = [];
+    $('#pdf-preview').addEventListener('click', async () => {
+      const file = $('#pdf-file').files?.[0];
+      if (!file) return alert('Choose a PDF file first.');
+      const startId = Number($('#pdf-start-id').value) || nextId();
+      const industryId = Number($('#pdf-industry-id').value || 0);
+
+      showLaser('Crunching PDF…');
+      const arrayBuffer = await file.arrayBuffer();
+      // Load with pdf.js
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      const pdf = await loadingTask.promise;
+
+      let fullText = '';
+      for (let p = 1; p <= pdf.numPages; p++) {
+        const page = await pdf.getPage(p);
+        const content = await page.getTextContent();
+        let pageText = '';
+        let prevY = null;
+        
+        for (const it of content.items) {
+          const y = Math.round(it.transform[5]);
+          if (prevY !== null && Math.abs(y - prevY) > 2) pageText += '\n';
+          pageText += it.str;
+          if (it.hasEOL) pageText += '\n';
+          else pageText += ' ';
+          prevY = y;
+        }
+        
+        pageText = pageText.replace(/[ \t]+/g, ' ').replace(/ *\n+ */g, '\n').trim();
+        fullText += (fullText ? '\n' : '') + pageText;
+      }
+      // Find section starting at "Ammattinimikkeet"
+      const anchorIdx = fullText.toLowerCase().indexOf('ammattinimikkeet');
+      const after = anchorIdx >= 0 ? fullText.slice(anchorIdx + 'ammattinimikkeet'.length) : fullText;
+
+      // Regex: code (digits) then name (non-greedy until next code or end)
+      const pattern = /(\d{1,6})\s+([^\d][^\n\r]*?)(?=\s+\d{1,6}\s|$)/gmu;
+      const pairs = [];
+        for (const line of after.split(/\n+/).map(s => s.trim()).filter(Boolean)) {
+          const m = line.match(/^(\d{3,6})\s+(.+?)\.*$/);
+          if (!m) continue;
+          const code = Number(m[1]);
+          const name = cleanName(m[2]);
+          if (code && name) pairs.push({ code, name });
+        }
+
+      pdfPreviewRows = pairs.map((r, i) => ({ id: startId + i, code: r.code, name: r.name, industry: industryId }));
+      renderPreview('#pdf-preview-area', pdfPreviewRows);
+      const canCommit = pdfPreviewRows.length > 0 && validIndustry($('#pdf-industry-id'));
+        setDisabledWithReason($('#pdf-commit'), !canCommit, 'Set a non-zero Industry ID to enable Add.');
+      hideLaser();
+    });
+
+    $('#pdf-commit').addEventListener('click', () => {
+      if (!pdfPreviewRows.length) return;
+      if (!validIndustry($('#pdf-industry-id')) || pdfPreviewRows.some(r => !r.industry)) {
+        alert('Set a non-zero Industry ID, then re-run Preview before adding.');
+        return;
+      }
+    
+      state.rows.push(...pdfPreviewRows); saveRows();
+    
+      // Reset UI and state
+      pdfPreviewRows = [];
+      $('#pdf-preview-area').innerHTML = '<em class="muted">Added.</em>';
+      $('#pdf-commit').disabled = true;
+      $('#pdf-commit').title = '';
+    
+      // Reset industry (and related)
+      $('#pdf-industry-id').value = '0';
+      $('#pdf-start-id').value = '';
+      $('#pdf-file').value = '';
+    });
+
+    $('#pdf-industry-id').addEventListener('input', () => {
+  const canCommit = pdfPreviewRows.length > 0 && validIndustry($('#pdf-industry-id'));
+      setDisabledWithReason($('#pdf-commit'), !canCommit, 'Set a non-zero Industry ID to enable Add.');
+    });
+
+
+    /*** Preview renderer ***/
+    function renderPreview(sel, rows) {
+      if (!rows.length) { $(sel).innerHTML = '<em>No rows found.</em>'; return; }
+      const html = `
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>#</th><th>ID</th><th>Code</th><th>Name</th><th>Industry</th></tr></thead>
+            <tbody>
+              ${rows.map((r,i)=>`<tr><td>${i+1}</td><td>${r.id}</td><td>${r.code}</td><td>${r.name}</td><td>${r.industry}</td></tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+      $(sel).innerHTML = html;
+    }
+
+    /*** Dataset table renderer ***/
+    function renderTable() {
+      const tbody = $('#data-table tbody');
+      const rows = state.rows;
+      $('#count-label').textContent = rows.length ? `${rows.length} row(s)` : 'No rows yet.';
+      tbody.innerHTML = rows.map(r => `
+        <tr>
+          <td><input type="checkbox" data-id="${r.id}" /></td>
+          <td>${r.id}</td>
+          <td contenteditable="true" data-field="code" data-id="${r.id}">${r.code}</td>
+          <td contenteditable="true" data-field="name" data-id="${r.id}">${escapeHtml(r.name)}</td>
+          <td contenteditable="true" data-field="industry" data-id="${r.id}">${r.industry}</td>
+        </tr>`).join('');
+    }
+
+    function escapeHtml(s){return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');}
+
+    // Edit handlers (delegate)
+    $('#data-table').addEventListener('blur', (e) => {
+      const cell = e.target.closest('[contenteditable]');
+      if (!cell) return;
+      const id = Number(cell.dataset.id); const field = cell.dataset.field;
+      const row = state.rows.find(r => r.id === id); if (!row) return;
+      let val = cell.textContent.trim();
+      if (field === 'code' || field === 'industry') val = Number(val) || 0;
+      if (field === 'name') val = cleanName(val);
+      row[field] = val; saveRows();
+    }, true);
+
+    // Select all
+    $('#check-all').addEventListener('change', (e) => {
+      $$('#data-table tbody input[type="checkbox"]').forEach(cb => cb.checked = e.target.checked);
+    });
+
+    // Delete selected
+    $('#delete-selected').addEventListener('click', () => {
+      const ids = $$('#data-table tbody input[type="checkbox"]:checked').map(cb => Number(cb.dataset.id));
+      if (!ids.length) return;
+      if (!confirm(`Delete ${ids.length} selected row(s)?`)) return;
+      state.rows = state.rows.filter(r => !ids.includes(r.id)); saveRows();
+      $('#check-all').checked = false;
+    });
+
+    // Exports
+    $('#export-csv').addEventListener('click', () => {
+      if (!state.rows.length) return alert('Nothing to export.');
+      const csv = toCSV(state.rows);
+      download('ek_professions.csv', csv);
+    });
+
+    $('#export-sql').addEventListener('click', () => {
+      if (!state.rows.length) return alert('Nothing to export.');
+      const sql = toSQL(state.rows);
+      download('ek_professions.sql', sql);
+    });
+
+    // Initialize defaults
+    function setDefaultIds() {
+      $('#manual-id').placeholder = String(nextId());
+      $('#pdf-start-id').placeholder = String(nextId());
+      $('#csv-start-id').placeholder = String(nextId());
+    }
+
+    renderTable();
+    setDefaultIds();
+
+    // Also update defaults when data changes frequently
+    const observer = new MutationObserver(setDefaultIds);
+    observer.observe($('#data-table tbody'), { childList: true, subtree: true });
+
+    function validIndustry($input) { return Number($input.value || 0) > 0; }
+    function setDisabledWithReason(btn, disabled, reason='') {
+      btn.disabled = disabled;
+      btn.title = disabled && reason ? reason : '';
+    }
+  </script>
+</body>
+</html>
