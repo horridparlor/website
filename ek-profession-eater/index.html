@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EK Profession -eater</title>
+  <link rel="stylesheet" href="../styles.css" />
+  <style>
+    /* Page-specific tweaks that complement ../styles.css */
+    .container{max-width:1100px;margin:2rem auto;padding:0 1rem}
+    .card{background:#1b1b1b;border:1px solid #333;border-radius:12px;padding:1rem 1.25rem;box-shadow:0 8px 24px rgba(0,0,0,.3);margin-bottom:1rem}
+    .row{display:flex;gap:1rem;flex-wrap:wrap}
+    .row > *{flex:1}
+    .muted{color:#aaa;font-size:.95rem}
+    .rule-item{display:flex;align-items:flex-start;gap:.75rem;padding:.75rem;border:1px solid #2a2a2a;border-radius:10px;margin:.5rem 0;background:#141414}
+    .rule-header{display:flex;align-items:center;gap:.5rem}
+    .rule-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.5rem;margin-top:.5rem}
+    .rule-option{display:flex;gap:.35rem}
+    .rule-controls button{margin-left:.25rem}
+    .pill{display:inline-block;padding:.25rem .5rem;background:#222;border:1px solid #2f2f2f;border-radius:999px;font-size:.85rem}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:.6rem;border-bottom:1px solid #2a2a2a;text-align:left}
+    thead th{position:sticky;top:0;background:#111}
+    .actions{display:flex;gap:.5rem;flex-wrap:wrap}
+    .button.small{padding:.5rem .8rem;font-size:.95rem;border-radius:6px}
+    .checkboxes{display:flex;flex-wrap:wrap;gap:.75rem}
+    .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;background:#222;border:1px solid #333;border-bottom-width:3px;border-radius:6px;padding:.15rem .35rem}
+    .danger{background:#ff0066;color:#fff}
+    .danger:hover{background:#d90057}
+    .linklike{color:#00ffcc;text-decoration:underline;cursor:pointer}
+
+    /* Laser loading bar */
+    .loader-wrap{position:fixed;left:0;top:0;width:100%;height:3px;pointer-events:none;z-index:9999;}
+    .loader-bar{position:absolute;left:-40%;top:0;height:100%;width:40%;
+      background:linear-gradient(90deg,#00ffe1,#7c4dff,#00ffe1);
+      filter:drop-shadow(0 0 6px #00ffe1);
+      animation:laser .5s ease-in-out forwards}
+    @keyframes laser{0%{left:-40%}100%{left:100%}}
+    textarea#tsvInput{width:100%;resize:vertical;min-height:6rem}
+  </style>
+</head>
+<body>
+  <div class="loader-wrap" id="loader" style="display:none">
+    <div class="loader-bar"></div>
+  </div>
+
+  <header>
+    <div class="header-text">
+      <h1>EK Profession -eater</h1>
+      <div class="subtitle">Build profession codes, rules and export to CSV</div>
+    </div>
+    <nav class="actions">
+      <a class="button" href="../">⟵ Return Home</a>
+      <button id="resetBtn" class="button danger" title="Clear everything and start fresh">Reset</button>
+    </nav>
+  </header>
+
+  <main class="container">
+    <!-- Rules Builder -->
+    <section class="card" id="rulesSection">
+      <h2>1) Define Rules</h2>
+      <p class="muted">Each rule has a <strong>name</strong> and a list of <strong>options</strong>. Every option has a <span class="kbd">code</span> (appended to the base code) and a <span class="kbd">name</span> (shown in the caption). You can order rules; order affects code concatenation & caption order.</p>
+
+      <div class="actions" style="margin:.5rem 0 1rem 0">
+        <button class="button small" id="addRuleBtn">＋ Add Rule</button>
+        <button class="button small" id="saveRulesBtn" title="Save rules to localStorage">💾 Save</button>
+        <button class="button small" id="loadRulesBtn" title="Load rules into the row form">➡️ Load into Row Form</button>
+      </div>
+
+      <div id="rulesList"></div>
+    </section>
+
+    <!-- Row Creator -->
+    <section class="card" id="rowCreatorSection">
+      <h2>2) Add Base Profession Rows</h2>
+      <div class="row">
+        <div>
+          <label>Base Code</label>
+          <input id="baseCode" type="text" placeholder="e.g., 31" />
+        </div>
+        <div>
+          <label>Base Name</label>
+          <input id="baseName" type="text" placeholder="e.g., Card Driver" />
+        </div>
+      </div>
+      <div class="muted" style="margin-top:.5rem">Select which rules to apply. Checked rules will expand into all combinations of their options on submit. Checkboxes remain as-is after submit; only code & name clear.</div>
+      <div id="ruleCheckboxes" class="checkboxes" style="margin:.75rem 0 1rem 0"></div>
+      <div class="actions">
+        <button class="button" id="addRowBtn">↵ Add to Table</button>
+      </div>
+
+      <hr style="margin:1.25rem 0;border-color:#2a2a2a"/>
+      <h3>Bulk paste (TAB-separated)</h3>
+      <p class="muted">Paste lines as <span class="pill">code⇥name</span>. Header <span class="kbd">code⇥name</span> is optional. Only <strong>TAB</strong> splits columns; commas and other characters in the name are kept as-is. Preview shows fully expanded rows with the currently checked rules.</p>
+      <textarea id="tsvInput" rows="6" placeholder="code\tname&#10;255\tElintarvikemyyjä&#10;311\tCard Driver"></textarea>
+      <div class="actions" style="margin-top:.5rem">
+        <button class="button small" id="previewTsvBtn">👁️ Preview</button>
+        <button class="button small" id="addPreviewBtn" disabled>➕ Add Preview to Table</button>
+      </div>
+      <div style="overflow:auto; max-height: 35vh; margin-top:.5rem">
+        <table id="previewTable">
+          <thead><tr><th style="width:30%">Code</th><th>Name</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Output Table -->
+    <section class="card">
+      <h2>3) Generated Rows</h2>
+      <div class="actions" style="margin-bottom:.5rem">
+        <button class="button" id="exportBtn">⬇️ Export CSV</button>
+        <span class="muted">(<span class="linklike" id="dedupeLink">dedupe</span> / <span class="linklike" id="clearTableLink">clear table</span>)</span>
+      </div>
+      <div class="muted">Columns: <span class="pill">code</span> and <span class="pill">name</span></div>
+      <div style="overflow:auto; max-height: 50vh; margin-top:.5rem">
+        <table id="outputTable">
+          <thead><tr><th style="width:30%">Code</th><th>Name</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer>
+      <p class="muted">Data is saved to your browser's localStorage and restored on refresh or reopen.</p>
+    </footer>
+  </main>
+
+  <script>
+  (function(){
+    const LS_KEYS = {
+      RULES: 'ekp_rules',
+      TABLE: 'ekp_rows',
+      CHECKS: 'ekp_checks'
+    };
+
+    /*** State ***/
+    let rules = loadJSON(LS_KEYS.RULES, []);           // [{id, name, options:[{code,name}], order}]
+    let rows = loadJSON(LS_KEYS.TABLE, []);            // [{code,name}]
+    let persistedChecks = loadJSON(LS_KEYS.CHECKS, {}); // {ruleId: true/false}
+    let previewRows = [];                               // used by TSV preview
+
+    /*** DOM refs ***/
+    const rulesList = document.getElementById('rulesList');
+    const addRuleBtn = document.getElementById('addRuleBtn');
+    const saveRulesBtn = document.getElementById('saveRulesBtn');
+    const loadRulesBtn = document.getElementById('loadRulesBtn');
+
+    const baseCode = document.getElementById('baseCode');
+    const baseName = document.getElementById('baseName');
+    const ruleCheckboxes = document.getElementById('ruleCheckboxes');
+    const addRowBtn = document.getElementById('addRowBtn');
+
+    const outputTableBody = document.querySelector('#outputTable tbody');
+    const exportBtn = document.getElementById('exportBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const dedupeLink = document.getElementById('dedupeLink');
+    const clearTableLink = document.getElementById('clearTableLink');
+
+    // Bulk TSV refs
+    const tsvInput = document.getElementById('tsvInput');
+    const previewTsvBtn = document.getElementById('previewTsvBtn');
+    const addPreviewBtn = document.getElementById('addPreviewBtn');
+    const previewTableBody = document.querySelector('#previewTable tbody');
+
+    // Loader
+    const loaderEl = document.getElementById('loader');
+
+    /*** Utilities ***/
+    function uid(){ return Math.random().toString(36).slice(2,9); }
+    function loadJSON(key, fallback){
+      try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }catch{ return fallback; }
+    }
+    function saveJSON(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
+
+    function showLoader(){
+      if(!loaderEl) return;
+      loaderEl.style.display = 'block';
+      // Restart animation by swapping child
+      const old = loaderEl.firstElementChild;
+      if(old){
+        const fresh = old.cloneNode(true);
+        loaderEl.replaceChild(fresh, old);
+      }
+      setTimeout(()=>{ loaderEl.style.display='none'; }, 500);
+    }
+
+    function renderRulesEditor(){
+      rulesList.innerHTML = '';
+      if(!rules.length){
+        const hint = document.createElement('p');
+        hint.className='muted';
+        hint.textContent = 'No rules yet. Click “＋ Add Rule” to create one.';
+        rulesList.appendChild(hint);
+      }
+      rules.sort((a,b)=> (a.order??0)-(b.order??0));
+      rules.forEach((r,idx)=>{
+        const wrap = document.createElement('div');
+        wrap.className='rule-item';
+        wrap.dataset.id = r.id;
+
+        const header = document.createElement('div');
+        header.className='rule-header';
+        header.innerHTML = `
+          <input class="rule-name" value="${escapeHtml(r.name||'')}" placeholder="Rule name e.g., PayGroup" />
+          <div class="rule-controls">
+            <button class="button small" data-act="up">↑</button>
+            <button class="button small" data-act="down">↓</button>
+            <button class="button small" data-act="addOpt">＋ Option</button>
+            <button class="button small" data-act="delRule">🗑️ Delete</button>
+          </div>`;
+        wrap.appendChild(header);
+
+        const optionsBox = document.createElement('div');
+        optionsBox.className='rule-options';
+        (r.options||[]).forEach((o,i)=>{
+          const opt = document.createElement('div');
+          opt.className='rule-option';
+          opt.innerHTML = `
+            <input class="opt-code" value="${escapeHtml(o.code||'')}" placeholder="code e.g., 1" style="width:5rem" />
+            <input class="opt-name" value="${escapeHtml(o.name||'')}" placeholder="name e.g., A" />
+            <button class="button small" data-act="delOpt" title="Remove option">×</button>`;
+          optionsBox.appendChild(opt);
+        });
+        wrap.appendChild(optionsBox);
+
+        // Add event delegation for this rule block
+        wrap.addEventListener('click', (e)=>{
+          const t = e.target;
+          if(!(t instanceof HTMLElement)) return;
+          const act = t.getAttribute('data-act');
+          if(!act) return;
+          if(act==='addOpt'){
+            r.options = r.options||[];
+            r.options.push({code:'',name:''});
+            persistRules();
+            renderRulesEditor();
+            renderRuleCheckboxes();
+          } else if(act==='delOpt'){
+            const i = [...optionsBox.children].indexOf(t.parentElement);
+            r.options.splice(i,1);
+            persistRules();
+            renderRulesEditor();
+            renderRuleCheckboxes();
+          } else if(act==='delRule'){
+            rules.splice(idx,1);
+            persistRules();
+            renderRulesEditor();
+            renderRuleCheckboxes();
+          } else if(act==='up' || act==='down'){
+            const swapWith = act==='up' ? idx-1 : idx+1;
+            if(swapWith>=0 && swapWith<rules.length){
+              const tmpOrder = rules[swapWith].order; rules[swapWith].order = r.order; r.order = tmpOrder;
+              // Also swap positions to keep order stable
+              [rules[idx], rules[swapWith]] = [rules[swapWith], rules[idx]];
+              persistRules();
+              renderRulesEditor();
+              renderRuleCheckboxes();
+            }
+          }
+        });
+
+        // Inputs change handlers
+        wrap.addEventListener('input',()=>{
+          const nameEl = wrap.querySelector('.rule-name');
+          r.name = nameEl.value.trim();
+          r.options = [...wrap.querySelectorAll('.rule-option')].map(opt=>({
+            code: opt.querySelector('.opt-code').value.trim(),
+            name: opt.querySelector('.opt-name').value.trim()
+          }));
+          persistRules(false); // debounce-ish
+        });
+
+        rulesList.appendChild(wrap);
+      });
+    }
+
+    function persistRules(save=true){ if(save){ saveJSON(LS_KEYS.RULES, rules); } }
+
+    function addRule(){
+      const id = uid();
+      const maxOrder = rules.reduce((m,r)=> Math.max(m, r.order??0), 0);
+      rules.push({id, name:'', options:[{code:'1',name:'A'}], order:maxOrder+1});
+      persistRules();
+      renderRulesEditor();
+      renderRuleCheckboxes();
+    }
+
+    function renderRuleCheckboxes(){
+      ruleCheckboxes.innerHTML='';
+      rules.sort((a,b)=> (a.order??0)-(b.order??0));
+      rules.forEach(r=>{
+        const id = `chk_${r.id}`;
+        const chk = document.createElement('label');
+        chk.innerHTML = `<input type="checkbox" id="${id}"> ${escapeHtml(r.name||'(unnamed rule)')} <span class="muted">(${(r.options||[]).length} opt)</span>`;
+        ruleCheckboxes.appendChild(chk);
+        const saved = persistedChecks[r.id];
+        const box = chk.querySelector('input');
+        if(saved){ box.checked = true; }
+        box.addEventListener('change', ()=>{
+          persistedChecks[r.id] = box.checked;
+          saveJSON(LS_KEYS.CHECKS, persistedChecks);
+        });
+      });
+    }
+
+    /**
+     * Expand base row by selected rules.
+     * - Always append option codes.
+     * - Only append option names to the caption for rules that have MORE THAN ONE option.
+     */
+    function expandCombinations(base, selectedRuleIds){
+      const selected = rules.filter(r=> selectedRuleIds.includes(r.id));
+
+      // Prepare option sets with knowledge of whether the rule is single-option
+      const optionSets = selected.map(r => {
+        const isSingle = (r.options||[]).length === 1;
+        return (r.options||[]).map(o => ({
+          ruleName: r.name,
+          optCode: String(o.code || ''),
+          optName: o.name,
+          isSingle
+        }));
+      });
+
+      if(optionSets.length===0){ return [{code: base.code, name: base.name}]; }
+
+      // Cartesian product
+      const prod = optionSets.reduce((acc,set)=>{
+        const next=[]; acc.forEach(a => set.forEach(b => next.push([...a,b]))); return next;
+      }, [[]]);
+
+      return prod.map(combo => {
+        const codeSuffix = combo.map(x=>x.optCode).join('');
+        const captionParts = combo
+          .filter(x => !x.isSingle) // omit single-option rule names
+          .map(x => `${x.ruleName}: ${x.optName}`)
+          .filter(s => s && s.trim().length>0);
+
+        return {
+          code: `${base.code}${codeSuffix}`,
+          name: captionParts.length ? `${base.name} (${captionParts.join(', ')})` : `${base.name}`
+        };
+      });
+    }
+
+    function addBaseRow(){
+      const code = baseCode.value.trim();
+      const name = baseName.value.trim();
+      if(!code || !name){ alert('Please provide both Base Code and Base Name.'); return; }
+      showLoader();
+      const selectedRuleIds = rules.filter(r=> document.getElementById(`chk_${r.id}`)?.checked).map(r=> r.id);
+      const generated = expandCombinations({code,name}, selectedRuleIds);
+      generated.forEach(r=> rows.push(r));
+      saveJSON(LS_KEYS.TABLE, rows);
+      renderTable();
+      // Clear only base fields, keep checkboxes
+      baseCode.value='';
+      baseName.value='';
+      baseCode.focus();
+    }
+
+    function renderTable(){
+      showLoader();
+      outputTableBody.innerHTML='';
+      rows.forEach((r)=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td><span class="kbd">${escapeHtml(r.code)}</span></td><td>${escapeHtml(r.name)}</td>`;
+        outputTableBody.appendChild(tr);
+      });
+    }
+
+    function exportCSV(){
+      showLoader();
+      const header = 'code,name\n';
+      const body = rows.map(r => `${csvEscape(r.code)},${csvEscape(r.name)}`).join('\n');
+      const csv = header + body + '\n';
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'professions.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function clearAll(){
+      if(!confirm('Reset everything? This clears rules, rows, and checkbox selections.')) return;
+      showLoader();
+      localStorage.removeItem(LS_KEYS.RULES);
+      localStorage.removeItem(LS_KEYS.TABLE);
+      localStorage.removeItem(LS_KEYS.CHECKS);
+      rules = [];
+      rows = [];
+      persistedChecks = {};
+      renderRulesEditor();
+      renderRuleCheckboxes();
+      renderTable();
+      baseCode.value=''; baseName.value='';
+    }
+
+    function dedupeRows(){
+      showLoader();
+      const map = new Map();
+      rows.forEach(r=>{ map.set(r.code+"\u0000"+r.name, r); });
+      rows = [...map.values()];
+      saveJSON(LS_KEYS.TABLE, rows);
+      renderTable();
+    }
+
+    function clearTable(){
+      if(!confirm('Clear only the generated rows table? Rules stay intact.')) return;
+      showLoader();
+      rows = [];
+      saveJSON(LS_KEYS.TABLE, rows);
+      renderTable();
+    }
+
+    // Helpers
+    function escapeHtml(s){
+      return (s||'').replace(/[&<>"']/g, c=> ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
+    }
+    function csvEscape(s){
+      const t = String(s).replace(/"/g,'""');
+      return /[",\n]/.test(t) ? '"'+t+'"' : t;
+    }
+
+    /*** TSV paste → preview → add ***/
+    function previewTSV(){
+      const text = (tsvInput?.value || '').trim();
+      if(!text){ alert('Paste TAB-separated code\tname lines first.'); return; }
+      showLoader();
+      const basePairs = parseTSV(text); // [{code,name}]
+      const selectedRuleIds = rules
+        .filter(r => document.getElementById(`chk_${r.id}`)?.checked)
+        .map(r => r.id);
+
+      // Expand each base with currently checked rules
+      previewRows = [];
+      basePairs.forEach(b => {
+        expandCombinations(b, selectedRuleIds).forEach(x => previewRows.push(x));
+      });
+
+      renderPreviewTable();
+      if (addPreviewBtn) addPreviewBtn.disabled = previewRows.length === 0;
+    }
+
+    function addPreviewToTable(){
+      if(!previewRows.length) return;
+      showLoader();
+      previewRows.forEach(r => rows.push(r));
+      saveJSON(LS_KEYS.TABLE, rows);
+      renderTable();
+
+      // Keep checkboxes, clear only textarea & preview
+      if (tsvInput) tsvInput.value = '';
+      previewRows = [];
+      renderPreviewTable();
+      if (addPreviewBtn) addPreviewBtn.disabled = true;
+    }
+
+    function renderPreviewTable(){
+      if(!previewTableBody) return;
+      previewTableBody.innerHTML = '';
+      previewRows.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td><span class="kbd">${escapeHtml(r.code)}</span></td><td>${escapeHtml(r.name)}</td>`;
+        previewTableBody.appendChild(tr);
+      });
+    }
+
+    // Strict TSV parsing (two columns: code<TAB>name; header optional; no splitting on commas)
+    function parseTSV(text){
+      const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+      if(!lines.length) return [];
+      let i = 0;
+      const first = lines[0];
+      const looksHeader = /^\s*code\s*\t\s*name\s*$/i.test(first);
+      if (looksHeader) i = 1;
+
+      const out = [];
+      for (; i < lines.length; i++){
+        const line = lines[i];
+        // Split ONLY on the first TAB; keep the rest in name as-is
+        const tabIdx = line.indexOf('\t');
+        if (tabIdx === -1) continue;
+        const code = line.slice(0, tabIdx).trim();
+        const name = line.slice(tabIdx + 1).trim();
+        if (!code || !name) continue;
+        out.push({ code, name });
+      }
+      return out;
+    }
+
+    /*** Hook up events ***/
+    addRuleBtn.addEventListener('click', ()=>{ showLoader(); addRule(); });
+    saveRulesBtn.addEventListener('click', ()=>{ showLoader(); persistRules(true); alert('Rules saved.'); });
+    loadRulesBtn.addEventListener('click', ()=>{ showLoader(); renderRuleCheckboxes(); });
+    addRowBtn.addEventListener('click', addBaseRow);
+    exportBtn.addEventListener('click', exportCSV);
+    resetBtn.addEventListener('click', clearAll);
+    dedupeLink.addEventListener('click', dedupeRows);
+    clearTableLink.addEventListener('click', clearTable);
+
+    // TSV actions
+    previewTsvBtn.addEventListener('click', previewTSV);
+    addPreviewBtn.addEventListener('click', addPreviewToTable);
+
+    /*** Initial render from localStorage ***/
+    renderRulesEditor();
+    renderRuleCheckboxes();
+    renderTable();
+  })();
+  </script>
+</body>
+</html>

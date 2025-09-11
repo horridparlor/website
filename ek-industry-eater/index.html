@@ -246,17 +246,11 @@
 
     function cleanName(raw) {
       let s = String(raw || '').trim();
-    
-      for (let i = 0; i < s.length; i++) {
-        if (s[i] === '.') {
-          const after = s.slice(i + 1).trimStart();
-          if (after.startsWith('(')) {
-            s = s.slice(0, i);
-            break;
-          }
-        }
+      const lastDot = s.lastIndexOf('.');
+      // Only cut if the dot is the last visible thing (end of string or only spaces after it)
+      if (lastDot !== -1 && s.slice(lastDot + 1).trim() === '') {
+        s = s.slice(0, lastDot);
       }
-    
       return s.trim();
     }
 
@@ -277,6 +271,18 @@
       const a = document.createElement('a');
       a.href = url; a.download = filename; a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    
+    function reindexAfterDeletion(deletedIds) {
+      if (!deletedIds || !deletedIds.length) return;
+      const sorted = [...deletedIds].sort((a, b) => a - b);
+      state.rows = state.rows
+        .sort((a, b) => a.id - b.id)
+        .map(r => {
+          let k = 0;
+          while (k < sorted.length && sorted[k] < r.id) k++;
+          return k ? { ...r, id: r.id - k } : r;
+        });
     }
 
     /*** Tabs ***/
@@ -399,7 +405,7 @@
       const pattern = /(\d{1,6})\s+([^\d][^\n\r]*?)(?=\s+\d{1,6}\s|$)/gmu;
       const pairs = [];
         for (const line of after.split(/\n+/).map(s => s.trim()).filter(Boolean)) {
-          const m = line.match(/^(\d{3,6})\s+(.+?)\.*$/);
+          const m = line.match(/^(\d{1,6})\s+(.+?)$/);
           if (!m) continue;
           const code = Number(m[1]);
           const name = cleanName(m[2]);
@@ -491,18 +497,37 @@
 
     // Delete selected
     $('#delete-selected').addEventListener('click', () => {
-      const ids = $$('#data-table tbody input[type="checkbox"]:checked').map(cb => Number(cb.dataset.id));
+      const ids = $$('#data-table tbody input[type="checkbox"]:checked')
+        .map(cb => Number(cb.dataset.id));
       if (!ids.length) return;
       if (!confirm(`Delete ${ids.length} selected row(s)?`)) return;
-      state.rows = state.rows.filter(r => !ids.includes(r.id)); saveRows();
+      state.rows = state.rows.filter(r => !ids.includes(r.id));
+      reindexAfterDeletion(ids);
+      saveRows();
       $('#check-all').checked = false;
     });
 
     // Exports
-    $('#export-csv').addEventListener('click', () => {
-      if (!state.rows.length) return alert('Nothing to export.');
-      const csv = toCSV(state.rows);
-      download('ek_professions.csv', csv);
+    function exportCsvSemicolonQuoted(rows) {
+      const header = ["id","code","name","industry"];
+      const esc = v => `"${String(v).replace(/"/g, '""')}"`;
+      const lines = [header.map(esc).join(";")];
+      for (const r of rows.sort((a,b) => a.id - b.id)) {
+        lines.push([r.id, r.code, r.name, r.industry].map(esc).join(";"));
+      }
+      const csv = lines.join("\r\n");
+      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "ek_professions.csv";
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }
+    
+    document.getElementById("export-csv").addEventListener("click", () => {
+      exportCsvSemicolonQuoted(state.rows);
     });
 
     $('#export-sql').addEventListener('click', () => {
@@ -530,6 +555,43 @@
       btn.disabled = disabled;
       btn.title = disabled && reason ? reason : '';
     }
+    
+    $('#csv-file').addEventListener('change', () => {
+      const file = $('#csv-file').files?.[0];
+      if (!file) return;
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: h => String(h || '').trim().toLowerCase(),
+        complete: (result) => {
+          const hasHeaders = result.meta?.fields && ['id','code','name','industry'].every(k => result.meta.fields.includes(k));
+          if (!hasHeaders) return;
+          const incoming = result.data
+            .map(r => ({
+              id: Number(r.id),
+              code: Number(r.code),
+              name: cleanName(String(r.name ?? '')),
+              industry: Number(r.industry ?? 0)
+            }))
+            .filter(r => r.id && r.code && r.name.length);
+    
+          if (!incoming.length) return;
+    
+          const byId = new Map(state.rows.map(r => [r.id, r]));
+          for (const r of incoming) byId.set(r.id, r);
+          state.rows = Array.from(byId.values()).sort((a, b) => a.id - b.id);
+          saveRows();
+    
+          $('#csv-preview-area').innerHTML = `<em class="muted">Imported ${incoming.length} row(s) from header CSV.</em>`;
+          $('#csv-commit').disabled = true;
+          $('#csv-commit').title = '';
+          $('#csv-industry-id').value = '0';
+          $('#csv-start-id').value = '';
+          $('#csv-file').value = '';
+        }
+      });
+    });
+
   </script>
 </body>
 </html>
