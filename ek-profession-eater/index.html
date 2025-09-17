@@ -19,7 +19,7 @@
     .rule-controls button{margin-left:.25rem}
     .pill{display:inline-block;padding:.25rem .5rem;background:#222;border:1px solid #2f2f2f;border-radius:999px;font-size:.85rem}
     table{width:100%;border-collapse:collapse}
-    th,td{padding:.6rem;border-bottom:1px solid #2a2a2a;text-align:left}
+    th,td{padding:.6rem;border-bottom:1px solid #2a2a2a;text-align:left;vertical-align:top}
     thead th{position:sticky;top:0;background:#111}
     .actions{display:flex;gap:.5rem;flex-wrap:wrap}
     .button.small{padding:.5rem .8rem;font-size:.95rem;border-radius:6px}
@@ -28,6 +28,36 @@
     .danger{background:#ff0066;color:#fff}
     .danger:hover{background:#d90057}
     .linklike{color:#00ffcc;text-decoration:underline;cursor:pointer}
+
+    /* Inline editing */
+    .editable{cursor:pointer}
+    .editable:hover{background:rgba(255,255,255,.05)}
+    .cell-input{
+      width:100%;
+      box-sizing:border-box;
+      border:1px solid #2a2a2a;
+      background:#101010;
+      color:#fff;
+      border-radius:6px;
+      padding:.4rem .5rem;
+      font:inherit;
+      outline: none;
+    }
+    .cell-input:focus{box-shadow:0 0 0 2px #00ffe1}
+
+    /* Actions column */
+    .row-actions{white-space:nowrap}
+    .icon-btn{
+      border:1px solid #333;
+      background:#191919;
+      color:#eee;
+      border-radius:6px;
+      padding:.35rem .55rem;
+      cursor:pointer;
+    }
+    .icon-btn:hover{background:#222}
+    .icon-btn.danger{border-color:#5a1030;background:#2a0a18}
+    .icon-btn.danger:hover{background:#3a0e22}
 
     /* Laser loading bar */
     .loader-wrap{position:fixed;left:0;top:0;width:100%;height:3px;pointer-events:none;z-index:9999;}
@@ -112,10 +142,16 @@
         <button class="button" id="exportBtn">⬇️ Export CSV</button>
         <span class="muted">(<span class="linklike" id="dedupeLink">dedupe</span> / <span class="linklike" id="clearTableLink">clear table</span>)</span>
       </div>
-      <div class="muted">Columns: <span class="pill">code</span> and <span class="pill">name</span></div>
+      <div class="muted">Click any cell to edit. Use <span class="kbd">Enter</span> to save, <span class="kbd">Esc</span> to cancel. Delete single rows via the trash icon.</div>
       <div style="overflow:auto; max-height: 50vh; margin-top:.5rem">
         <table id="outputTable">
-          <thead><tr><th style="width:30%">Code</th><th>Name</th></tr></thead>
+          <thead>
+            <tr>
+              <th style="width:28%">Code</th>
+              <th>Name</th>
+              <th style="width:72px">Actions</th>
+            </tr>
+          </thead>
           <tbody></tbody>
         </table>
       </div>
@@ -310,12 +346,27 @@
      * - Only append option names to the caption for rules that have MORE THAN ONE option.
      */
     function expandCombinations(base, selectedRuleIds){
-      const selected = rules.filter(r=> selectedRuleIds.includes(r.id));
+      const selected = rules.filter(r => selectedRuleIds.includes(r.id));
 
-      // Prepare option sets with knowledge of whether the rule is single-option
-      const optionSets = selected.map(r => {
-        const isSingle = (r.options||[]).length === 1;
-        return (r.options||[]).map(o => ({
+      if (selected.length === 0) {
+        return [{ code: base.code, name: base.name }];
+      }
+
+      // Determine first occurrence of each rule name (preserve order)
+      const seen = new Set();
+      const uniqueByName = [];
+      for (const r of selected) {
+        if (!seen.has(r.name)) {
+          seen.add(r.name);
+          uniqueByName.push(r);
+        }
+      }
+
+      // Build option sets for unique names only
+      const uniqueOptionSets = uniqueByName.map(r => {
+        const opts = (r.options || []);
+        const isSingle = opts.length === 1;
+        return opts.map(o => ({
           ruleName: r.name,
           optCode: String(o.code || ''),
           optName: o.name,
@@ -323,23 +374,42 @@
         }));
       });
 
-      if(optionSets.length===0){ return [{code: base.code, name: base.name}]; }
-
-      // Cartesian product
-      const prod = optionSets.reduce((acc,set)=>{
-        const next=[]; acc.forEach(a => set.forEach(b => next.push([...a,b]))); return next;
+      // Cartesian product over unique names only
+      const prod = uniqueOptionSets.reduce((acc, set) => {
+        const next = [];
+        for (const a of acc) {
+          for (const b of set) next.push([...a, b]);
+        }
+        return next;
       }, [[]]);
 
-      return prod.map(combo => {
-        const codeSuffix = combo.map(x=>x.optCode).join('');
-        const captionParts = combo
-          .filter(x => !x.isSingle) // omit single-option rule names
-          .map(x => `${x.ruleName}: ${x.optName}`)
-          .filter(s => s && s.trim().length>0);
+      return prod.map(uniqueCombo => {
+        // Fast lookup: chosen option per rule name
+        const chosenByName = Object.create(null);
+        for (const choice of uniqueCombo) {
+          chosenByName[choice.ruleName] = choice;
+        }
+
+        // Code suffix: iterate *all* selected rules (including duplicate names)
+        const codeSuffix = selected
+          .map(r => (chosenByName[r.name]?.optCode ?? ''))
+          .join('');
+
+        // Caption: include each unique rule name once, only if it has >1 option
+        const captionParts = [];
+        for (const r of uniqueByName) {
+          const choice = chosenByName[r.name];
+          if (choice && !choice.isSingle) {
+            const part = `${choice.ruleName}: ${choice.optName}`;
+            if (part.trim()) captionParts.push(part);
+          }
+        }
 
         return {
           code: `${base.code}${codeSuffix}`,
-          name: captionParts.length ? `${base.name} (${captionParts.join(', ')})` : `${base.name}`
+          name: captionParts.length
+            ? `${base.name} (${captionParts.join(', ')})`
+            : `${base.name}`
         };
       });
     }
@@ -363,9 +433,30 @@
     function renderTable(){
       showLoader();
       outputTableBody.innerHTML='';
-      rows.forEach((r)=>{
+      rows.forEach((r, idx)=>{
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td><span class="kbd">${escapeHtml(r.code)}</span></td><td>${escapeHtml(r.name)}</td>`;
+
+        const tdCode = document.createElement('td');
+        tdCode.className = 'editable';
+        tdCode.dataset.index = idx;
+        tdCode.dataset.field = 'code';
+        tdCode.innerHTML = `<span class="kbd">${escapeHtml(r.code)}</span>`;
+        tr.appendChild(tdCode);
+
+        const tdName = document.createElement('td');
+        tdName.className = 'editable';
+        tdName.dataset.index = idx;
+        tdName.dataset.field = 'name';
+        tdName.textContent = r.name;
+        tr.appendChild(tdName);
+
+        const tdActions = document.createElement('td');
+        tdActions.className = 'row-actions';
+        tdActions.innerHTML = `
+          <button class="icon-btn danger" title="Delete row" data-act="del" data-index="${idx}">🗑️</button>
+        `;
+        tr.appendChild(tdActions);
+
         outputTableBody.appendChild(tr);
       });
     }
@@ -492,6 +583,68 @@
         out.push({ code, name });
       }
       return out;
+    }
+
+    /*** Inline editing + row deletion (event delegation) ***/
+    outputTableBody.addEventListener('click', (e) => {
+      const t = e.target;
+      if(!(t instanceof HTMLElement)) return;
+
+      // Delete
+      const delBtn = t.closest('[data-act="del"]');
+      if (delBtn) {
+        const idx = Number(delBtn.getAttribute('data-index'));
+        if (Number.isInteger(idx) && idx >= 0 && idx < rows.length) {
+          // Soft confirm
+          if (e.shiftKey || confirm('Delete this row?')) {
+            rows.splice(idx, 1);
+            saveJSON(LS_KEYS.TABLE, rows);
+            renderTable();
+          }
+        }
+        return;
+      }
+
+      // Edit cell
+      const td = t.closest('.editable');
+      if (!td) return;
+
+      const rowIndex = Number(td.dataset.index);
+      const field = td.dataset.field; // 'code' | 'name'
+      if (!(field === 'code' || field === 'name')) return;
+      startCellEdit(td, rowIndex, field);
+    });
+
+    function startCellEdit(td, rowIndex, field){
+      // Prevent opening multiple editors in the same cell
+      if (td.querySelector('input.cell-input')) return;
+
+      const current = (rows[rowIndex]?.[field] ?? '').toString();
+      td.innerHTML = '';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = current;
+      input.className = 'cell-input';
+      input.setAttribute('aria-label', `Edit ${field}`);
+      td.appendChild(input);
+      input.focus();
+      input.select();
+
+      const commit = () => {
+        const val = input.value.trim();
+        rows[rowIndex][field] = val;
+        saveJSON(LS_KEYS.TABLE, rows);
+        renderTable();
+      };
+      const cancel = () => {
+        renderTable();
+      };
+
+      input.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') { ev.preventDefault(); commit(); }
+        else if (ev.key === 'Escape') { ev.preventDefault(); cancel(); }
+      });
+      input.addEventListener('blur', commit);
     }
 
     /*** Hook up events ***/

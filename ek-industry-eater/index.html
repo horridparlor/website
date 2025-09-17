@@ -246,11 +246,6 @@
 
     function cleanName(raw) {
       let s = String(raw || '').trim();
-      const lastDot = s.lastIndexOf('.');
-      // Only cut if the dot is the last visible thing (end of string or only spaces after it)
-      if (lastDot !== -1 && s.slice(lastDot + 1).trim() === '') {
-        s = s.slice(0, lastDot);
-      }
       return s.trim();
     }
 
