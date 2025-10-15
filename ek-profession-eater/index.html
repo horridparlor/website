@@ -400,7 +400,14 @@
         for (const r of uniqueByName) {
           const choice = chosenByName[r.name];
           if (choice && !choice.isSingle) {
-            const part = `${choice.ruleName}: ${choice.optName}`;
+            const rawName = (r.name || '').trim();
+            const isHidden = rawName.startsWith('*');
+            const displayRuleName = rawName.replace(/^\*/, '').trim();
+        
+            const part = isHidden
+              ? `${choice.optName}`                 // only the option name
+              : `${displayRuleName}: ${choice.optName}`; // RuleName: OptionName
+        
             if (part.trim()) captionParts.push(part);
           }
         }
