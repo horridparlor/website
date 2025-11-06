@@ -85,6 +85,38 @@
     .flex-gap{display:flex;gap:.5rem;flex-wrap:wrap}
 
     .hidden{display:none !important}
+
+/* percentage-coloring */
+.pct {
+  display:inline-block;
+  min-width:5.2rem;
+  text-align:center;
+  padding:.18rem .5rem;
+  border-radius:8px;
+  font-weight:600;
+  color:#fff;
+  font-size:.86rem;
+  margin-left:.45rem;
+  box-shadow:0 6px 14px rgba(0,0,0,.35);
+}
+
+/* neutral for |%| < 20% */
+.pct-neutral{ background:#6b6b6b; color:#fff; }
+
+/* positive moderate increase (>=20% up) */
+.pct-up{ background:#2b6fb1; /* blue */ }
+
+/* negative moderate decrease (<=-20%) */
+.pct-down{ background:#d85aa6; /* pink */ }
+
+/* >=100% large positive change (green) */
+.pct-large-pos{ background:#2a9d33; /* green */ }
+
+/* <=-100% large negative change (red) */
+.pct-large-neg{ background:#c92b2b; /* red */ }
+
+/* fallback for undefined percent (e.g. F1 == 0) */
+.pct-unknown{ background:#444; color:#fff; opacity:.95 }
   </style>
 </head>
 <body>
@@ -273,25 +305,95 @@
     }
 
     function doCalculate(){
-      // 1s laser loading
-      el.overlay.style.display = 'flex';
-      setTimeout(()=>{
-        const a = getValues(el.col1);
-        const b = getValues(el.col2);
-        const sa = stats(a);
-        const sb = stats(b);
-        const rows = [
-          ['Count', sa.count, sb.count, (sa.count && sb.count) ? (sa.count - sb.count) : '—'],
-          ['Min (s)', fmt(sa.min), fmt(sb.min), diff(sa.min, sb.min)],
-          ['Max (s)', fmt(sa.max), fmt(sb.max), diff(sa.max, sb.max)],
-          ['Mean (s)', fmt(sa.mean), fmt(sb.mean), diff(sa.mean, sb.mean)],
-          ['Median (s)', fmt(sa.median), fmt(sb.median), diff(sa.median, sb.median)],
-        ];
-        el.resultsBody.innerHTML = rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join('');
-        el.results.style.display = 'block';
-        el.overlay.style.display = 'none';
-      }, 1000);
+  // show loading overlay (existing UX). Keep same timing for UX.
+  el.overlay.style.display = 'flex';
+  setTimeout(()=>{
+    const a = getValues(el.col1); // F1 values (baseline)
+    const b = getValues(el.col2); // F2 values (new)
+    const sa = stats(a);
+    const sb = stats(b);
+
+    // helper to format percent and choose class
+    function percentMarker(base, newV){
+      // base = F1, newV = F2
+      const diff = (base == null || newV == null) ? null : (newV - base);
+      // handle when base is zero or null
+      if(base === 0){
+        // if both zero => 0% neutral
+        if(newV === 0) {
+          return {html: `<span class="pct pct-neutral">0.0%</span>`};
+        }
+        // base 0 -> percent is technically infinite; choose color based on sign:
+        if(diff > 0) return {html: `<span class="pct pct-large-pos">+∞</span>`};
+        if(diff < 0) return {html: `<span class="pct pct-large-neg">-∞</span>`};
+        return {html: `<span class="pct pct-unknown">—</span>`};
+      }
+      if(base == null || newV == null || !isFinite(base) || !isFinite(newV)) return {html: `<span class="pct pct-unknown">—</span>`};
+
+      const pct = ( (newV - base) / base ) * 100;
+      const absPct = Math.abs(pct);
+
+      // Apply your color rules:
+      // - absPct < 20% -> neutral gray
+      // - absPct >= 20% and absPct < 100% -> blue (positive) or pink (negative)
+      // - absPct >= 100% -> green if positive, red if negative
+      let cls = 'pct-neutral';
+      if(absPct >= 100){
+        cls = pct >= 0 ? 'pct-large-pos' : 'pct-large-neg';
+      } else if(absPct >= 20){
+        cls = pct >= 0 ? 'pct-up' : 'pct-down';
+      } else {
+        cls = 'pct-neutral';
+      }
+
+      const sign = pct >= 0 ? '+' : ''; // add + for positive
+      // round to one decimal for display
+      const pctStr = `${sign}${pct.toFixed(1)}%`;
+      return { html: `<span class="pct ${cls}" title="${pct.toFixed(2)}%"> ${pctStr} </span>` , value: pct };
     }
+
+    // rows to render (metric label, f1-value, f2-value, difference html)
+    const rows = [
+      ['Count', sa.count, sb.count, (sa.count && sb.count) ? (sa.count - sb.count) : '—'],
+      ['Min (s)', fmt(sa.min), fmt(sb.min), diff(sa.min, sb.min)],
+      ['Max (s)', fmt(sa.max), fmt(sb.max), diff(sa.max, sb.max)],
+      ['Mean (s)', fmt(sa.mean), fmt(sb.mean), diff(sa.mean, sb.mean)],
+      ['Median (s)', fmt(sa.median), fmt(sb.median), diff(sa.median, sb.median)],
+    ];
+
+    // Build tbody with percentage markers where numeric
+    el.resultsBody.innerHTML = rows.map(r => {
+      const metric = r[0];
+      const v1raw = (r[1] === '—') ? null : Number(r[1]);
+      const v2raw = (r[2] === '—') ? null : Number(r[2]);
+
+      // compute the absolute difference text (same as before)
+      const absDiff = (v1raw == null || v2raw == null) ? r[3] : (Number(v1raw) - Number(v2raw)).toFixed(4);
+
+      // compute percent marker HTML
+      let pctHtml = '';
+      // only show percent marker if both values are numeric (or handle base zero)
+      if(v1raw !== null || v2raw !== null){
+        const marker = percentMarker(v1raw, v2raw);
+        pctHtml = marker.html;
+      }
+
+      // If absDiff is numeric, show number and then the colored percent pill.
+      const diffCell = (absDiff === '—') ? '—' : `${absDiff} ${pctHtml}`;
+
+      return `<tr>
+        <td>${metric}</td>
+        <td>${r[1]}</td>
+        <td>${r[2]}</td>
+        <td>${diffCell}</td>
+      </tr>`;
+    }).join('');
+
+    el.results.style.display = 'block';
+    el.overlay.style.display = 'none';
+  }, 1000);
+}
+
 
     function exportInputsCSV(){
       const r = Number(el.rowCount.value)||20;
