@@ -117,9 +117,28 @@
 
 /* fallback for undefined percent (e.g. F1 == 0) */
 .pct-unknown{ background:#444; color:#fff; opacity:.95 }
+
+.back-home {
+  position: absolute;
+  top: 1.2rem;
+  left: 1.2rem;
+  padding: 0.45rem 0.8rem;
+  background: #222;
+  border: 1px solid #333;
+  color: var(--accent);
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 0.95rem;
+  transition: all .2s;
+}
+.back-home:hover {
+  background: #333;
+  border-color: var(--accent);
+}
   </style>
 </head>
 <body>
+  <a href=".." class="back-home">⟵ Palaa Kotiin</a>
   <div class="container">
     <div class="panel">
       <div class="titlebar">
