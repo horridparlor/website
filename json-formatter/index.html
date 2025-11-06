@@ -160,6 +160,7 @@
 <div id="toast" class="toast"></div>
 
 <script>
+  const STORAGE_KEY = 'jsonFormatter.input';
   const input = document.getElementById('input');
   const output = document.getElementById('output');
   const button = document.getElementById('convertBtn');
@@ -181,9 +182,17 @@
     }, 50);
   }
 
+  // ===== debounce helper =====
+  function debounce(fn, wait = 250) {
+    let t;
+    return (...args) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn(...args), wait);
+    };
+  }
+
   // ===== JSON -> DOM (collapsable) =====
   function renderJSON(value, keyLabel) {
-    // Primitiiivien formatteri
     const span = (cls, text) => {
       const el = document.createElement('span');
       el.className = cls;
@@ -198,7 +207,6 @@
     if (type === 'number') return span('n', String(value));
     if (type === 'boolean') return span('b', String(value));
 
-    // Array tai Object
     const isArray = Array.isArray(value);
     const keys = isArray ? value.map((_, i) => i) : Object.keys(value);
 
@@ -216,7 +224,6 @@
             : `${bracketOpen} Object · ${keys.length} ${keys.length === 1 ? 'key' : 'keys'} ${bracketClose}`;
 
     if (keyLabel !== undefined) {
-      // näytä avain ennen tiivistelmää
       const keySpan = document.createElement('span');
       keySpan.className = 'k';
       keySpan.textContent = keyLabel;
@@ -228,13 +235,11 @@
     summary.appendChild(wrapper);
     details.appendChild(summary);
 
-    // Lapset
     keys.forEach((k) => {
       const line = document.createElement('div');
       line.className = 'line';
 
       if (isArray) {
-        // [index]: value
         const idx = document.createElement('span');
         idx.className = 'k';
         idx.textContent = `[${k}]`;
@@ -242,7 +247,6 @@
         line.appendChild(span('sep', ': '));
         line.appendChild(renderJSON(value[k]));
       } else {
-        // key: value
         const keySpan = document.createElement('span');
         keySpan.className = 'k';
         keySpan.textContent = k;
@@ -279,7 +283,34 @@
     }
   }
 
+  // --- persist input to localStorage (debounced) ---
+  const saveInput = debounce(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, input.value || '');
+    } catch (e) {
+      console.warn('Could not save input to localStorage', e);
+    }
+  }, 200);
+  input.addEventListener('input', saveInput);
+
+  // Restore on load
+  document.addEventListener('DOMContentLoaded', () => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        input.value = saved;
+        // auto render previous content so the UI "remembers"
+        parseAndRender(input.value.trim());
+      }
+    } catch (e) {
+      console.warn('localStorage read failed', e);
+    }
+  });
+
+  // Save and parse when user clicks the Prettify button
   button.addEventListener('click', () => {
+    // ensure saved immediately
+    try { localStorage.setItem(STORAGE_KEY, input.value || ''); } catch(e){}
     parseAndRender(input.value.trim());
   });
 </script>
