@@ -44,6 +44,7 @@
     }
     /* UUSI: JSON-katselin */
     .json-output {
+      position: relative; /* for copy button placement */
       width: 100%;
       max-width: 600px;
       min-height: 300px;
@@ -136,6 +137,56 @@
     }
     .toast.show { opacity: 1; }
     .toast.error { background-color: #ff0033; }
+
+    /* Copy button inside output */
+    .copy-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      background: linear-gradient(90deg,#00ffcc,#00ccff);
+      color: #002;
+      font-size: 18px;
+      border: none;
+      box-shadow: 0 6px 18px rgba(0,255,204,0.08), 0 2px 6px rgba(0,0,0,0.5);
+      transition: transform .12s ease, box-shadow .12s ease, filter .12s ease, opacity .12s ease;
+      z-index: 10;
+    }
+    .copy-btn:focus { outline: 2px solid #00ffcc; }
+    .copy-btn:hover { transform: translateY(-3px) scale(1.03); filter: brightness(1.07); box-shadow: 0 10px 30px rgba(0,204,255,0.18); }
+
+    /* tooltip that appears on hover */
+    .copy-btn .tooltip {
+      position: absolute;
+      top: -36px;
+      right: 0;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      background: #111;
+      color: #fff;
+      white-space: nowrap;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+      opacity: 0;
+      transform: translateY(6px);
+      pointer-events: none;
+      transition: opacity .12s ease, transform .12s ease;
+    }
+    .copy-btn:hover .tooltip,
+    .copy-btn:focus .tooltip {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .copy-btn.copied { animation: pop .28s ease; }
+    @keyframes pop { 0%{ transform: scale(1);} 50%{ transform: scale(1.12);} 100%{ transform: scale(1);} }
+
     @media (min-width: 768px) {
       textarea { width: 45%; }
       .json-output { width: 45%; }
@@ -149,7 +200,7 @@
 <div class="container">
   <textarea id="input" placeholder="Liitä URL-koodattu JSON tähän..."></textarea>
   <!-- MUUTOS: textarea -> div katselimeksi -->
-  <div id="output" class="json-output" aria-live="polite"></div>
+  <div id="output" class="json-output" aria-live="polite" role="region"></div>
 </div>
 
 <div class="buttons">
@@ -157,7 +208,7 @@
   <a href="/" class="home-btn">← Takaisin kotiin</a>
 </div>
 
-<div id="toast" class="toast"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script>
   const STORAGE_KEY = 'jsonFormatter.input';
@@ -260,7 +311,61 @@
     return details;
   }
 
+  // Create copy button element (inserted into output)
+  function createCopyButton() {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'copy-btn';
+    btn.setAttribute('aria-label', 'Copy to Clipboard');
+    btn.title = 'Copy to Clipboard';
+
+    // SVG icon (copy)
+    btn.innerHTML = `📎<span class="tooltip">Copy to Clipboard</span>`;
+
+    // click handler
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const pretty = output.dataset.json;
+      if (!pretty) {
+        showToast('Ei kopoitavaa JSONia. Muunna ensin.', true);
+        return;
+      }
+
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(pretty);
+        } else {
+          // fallback
+          const ta = document.createElement('textarea');
+          ta.value = pretty;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+
+        // visual feedback: tooltip and tiny pop animation
+        const tooltip = btn.querySelector('.tooltip');
+        if (tooltip) tooltip.textContent = 'Copied!';
+        btn.classList.add('copied');
+        showToast('JSON kopioitu leikepöydälle!');
+        setTimeout(() => {
+          if (tooltip) tooltip.textContent = 'Copy to Clipboard';
+          btn.classList.remove('copied');
+        }, 1400);
+      } catch (err) {
+        showToast('Kopio epäonnistui.', true);
+        console.error('copy failed', err);
+      }
+    });
+
+    return btn;
+  }
+
   function parseAndRender(encoded) {
+    // clear stored json unless we successfully parse
+    output.dataset.json = '';
+
     if (!encoded) {
       showAnimatedOutput(document.createTextNode('Liitä ensin URL-koodattu JSON!'));
       showToast('Tyhjä syöte. Liitä JSON ensin.', true);
@@ -273,9 +378,23 @@
       const decoded = decodeURIComponent(encoded);
       const json = JSON.parse(decoded);
       const tree = renderJSON(json);
-      showAnimatedOutput(tree);
+
+      // store prettified JSON so copy button can use it
+      output.dataset.json = JSON.stringify(json, null, 2);
+
+      // create wrapper so we can position copy button (keeps tree intact)
+      const wrapper = document.createElement('div');
+      wrapper.style.position = 'relative';
+      wrapper.appendChild(tree);
+
+      // always attach a fresh copy button into wrapper (avoids disappearing when output gets cleared)
+      const copyBtn = createCopyButton();
+      wrapper.appendChild(copyBtn);
+
+      showAnimatedOutput(wrapper);
       showToast('Valmis!');
     } catch (err) {
+      output.dataset.json = '';
       const errorEl = document.createElement('div');
       errorEl.textContent = 'Virhe: ' + err.message;
       showAnimatedOutput(errorEl);
@@ -317,3 +436,4 @@
 
 </body>
 </html>
+
