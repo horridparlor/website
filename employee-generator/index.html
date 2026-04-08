@@ -4,7 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Employee Generator</title>
+
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+
   <style>
     body {
       margin: 0;
@@ -23,169 +25,260 @@
       margin-bottom: 2rem;
     }
 
-    .info-box {
-      max-width: 600px;
-      margin: auto;
-      background-color: #1e1e1e;
-      padding: 2rem;
-      border-radius: 12px;
-      border: 2px solid #00ffcc;
-      box-shadow: 0 0 10px #00ffcc;
-      line-height: 1.6;
-      font-size: 16px;
-    }
-
-    .info-box div {
-      margin-bottom: 1rem;
-    }
-
     .info-container {
-     max-width: 600px;
-     margin: auto;
+      max-width: 660px;
+      margin: auto;
+    }
+
+    .info-box {
+      background-color: #1e1e1e;
+      padding: 2.2rem;
+      border-radius: 14px;
+      border: 2px solid #00ffcc;
+      box-shadow: 0 0 14px #00ffcc55;
+    }
+
+    /* ---- ROW LAYOUT ---- */
+    .row {
+      display: grid;
+      grid-template-columns: 170px 1fr auto;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.1rem;
+    }
+
+    .label {
+      color: #bfffe9;
+    }
+
+    /* ---- INPUTS ---- */
+    select,
+    input[type="number"] {
+      width: 100%;
+      height: 42px;
+      font-size: 16px;
+      padding: 6px 12px;
+      font-family: inherit;
+      background-color: #111;
+      color: #00ffcc;
+      border: 1px solid #00ffcc;
+      border-radius: 10px;
+    }
+
+    select:focus,
+    input:focus {
+      outline: none;
+      box-shadow: 0 0 10px #00ffcc;
+    }
+
+    /* Number arrows – modern look */
+    input[type="number"]::-webkit-inner-spin-button {
+      opacity: 1;
+      margin-left: 10px;
+      filter: invert(1) brightness(1.2);
+    }
+
+    hr {
+      border: none;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #00ffcc, transparent);
+      margin: 2.2rem 0 2rem; /* MORE bottom space */
+    }
+
+    /* ---- OUTPUT TEXT ---- */
+    .value {
+      word-break: break-all;
+    }
+
+    .copy-btn {
+      background-color: #2b2b2b;
+      color: #00ffcc;
+      border: none;
+      border-radius: 8px;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .copy-btn:hover {
+      background-color: #00ffcc;
+      color: #000;
+    }
+
+    /* ---- REGENERATE BUTTON ---- */
+    .regen-btn {
+      margin-top: 2rem;
+      width: 100%;
+      background: linear-gradient(90deg, #ff0066, #ff6600);
+      color: #fff;
+      padding: 16px;
+      font-size: 18px;
+      font-weight: 800;
+      border-radius: 14px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 0 18px #ff006688;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .regen-btn span {
+      color: #00ff66; /* GREEN ICON */
+      font-size: 20px;
+    }
+
+    .regen-btn:hover {
+      transform: scale(1.04);
+      box-shadow: 0 0 26px #ff0066;
     }
 
     .home-btn {
       display: inline-block;
       margin-top: 2rem;
-      display: inline-block;
-      background: linear-gradient(90deg, #ff0066, #ff6600);
+      background: linear-gradient(90deg, #444, #222);
       color: #fff;
-      padding: 12px 24px;
-      font-size: 16px;
+      padding: 10px 22px;
       border-radius: 8px;
       text-decoration: none;
-      box-shadow: 0 0 10px #ff0066;
-      transition: transform 0.2s, box-shadow 0.2s;
     }
-
-    .home-btn:hover {
-      transform: scale(1.05);
-      box-shadow: 0 0 20px #ff0066;
-    }
-    
-    .copy-btn {
-        background-color: #424c5b;
-        color: #424c5b;
-        border: none;
-        border-radius: 6px;
-        padding: 4px 8px;
-        margin-left: 8px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        font-size: 1em;
-      }
-    
-      .copy-btn:hover {
-        background-color: #2e5c6d;
-        color: #eee;
-      }
-    
-      .copy-btn:active {
-        background-color: #65ccf2;
-        color: #fff;
-      }
   </style>
 </head>
+
 <body>
 
-  <h2>Employee Generator</h2>
-  <div class="info-container">
-    <div class="info-box" id="employeeBox">
-      <div>
-        <strong>Etunimi:</strong> 
-        <span id="firstName">Matti</span>
-        <button class="copy-btn" onclick="copyText('firstName')">📎</button>
-      </div>
-      <div>
-        <strong>Sukunimi:</strong> 
-        <span id="lastName">Meikäläinen</span>
-        <button class="copy-btn" onclick="copyText('lastName')">📎</button>
-      </div>
-      <div>
-        <strong>Henkilötunnus:</strong> 
-        <span id="hetu">010101-123A</span>
-        <button class="copy-btn" onclick="copyText('hetu')">📎</button>
-      </div>
-      <div>
-        <strong>IBAN:</strong> 
-        <span id="iban">FI47 1234 5612 3456 78</span>
-        <button class="copy-btn" onclick="copyText('iban')">📎</button>
-      </div>
-      <div>
-        <strong>BIC:</strong> 
-        <span id="bic">NDEAFIHH</span>
-        <button class="copy-btn" onclick="copyText('bic')">📎</button>
-      </div>
+<h2>Employee Generator</h2>
+
+<div class="info-container">
+  <div class="info-box">
+
+    <div class="row">
+      <div class="label">Sukupuoli</div>
+      <select id="sexSelect"></select>
+      <div></div>
     </div>
 
-  <a href="/" class="home-btn">← Takaisin kotiin</a>
+    <div class="row">
+      <div class="label">Syntymävuosi</div>
+      <input type="number" id="yearInput">
+      <div></div>
+    </div>
+
+    <hr>
+
+    <div class="row">
+      <div class="label">Etunimi</div>
+      <div class="value" id="firstName"></div>
+      <button class="copy-btn" onclick="copyText('firstName')">📎</button>
+    </div>
+
+    <div class="row">
+      <div class="label">Sukunimi</div>
+      <div class="value" id="lastName"></div>
+      <button class="copy-btn" onclick="copyText('lastName')">📎</button>
+    </div>
+
+    <div class="row">
+      <div class="label">Henkilötunnus</div>
+      <div class="value" id="hetu"></div>
+      <button class="copy-btn" onclick="copyText('hetu')">📎</button>
+    </div>
+
+    <div class="row">
+      <div class="label">IBAN</div>
+      <div class="value" id="iban"></div>
+      <button class="copy-btn" onclick="copyText('iban')">📎</button>
+    </div>
+
+    <div class="row">
+      <div class="label">BIC</div>
+      <div class="value" id="bic"></div>
+      <button class="copy-btn" onclick="copyText('bic')">📎</button>
+    </div>
+
+    <button class="regen-btn" onclick="regenerateAll()">
+      <span>↻</span> REGENERATE
+    </button>
   </div>
 
-  <script>
-    const maleNames = ["Mikko", "Juha", "Antti", "Pekka", "Lauri"];
-    const femaleNames = ["Anna", "Tiina", "Sari", "Laura", "Katja"];
-    const lastNames = ["Virtanen", "Korhonen", "Nieminen", "Mäkinen", "Hämäläinen"];
+  <a href="/" class="home-btn">← Takaisin kotiin</a>
+</div>
 
-    function randomItem(arr) {
-      return arr[Math.floor(Math.random() * arr.length)];
-    }
+<script>
+  const maleNames = ["Mikko","Juha","Antti","Pekka","Lauri","Jussi","Timo","Ville","Sami","Aleksi"];
+  const femaleNames = ["Anna","Laura","Sari","Katja","Tiina","Emilia","Johanna","Maria","Elina","Aino"];
+  const lastNames = ["Virtanen","Korhonen","Nieminen","Mäkinen","Hämäläinen","Laine","Heikkinen","Koski","Järvinen","Lehtonen"];
+  const checksumChars = "0123456789ABCDEFHJKLMNPRSTUVWXY";
+  const bicCodes = ["NDEAFIHH","OKOYFIHH","DABAFIHH","SBANFIHH"];
 
-    function getRandomDate(over18 = true) {
-      const start = new Date();
-      start.setFullYear(start.getFullYear() - (over18 ? 100 : 0));
-      const end = new Date();
-      end.setFullYear(end.getFullYear() - 18);
-      const date = new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
-      const dd = String(date.getDate()).padStart(2, '0');
-      const mm = String(date.getMonth() + 1).padStart(2, '0');
-      const yy = String(date.getFullYear()).slice(-2);
-      const century = date.getFullYear() < 2000 ? '-' : 'A';
-      return { dd, mm, yy, fullYear: date.getFullYear(), century };
-    }
+  const rand = arr => arr[Math.floor(Math.random() * arr.length)];
 
-    function generateHetu() {
-      const { dd, mm, yy, fullYear, century } = getRandomDate();
-      const nnn = String(Math.floor(Math.random() * 900) + 100);
-      const base = `${dd}${mm}${yy}${century}${nnn}`;
-      const checksumChars = '0123456789ABCDEFHJKLMNPRSTUVWXY';
-      const checkIndex = parseInt(`${dd}${mm}${yy}${nnn}`, 10) % 31;
-      return base + checksumChars[checkIndex];
-    }
-    
-    function generateFinnishIban() {
-      const bankCode = String(Math.floor(101010 + Math.random() * 198990));
-      const accountNumber = String(Math.floor(10000000 + Math.random() * 90000000)); // 8-digit account number
-      const bban = bankCode + accountNumber;
-      const rearranged = bban + 'FI00';
-      const numericIban = rearranged.replace(/[A-Z]/g, c => c.charCodeAt(0) - 55);
-      const mod97 = BigInt(numericIban) % 97n;
-      const checkDigits = String(98n - mod97).padStart(2, '0');
-      const iban = `FI${checkDigits}${bban}`;
-      return iban.match(/.{1,4}/g).join(' ');
-    }
+  function randomYear() {
+    const now = new Date().getFullYear();
+    return Math.floor(Math.random() * 120) + (now - 120);
+  }
 
-    function generateEmployee() {
-      const gender = Math.random() < 0.5 ? 'male' : 'female';
-      const firstName = gender === 'male' ? randomItem(maleNames) : randomItem(femaleNames);
-      const lastName = randomItem(lastNames);
-      const hetu = generateHetu();
-      const iban = generateFinnishIban();
+  function generateHetu(sex, year) {
+    const dd = String(Math.floor(Math.random() * 28) + 1).padStart(2,"0");
+    const mm = String(Math.floor(Math.random() * 12) + 1).padStart(2,"0");
+    const yy = String(year).slice(-2);
+    const c = year < 1900 ? "+" : year < 2000 ? "-" : "A";
 
-      document.getElementById('firstName').textContent = firstName;
-      document.getElementById('lastName').textContent = lastName;
-      document.getElementById('hetu').textContent = hetu;
-      document.getElementById('iban').textContent = iban;
-    }
-    
-    function copyText(elementId) {
-        const text = document.getElementById(elementId).innerText;
-        navigator.clipboard.writeText(text).then(() => {
-          console.log(`Copied: ${text}`);
-        });
-      }
+    let n;
+    do {
+      n = Math.floor(Math.random() * 900) + 100;
+    } while ((sex === "Mies" && n % 2 === 0) || (sex === "Nainen" && n % 2 !== 0));
 
-    window.addEventListener('DOMContentLoaded', generateEmployee);
-  </script>
+    const base = `${dd}${mm}${yy}${n}`;
+    const check = checksumChars[parseInt(base,10) % 31];
+    return `${dd}${mm}${yy}${c}${n}${check}`;
+  }
+
+  function generateFinnishIban() {
+    const bban = String(Math.floor(100000 + Math.random()*900000)) +
+                 String(Math.floor(10000000 + Math.random()*90000000));
+    const r = bban + "FI00";
+    const num = r.replace(/[A-Z]/g,c=>c.charCodeAt(0)-55);
+    const mod = BigInt(num) % 97n;
+    const cd = String(98n-mod).padStart(2,"0");
+    return (`FI${cd}${bban}`).match(/.{1,4}/g).join(" ");
+  }
+
+  function populateSelectors(){
+    sexSelect.innerHTML="";
+    ["Mies","Nainen"].forEach(s=>{
+      const o=document.createElement("option");
+      o.value=s; o.textContent=s;
+      sexSelect.appendChild(o);
+    });
+    sexSelect.value=Math.random()<0.5?"Mies":"Nainen";
+    const now=new Date().getFullYear();
+    yearInput.min=1; yearInput.max=now;
+    yearInput.value=randomYear();
+  }
+
+  function regeneratePerson(){
+    firstName.textContent = sexSelect.value==="Mies" ? rand(maleNames) : rand(femaleNames);
+    lastName.textContent  = rand(lastNames);
+    hetu.textContent      = generateHetu(sexSelect.value, +yearInput.value);
+    iban.textContent      = generateFinnishIban();
+    bic.textContent       = rand(bicCodes);
+  }
+
+  function regenerateAll(){
+    populateSelectors();
+    regeneratePerson();
+  }
+
+  function copyText(id){
+    navigator.clipboard.writeText(document.getElementById(id).innerText);
+  }
+
+  sexSelect.addEventListener("change", regeneratePerson);
+  yearInput.addEventListener("change", regeneratePerson);
+  window.addEventListener("DOMContentLoaded", regenerateAll);
+</script>
 
 </body>
 </html>
