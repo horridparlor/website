@@ -303,205 +303,230 @@
   </footer>
 
   <script>
-    const $ = (sel) => document.querySelector(sel);
-    const left = $('#left');
-    const right = $('#right');
-    const diffList = $('#diffList');
-    const overlay = $('#overlay');
-    const toast = $('#toast');
-    const report = $('#report');
-    const counts = {
-      added: $('#addedCount'),
-      removed: $('#removedCount'),
-      changed: $('#changedCount'),
-      type: $('#typeCount')
+  const LEFT_KEY  = 'neonDiff.left';
+  const RIGHT_KEY = 'neonDiff.right';
+
+  const $ = (sel) => document.querySelector(sel);
+  const left = $('#left');
+  const right = $('#right');
+  const diffList = $('#diffList');
+  const overlay = $('#overlay');
+  const toast = $('#toast');
+  const report = $('#report');
+  const counts = {
+    added: $('#addedCount'),
+    removed: $('#removedCount'),
+    changed: $('#changedCount'),
+    type: $('#typeCount')
+  };
+  $('#year').textContent = new Date().getFullYear();
+
+  function showToast(msg, error=false) {
+    toast.textContent = msg;
+    toast.className = 'toast' + (error ? ' error' : '');
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2400);
+  }
+
+  function debounce(fn, wait = 250) {
+    let t;
+    return (...args) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn(...args), wait);
     };
-    $('#year').textContent = new Date().getFullYear();
+  }
 
-    function showToast(msg, error=false) {
-      toast.textContent = msg;
-      toast.className = 'toast' + (error ? ' error' : '');
-      toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 2400);
-    }
-
-    function withOverlay(fn) {
-      // show laser overlay for exactly ~1s, then run function and hide
-      overlay.classList.add('show');
-      overlay.setAttribute('aria-hidden', 'false');
-      report.setAttribute('aria-busy', 'true');
-      setTimeout(() => {
-        try { fn(); }
-        finally {
-          overlay.classList.remove('show');
-          overlay.setAttribute('aria-hidden', 'true');
-          report.setAttribute('aria-busy', 'false');
-        }
-      }, 1000);
-    }
-
-    // Safe JSON parse with error messaging
-    function parseJSON(raw) {
-      try { return { ok: true, value: JSON.parse(raw) }; }
-      catch (e) { return { ok: false, error: e.message }; }
-    }
-
-    // Build a path component (dot/bracket notation)
-    function pathJoin(base, key) {
-      if (base === '') return Array.isArray(key) ? `[${key}]` : String(key);
-      if (/^\\d+$/.test(String(key))) return base + `[${key}]`;
-      if (/^[a-zA-Z_$][\\w$]*$/.test(String(key))) return base + '.' + key;
-      return base + '["' + String(key).replace(/"/g,'\\"') + '"]';
-    }
-
-    function isObject(x){ return x && typeof x === 'object' && !Array.isArray(x); }
-
-    // Deep diff (arrays by index). Returns array of entries: {kind, path, a?, b?}
-    function diff(a, b, basePath='') {
-      const out = [];
-
-      if (a === b) return out; // identical primitives or same ref
-
-      // Handle primitive vs object mismatches
-      const aObj = a !== null && typeof a === 'object';
-      const bObj = b !== null && typeof b === 'object';
-      if (aObj !== bObj || Array.isArray(a) !== Array.isArray(b)) {
-        out.push({ kind:'type', path: basePath, a, b });
-        return out;
+  function withOverlay(fn) {
+    overlay.classList.add('show');
+    overlay.setAttribute('aria-hidden', 'false');
+    report.setAttribute('aria-busy', 'true');
+    setTimeout(() => {
+      try { fn(); }
+      finally {
+        overlay.classList.remove('show');
+        overlay.setAttribute('aria-hidden', 'true');
+        report.setAttribute('aria-busy', 'false');
       }
+    }, 1000);
+  }
 
-      // Arrays
-      if (Array.isArray(a) && Array.isArray(b)) {
-        const max = Math.max(a.length, b.length);
-        for (let i = 0; i < max; i++) {
-          const p = pathJoin(basePath, String(i));
-          if (i >= a.length) out.push({ kind:'added', path:p, b:b[i] });
-          else if (i >= b.length) out.push({ kind:'removed', path:p, a:a[i] });
-          else out.push(...diff(a[i], b[i], p));
-        }
-        return out;
-      }
+  function parseJSON(raw) {
+    try { return { ok: true, value: JSON.parse(raw) }; }
+    catch (e) { return { ok: false, error: e.message }; }
+  }
 
-      // Objects
-      if (isObject(a) && isObject(b)) {
-        const aKeys = Object.keys(a);
-        const bKeys = Object.keys(b);
-        const all = new Set([...aKeys, ...bKeys]);
-        all.forEach(k => {
-          const p = pathJoin(basePath, k);
-          if (!(k in a)) out.push({ kind:'added', path:p, b:b[k] });
-          else if (!(k in b)) out.push({ kind:'removed', path:p, a:a[k] });
-          else if (a[k] !== b[k]) {
-            const ak = a[k], bk = b[k];
-            const akObj = ak !== null && typeof ak === 'object';
-            const bkObj = bk !== null && typeof bk === 'object';
-            if ((Array.isArray(ak) !== Array.isArray(bk)) || (akObj !== bkObj)) {
-              out.push({ kind:'type', path:p, a:ak, b:bk });
-            } else if (akObj && bkObj) {
-              out.push(...diff(ak, bk, p));
-            } else if (ak !== bk) {
-              out.push({ kind:'changed', path:p, a:ak, b:bk });
-            }
-          }
-        });
-        return out;
-      }
+  function pathJoin(base, key) {
+    if (base === '') return Array.isArray(key) ? `[${key}]` : String(key);
+    if (/^\d+$/.test(String(key))) return base + `[${key}]`;
+    if (/^[a-zA-Z_$][\w$]*$/.test(String(key))) return base + '.' + key;
+    return base + '["' + String(key).replace(/"/g,'\\"') + '"]';
+  }
 
-      // primitives unequal
-      out.push({ kind:'changed', path: basePath, a, b });
+  function isObject(x){ return x && typeof x === 'object' && !Array.isArray(x); }
+
+  function diff(a, b, basePath='') {
+    const out = [];
+    if (a === b) return out;
+    const aObj = a !== null && typeof a === 'object';
+    const bObj = b !== null && typeof b === 'object';
+    if (aObj !== bObj || Array.isArray(a) !== Array.isArray(b)) {
+      out.push({ kind:'type', path: basePath, a, b });
       return out;
     }
-
-    function stringify(val) {
-      if (typeof val === 'string') return '\"' + val.replace(/\"/g, '\\\"') + '\"';
-      return JSON.stringify(val);
-    }
-
-    function renderDiffs(list) {
-      diffList.replaceChildren();
-      const countsMap = { added: 0, removed: 0, changed: 0, type: 0 };
-      if (!list.length) {
-        // Success fireworks
-        const wrap = document.createElement('div');
-        wrap.className = 'success-wrap';
-        const title = document.createElement('div');
-        title.className = 'success-title';
-        title.textContent = 'Success – They Perfect Match!';
-        const sub = document.createElement('div');
-        sub.className = 'success-sub';
-        sub.textContent = '💥💥💥 BIG EXPLOSIONS 💥💥💥';
-        wrap.appendChild(title);
-        wrap.appendChild(sub);
-
-        // create multiple 'boom' particles
-        for (let i=0; i<36; i++) {
-          const b = document.createElement('div');
-          b.className = 'boom';
-          const angle = (i / 36) * Math.PI * 2;
-          const radius = 160 + Math.random()*120;
-          b.style.setProperty('--dx', (Math.cos(angle)*radius).toFixed(1) + 'px');
-          b.style.setProperty('--dy', (Math.sin(angle)*radius).toFixed(1) + 'px');
-          b.style.left = '50%'; b.style.top = '50%';
-          wrap.appendChild(b);
-        }
-        diffList.appendChild(wrap);
-      } else {
-        list.forEach(({kind, path, a, b}) => {
-          countsMap[kind]++;
-          const li = document.createElement('li');
-          const badge = document.createElement('span');
-          badge.className = 'badge ' + (kind === 'type' ? 'typediff' : kind);
-          badge.textContent = kind.toUpperCase();
-          const text = document.createElement('span');
-          const parts = [];
-          parts.push(' at ');
-          const pathEl = document.createElement('span'); pathEl.className = 'path'; pathEl.textContent = path || '(root)';
-          const desc = document.createElement('span');
-          if (kind === 'added') desc.textContent = ' → ' + stringify(b);
-          else if (kind === 'removed') desc.textContent = ' ← ' + stringify(a);
-          else if (kind === 'changed') desc.textContent = ` : ${stringify(a)} → ${stringify(b)}`;
-          else desc.textContent = ` : type ${Array.isArray(a) ? 'array' : typeof a} → ${Array.isArray(b) ? 'array' : typeof b}`;
-
-          li.appendChild(badge);
-          li.appendChild(document.createTextNode(' '));
-          li.appendChild(document.createTextNode('Path'));
-          li.appendChild(...parts.map(t => document.createTextNode(t)));
-          li.appendChild(pathEl);
-          if (desc) li.appendChild(desc);
-          diffList.appendChild(li);
-        });
+    if (Array.isArray(a) && Array.isArray(b)) {
+      const max = Math.max(a.length, b.length);
+      for (let i = 0; i < max; i++) {
+        const p = pathJoin(basePath, String(i));
+        if (i >= a.length) out.push({ kind:'added', path:p, b:b[i] });
+        else if (i >= b.length) out.push({ kind:'removed', path:p, a:a[i] });
+        else out.push(...diff(a[i], b[i], p));
       }
-      counts.added.textContent = countsMap.added;
-      counts.removed.textContent = countsMap.removed;
-      counts.changed.textContent = countsMap.changed;
-      counts.type.textContent = countsMap.type;
+      return out;
     }
-
-    // Event handlers
-    document.getElementById('compare').addEventListener('click', () => {
-      withOverlay(() => {
-        const L = left.value.trim();
-        const R = right.value.trim();
-        if (!L || !R) { showToast('Please paste JSON into both fields', true); renderDiffs([]); return; }
-
-        const a = parseJSON(L);
-        if (!a.ok) { showToast('Left JSON error: ' + a.error, true); renderDiffs([{kind:'changed', path:'(left)', a:'Invalid JSON', b:a.error }]); return; }
-        const b = parseJSON(R);
-        if (!b.ok) { showToast('Right JSON error: ' + b.error, true); renderDiffs([{kind:'changed', path:'(right)', a:'Invalid JSON', b:b.error }]); return; }
-
-        const diffs = diff(a.value, b.value, '');
-        renderDiffs(diffs);
-        showToast(diffs.length ? 'Found ' + diffs.length + ' difference' + (diffs.length===1?'':'s') : 'Perfect match! 💥');
-        location.hash = '#report';
+    if (isObject(a) && isObject(b)) {
+      const aKeys = Object.keys(a);
+      const bKeys = Object.keys(b);
+      const all = new Set([...aKeys, ...bKeys]);
+      all.forEach(k => {
+        const p = pathJoin(basePath, k);
+        if (!(k in a)) out.push({ kind:'added', path:p, b:b[k] });
+        else if (!(k in b)) out.push({ kind:'removed', path:p, a:a[k] });
+        else if (a[k] !== b[k]) {
+          const ak = a[k], bk = b[k];
+          const akObj = ak !== null && typeof ak === 'object';
+          const bkObj = bk !== null && typeof bk === 'object';
+          if ((Array.isArray(ak) !== Array.isArray(bk)) || (akObj !== bkObj)) {
+            out.push({ kind:'type', path:p, a:ak, b:bk });
+          } else if (akObj && bkObj) {
+            out.push(...diff(ak, bk, p));
+          } else if (ak !== bk) {
+            out.push({ kind:'changed', path:p, a:ak, b:bk });
+          }
+        }
       });
-    });
+      return out;
+    }
+    out.push({ kind:'changed', path: basePath, a, b });
+    return out;
+  }
 
-    document.getElementById('reset').addEventListener('click', () => {
-      left.value = '';
-      right.value = '';
-      renderDiffs([]);
-      showToast('Reset!');
+  function stringify(val) {
+    if (typeof val === 'string') return '\"' + val.replace(/\"/g, '\\\"') + '\"';
+    return JSON.stringify(val);
+  }
+
+  function renderDiffs(list) {
+    diffList.replaceChildren();
+    const countsMap = { added: 0, removed: 0, changed: 0, type: 0 };
+    if (!list.length) {
+      const wrap = document.createElement('div');
+      wrap.className = 'success-wrap';
+      const title = document.createElement('div');
+      title.className = 'success-title';
+      title.textContent = 'Success – They Perfect Match!';
+      const sub = document.createElement('div');
+      sub.className = 'success-sub';
+      sub.textContent = '💥💥💥 BIG EXPLOSIONS 💥💥💥';
+      wrap.appendChild(title);
+      wrap.appendChild(sub);
+
+      for (let i=0; i<36; i++) {
+        const b = document.createElement('div');
+        b.className = 'boom';
+        const angle = (i / 36) * Math.PI * 2;
+        const radius = 160 + Math.random()*120;
+        b.style.setProperty('--dx', (Math.cos(angle)*radius).toFixed(1) + 'px');
+        b.style.setProperty('--dy', (Math.sin(angle)*radius).toFixed(1) + 'px');
+        b.style.left = '50%'; b.style.top = '50%';
+        wrap.appendChild(b);
+      }
+      diffList.appendChild(wrap);
+    } else {
+      list.forEach(({kind, path, a, b}) => {
+        countsMap[kind]++;
+        const li = document.createElement('li');
+        const badge = document.createElement('span');
+        badge.className = 'badge ' + (kind === 'type' ? 'typediff' : kind);
+        badge.textContent = kind.toUpperCase();
+        const pathEl = document.createElement('span'); pathEl.className = 'path'; pathEl.textContent = path || '(root)';
+        const desc = document.createElement('span');
+        if (kind === 'added') desc.textContent = ' → ' + stringify(b);
+        else if (kind === 'removed') desc.textContent = ' ← ' + stringify(a);
+        else if (kind === 'changed') desc.textContent = ` : ${stringify(a)} → ${stringify(b)}`;
+        else desc.textContent = ` : type ${Array.isArray(a) ? 'array' : typeof a} → ${Array.isArray(b) ? 'array' : typeof b}`;
+
+        li.appendChild(badge);
+        li.appendChild(document.createTextNode(' '));
+        li.appendChild(document.createTextNode('Path'));
+        li.appendChild(document.createTextNode(' at '));
+        li.appendChild(pathEl);
+        if (desc) li.appendChild(desc);
+        diffList.appendChild(li);
+      });
+    }
+    counts.added.textContent = countsMap.added;
+    counts.removed.textContent = countsMap.removed;
+    counts.changed.textContent = countsMap.changed;
+    counts.type.textContent = countsMap.type;
+  }
+
+  // --- persistence: save textareas to localStorage (debounced) ---
+  const saveLeft  = debounce(() => { try { localStorage.setItem(LEFT_KEY, left.value || ''); } catch(e){ } }, 200);
+  const saveRight = debounce(() => { try { localStorage.setItem(RIGHT_KEY, right.value || ''); } catch(e){ } }, 200);
+  left.addEventListener('input', saveLeft);
+  right.addEventListener('input', saveRight);
+
+  // restore on load
+  document.addEventListener('DOMContentLoaded', () => {
+    try {
+      const L = localStorage.getItem(LEFT_KEY);
+      const R = localStorage.getItem(RIGHT_KEY);
+      if (L) left.value = L;
+      if (R) right.value = R;
+      // optional: auto-compare if both present
+      if (left.value.trim() && right.value.trim()) {
+        // do not show overlay immediately on page load; simulate quick compare
+        const a = parseJSON(left.value);
+        const b = parseJSON(right.value);
+        if (a.ok && b.ok) {
+          const diffs = diff(a.value, b.value, '');
+          renderDiffs(diffs);
+        }
+      }
+    } catch (e) {
+      console.warn('localStorage read failed', e);
+    }
+  });
+
+  // Compare button: save then compute diffs (also keeps storage current)
+  document.getElementById('compare').addEventListener('click', () => {
+    // immediate save
+    try { localStorage.setItem(LEFT_KEY, left.value || ''); localStorage.setItem(RIGHT_KEY, right.value || ''); } catch(e){}
+    withOverlay(() => {
+      const L = left.value.trim();
+      const R = right.value.trim();
+      if (!L || !R) { showToast('Please paste JSON into both fields', true); renderDiffs([]); return; }
+
+      const a = parseJSON(L);
+      if (!a.ok) { showToast('Left JSON error: ' + a.error, true); renderDiffs([{kind:'changed', path:'(left)', a:'Invalid JSON', b:a.error }]); return; }
+      const b = parseJSON(R);
+      if (!b.ok) { showToast('Right JSON error: ' + b.error, true); renderDiffs([{kind:'changed', path:'(right)', a:'Invalid JSON', b:b.error }]); return; }
+
+      const diffs = diff(a.value, b.value, '');
+      renderDiffs(diffs);
+      showToast(diffs.length ? 'Found ' + diffs.length + ' difference' + (diffs.length===1?'':'s') : 'Perfect match! 💥');
+      location.hash = '#report';
     });
-  </script>
+  });
+
+  // Reset button: clear fields AND localStorage
+  document.getElementById('reset').addEventListener('click', () => {
+    left.value = '';
+    right.value = '';
+    try { localStorage.removeItem(LEFT_KEY); localStorage.removeItem(RIGHT_KEY); } catch(e){}
+    renderDiffs([]);
+    showToast('Reset!');
+  });
+</script>
 </body>
 </html>

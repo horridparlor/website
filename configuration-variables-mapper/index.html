@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Configuration Variables Mapper</title>
+  <!-- Site base styles are expected to be at ../styles.css -->
+  <link rel="stylesheet" href="../styles.css">
+  <!-- Page-specific styles (returned with this package) -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="container">
+    <header class="page-header">
+      <div class="left-controls">
+        <button id="backBtn" class="ui-btn ghost">← Go back</button>
+      </div>
+      <h1 class="page-title">Configuration Variables -mapper</h1>
+      <div class="right-controls">
+        <button id="resetBtn" class="ui-btn danger">Reset</button>
+      </div>
+    </header>
+
+    <section class="uploader">
+      <div class="input-row">
+        <label class="file-label">
+          <input id="fileInput" type="file" accept=".json" />
+          <span>Open JSON file</span>
+        </label>
+
+        <button id="processBtn" class="ui-btn primary">Process</button>
+      </div>
+
+      <textarea id="jsonInput" placeholder='Paste JSON here — e.g. {"configurationVariables":[{ "name":"A","type":"boolean","description":"..." }]}'></textarea>
+
+      <div class="run-row">
+        <button id="runBtn" class="ui-btn success" disabled>Run</button>
+        <div id="status" class="status muted">No data processed</div>
+      </div>
+    </section>
+
+    <section id="duplicatesSection" class="duplicates hidden">
+      <div class="dups-header">
+        <span id="dupSummary" class="dup-summary"></span>
+      </div>
+      <div id="dupGroups" class="dup-groups"></div>
+      <div class="dup-actions">
+        <button id="applyDupRemoval" class="ui-btn danger" disabled>Delete selected duplicates</button>
+      </div>
+    </section>
+
+    <section id="variablesSection" class="variables hidden">
+      <div class="vars-header">
+        <h2>Variables (<span id="varsCount">0</span>)</h2>
+        <input id="searchBox" placeholder="Filter by name..." />
+      </div>
+      <ul id="varsList" class="vars-list"></ul>
+      <div class="vars-actions">
+        <button id="downloadBtn" class="ui-btn primary" disabled>Download cleaned configurationVariables.json</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Loading overlay (0.5s on run) -->
+  <div id="loadingOverlay" class="loading-overlay hidden" aria-hidden="true">
+    <div class="loader-wrap">
+      <div class="laser-bar"></div>
+      <div class="loader-text">Processing…</div>
+    </div>
+  </div>
+
+<script>
+/* Configuration Variables Mapper JS */
+
+/* Helpers */
+const qs = sel => document.querySelector(sel);
+const qsa = sel => Array.from(document.querySelectorAll(sel));
+const show = el => el.classList.remove('hidden');
+const hide = el => el.classList.add('hidden');
+
+/* Elements */
+const fileInput = qs('#fileInput');
+const jsonInput = qs('#jsonInput');
+const processBtn = qs('#processBtn');
+const runBtn = qs('#runBtn');
+const resetBtn = qs('#resetBtn');
+const backBtn = qs('#backBtn');
+const status = qs('#status');
+const duplicatesSection = qs('#duplicatesSection');
+const dupSummary = qs('#dupSummary');
+const dupGroups = qs('#dupGroups');
+const applyDupRemoval = qs('#applyDupRemoval');
+const variablesSection = qs('#variablesSection');
+const varsList = qs('#varsList');
+const varsCount = qs('#varsCount');
+const downloadBtn = qs('#downloadBtn');
+const loadingOverlay = qs('#loadingOverlay');
+const searchBox = qs('#searchBox');
+
+/* State */
+let rawJson = null;
+let variables = []; // array of objects
+let duplicateGroups = []; // array of {key, items: [{idx, item}]}
+
+/* File input */
+fileInput.addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    jsonInput.value = ev.target.result;
+    status.textContent = `Loaded file: ${f.name}`;
+  };
+  reader.readAsText(f);
+});
+
+/* Reset */
+resetBtn.addEventListener('click', () => {
+  jsonInput.value = '';
+  rawJson = null;
+  variables = [];
+  duplicateGroups = [];
+  status.textContent = 'Reset done';
+  hide(duplicatesSection);
+  hide(variablesSection);
+  runBtn.disabled = true;
+  downloadBtn.disabled = true;
+  applyDupRemoval.disabled = true;
+  varsList.innerHTML = '';
+  dupGroups.innerHTML = '';
+  varsCount.textContent = '0';
+});
+
+backBtn.addEventListener('click', () => {
+  history.back();
+});
+
+/* Process button: parse JSON */
+processBtn.addEventListener('click', () => {
+  const val = jsonInput.value.trim();
+  if (!val) {
+    status.textContent = 'No JSON to process';
+    return;
+  }
+  try {
+    rawJson = JSON.parse(val);
+  } catch (err) {
+    status.textContent = 'Invalid JSON — check syntax';
+    return;
+  }
+  if (!rawJson.configurationVariables || !Array.isArray(rawJson.configurationVariables)) {
+    status.textContent = 'JSON parsed but no configurationVariables array found';
+    return;
+  }
+  variables = rawJson.configurationVariables.map((v, i) => ({...v, __origIndex: i}));
+  status.textContent = `Parsed ${variables.length} items`;
+  runBtn.disabled = false;
+  show(variablesSection);
+  renderVariablesList(variables);
+  detectDuplicates();
+});
+
+/* Run button: show 0.5s loading then process (sort, prepare duplicates) */
+runBtn.addEventListener('click', async () => {
+  if (!variables.length) return;
+  show(loadingOverlay);
+  loadingOverlay.setAttribute('aria-hidden','false');
+  // show for exactly 500ms with laser animation
+  await new Promise(r => setTimeout(r, 500));
+  hide(loadingOverlay);
+  loadingOverlay.setAttribute('aria-hidden','true');
+
+  // After loading: sort variables alphabetically by name (case-insensitive)
+  variables.sort((a,b)=> {
+    const A = (a.name||'').toLowerCase();
+    const B = (b.name||'').toLowerCase();
+    if (A < B) return -1;
+    if (A > B) return 1;
+    return 0;
+  });
+  renderVariablesList(variables);
+  detectDuplicates();
+  status.textContent = `Run complete — ${variables.length} variables processed`;
+  downloadBtn.disabled = false;
+});
+
+/* Render variables list (collapsible items) */
+function renderVariablesList(list) {
+  varsList.innerHTML = '';
+  varsCount.textContent = String(list.length);
+  list.forEach((v, idx) => {
+    const li = document.createElement('li');
+    li.className = 'var-item';
+    li.innerHTML = `
+      <button class="var-toggle"><strong>${escapeHtml(v.name||'(no name)')}</strong> <span class="var-type">${escapeHtml(v.type||'')}</span></button>
+      <div class="var-body hidden">
+        <pre class="var-json">${escapeHtml(JSON.stringify(v, null, 2))}</pre>
+      </div>
+    `;
+    const toggle = li.querySelector('.var-toggle');
+    const body = li.querySelector('.var-body');
+    toggle.addEventListener('click', () => body.classList.toggle('hidden'));
+    varsList.appendChild(li);
+  });
+}
+
+/* Detect duplicates by name (case-insensitive) */
+function detectDuplicates() {
+  const map = new Map();
+  variables.forEach((v, idx) => {
+    const key = (v.name||'').toLowerCase();
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push({idx, item: v});
+  });
+  duplicateGroups = [];
+  for (const [key, items] of map.entries()) {
+    if (items.length > 1) duplicateGroups.push({key, items});
+  }
+  if (duplicateGroups.length) {
+    show(duplicatesSection);
+    dupSummary.innerHTML = `<span class="dup-alert">⚠️ ${duplicateGroups.reduce((s,g)=>s+g.items.length,0)} duplicates in ${duplicateGroups.length} groups</span>`;
+    renderDupGroups();
+    applyDupRemoval.disabled = false;
+  } else {
+    hide(duplicatesSection);
+    dupGroups.innerHTML = '';
+    applyDupRemoval.disabled = true;
+  }
+}
+
+/* Render duplicate groups with per-item checkbox to keep/delete */
+function renderDupGroups() {
+  dupGroups.innerHTML = '';
+  duplicateGroups.forEach((group, gidx) => {
+    const container = document.createElement('div');
+    container.className = 'dup-group';
+    const heading = document.createElement('div');
+    heading.className = 'dup-group-heading';
+    heading.textContent = `Group: ${group.items[0].item.name} (${group.items.length})`;
+    container.appendChild(heading);
+
+    const list = document.createElement('div');
+    list.className = 'dup-group-list';
+    group.items.forEach((it, iidx) => {
+      const row = document.createElement('label');
+      row.className = 'dup-row';
+      // default: keep the first occurrence, others checked for deletion
+      const keepDefault = (iidx === 0);
+      row.innerHTML = `
+        <input type="checkbox" data-g="${gidx}" data-i="${iidx}" class="dup-keep" ${keepDefault ? '' : 'checked'} />
+        <div class="dup-item">
+          <div class="dup-meta"><strong>#${it.idx}</strong> — <em>${escapeHtml(it.item.type||'')}</em></div>
+          <pre class="dup-json">${escapeHtml(JSON.stringify(it.item, null, 2))}</pre>
+        </div>
+      `;
+      list.appendChild(row);
+    });
+    container.appendChild(list);
+    dupGroups.appendChild(container);
+  });
+}
+
+/* Apply duplicate removal according to checkboxes: checked = remove */
+applyDupRemoval.addEventListener('click', () => {
+  // collect all checked boxes (to remove)
+  const checks = qsa('.dup-keep');
+  const toRemove = new Set();
+  checks.forEach(ch => {
+    const g = Number(ch.dataset.g);
+    const i = Number(ch.dataset.i);
+    if (ch.checked) {
+      const item = duplicateGroups[g].items[i];
+      toRemove.add(item.item.__origIndex);
+    }
+  });
+  if (!toRemove.size) {
+    alert('No duplicates selected for deletion');
+    return;
+  }
+  // Filter variables by keeping those whose original index not in toRemove
+  variables = variables.filter(v => !toRemove.has(v.__origIndex));
+  // Re-sort after removal
+  variables.sort((a,b)=> (a.name||'').toLowerCase().localeCompare((b.name||'').toLowerCase()));
+  // Re-render
+  renderVariablesList(variables);
+  detectDuplicates();
+  status.textContent = `Removed ${toRemove.size} items; ${variables.length} remaining`;
+});
+
+/* Download cleaned JSON */
+downloadBtn.addEventListener('click', () => {
+  // Build final JSON object
+  const out = { configurationVariables: variables.map(v => {
+    // remove helper metadata
+    const copy = {...v};
+    delete copy.__origIndex;
+    return copy;
+  })};
+  const blob = new Blob([JSON.stringify(out, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'configurationVariables.cleaned.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+
+/* Search filter */
+searchBox.addEventListener('input', ()=>{
+  const q = searchBox.value.trim().toLowerCase();
+  const items = q ? variables.filter(v => (v.name||'').toLowerCase().includes(q)) : variables;
+  renderVariablesList(items);
+});
+
+/* Utility: escape html */
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
+
+// small UX: enable run on paste
+jsonInput.addEventListener('input', ()=> {
+  runBtn.disabled = !jsonInput.value.trim();
+});
+</script>
+</body>
+</html>
