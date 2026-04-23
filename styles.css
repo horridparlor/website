@@ -149,3 +149,28 @@ footer {
   padding: 1rem;
   margin-top: 2rem;
 }
+
+.music-section {
+  max-width: 900px;
+  margin: 3rem auto;
+  text-align: center;
+}
+
+.music-section h2 {
+  font-family: 'Anton', sans-serif;
+  color: #00ffcc;
+  margin-bottom: 1rem;
+  font-size: 2rem;
+}
+
+.spotify-embed {
+  margin: 1.5rem 0 3rem 0;
+  box-shadow: 0 0 20px rgba(0, 255, 204, 0.2);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: transform 0.3s ease;
+}
+
+.spotify-embed:hover {
+  transform: scale(1.02);
+}
