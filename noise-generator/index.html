@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Noise Generator</title>
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header>
+  <div class="header-text">
+    <h1>Noise Generator</h1>
+    <p class="subtitle">Focus. Relax. Sleep.</p>
+  </div>
+  <a href=".." class="button">⬅ Back</a>
+</header>
+
+<main class="container">
+
+  <button id="playBtn" class="play-btn">▶</button>
+
+  <div class="controls">
+    <label>Noise Type</label>
+    <select id="noiseType">
+      <option value="brown">Brown Noise</option>
+      <option value="white">White Noise</option>
+      <option value="pink">Pink Noise</option>
+    </select>
+
+    <label>Volume</label>
+    <input type="range" id="volume" min="0" max="1" step="0.01">
+  </div>
+
+  <div class="eq">
+    <h2>Equalizer</h2>
+    <div class="eq-sliders" id="eqContainer"></div>
+    <button id="resetEQ" class="button">Reset EQ</button>
+  </div>
+
+  <button id="resetAll" class="button danger">Reset All</button>
+
+</main>
+
+<script>
+const freqs = [60,170,310,600,1000,3000,6000,12000,14000,16000];
+
+let audioCtx;
+let noiseNode;
+let gainNode;
+let filters = [];
+
+const playBtn = document.getElementById('playBtn');
+const noiseType = document.getElementById('noiseType');
+const volume = document.getElementById('volume');
+const eqContainer = document.getElementById('eqContainer');
+
+// Build EQ UI
+freqs.forEach((freq, i) => {
+  const wrap = document.createElement('div');
+  wrap.className = 'eq-band-wrapper';
+
+  const input = document.createElement('input');
+  input.type = 'range';
+  input.min = -20;
+  input.max = 20;
+  input.value = 0;
+  input.className = 'eq-band';
+  input.dataset.index = i;
+
+  const label = document.createElement('span');
+  label.textContent = freq >= 1000 ? (freq/1000)+'k' : freq;
+
+  wrap.appendChild(input);
+  wrap.appendChild(label);
+  eqContainer.appendChild(wrap);
+});
+
+const eqBands = document.querySelectorAll('.eq-band');
+
+// FIXED continuous noise
+function createNoise(type) {
+  const node = audioCtx.createScriptProcessor(4096, 1, 1);
+  let lastOut = 0;
+
+  node.onaudioprocess = e => {
+    const out = e.outputBuffer.getChannelData(0);
+
+    for (let i = 0; i < out.length; i++) {
+      const white = Math.random() * 2 - 1;
+
+      if (type === 'white') {
+        out[i] = white;
+
+      } else if (type === 'pink') {
+        lastOut = 0.98 * lastOut + 0.02 * white;
+        out[i] = lastOut * 3;
+
+      } else {
+        // Brown (stable)
+        lastOut = (lastOut + 0.02 * white) / 1.02;
+        out[i] = lastOut * 3.5;
+      }
+    }
+  };
+
+  return node;
+}
+
+function setupAudio() {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  gainNode = audioCtx.createGain();
+
+  filters = freqs.map((freq, i) => {
+    const f = audioCtx.createBiquadFilter();
+    f.type = 'peaking';
+    f.frequency.value = freq;
+    f.Q.value = 1;
+    f.gain.value = eqBands[i].value;
+    return f;
+  });
+
+  // chain filters
+  filters.reduce((a, b) => {
+    a.connect(b);
+    return b;
+  });
+
+  gainNode.gain.value = volume.value;
+}
+
+function connect(node) {
+  node.connect(filters[0]);
+  filters[filters.length - 1].connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+}
+
+function start() {
+  setupAudio();
+  noiseNode = createNoise(noiseType.value);
+  connect(noiseNode);
+
+  audioCtx.resume(); // IMPORTANT FIX
+}
+
+function stop() {
+  if (noiseNode) noiseNode.disconnect();
+  if (audioCtx) audioCtx.close();
+}
+
+playBtn.onclick = () => {
+  if (playBtn.textContent === '▶') {
+    start();
+    playBtn.textContent = '⏸';
+  } else {
+    stop();
+    playBtn.textContent = '▶';
+  }
+};
+
+volume.oninput = () => {
+  if (gainNode) gainNode.gain.value = volume.value;
+  localStorage.setItem('volume', volume.value);
+};
+
+noiseType.onchange = () => {
+  localStorage.setItem('noiseType', noiseType.value);
+  if (noiseNode) {
+    stop();
+    start();
+  }
+};
+
+eqBands.forEach((band, i) => {
+  band.oninput = () => {
+    if (filters[i]) filters[i].gain.value = band.value;
+    localStorage.setItem('eq' + i, band.value);
+  };
+});
+
+function loadSettings() {
+  volume.value = localStorage.getItem('volume') || 0.5;
+  noiseType.value = localStorage.getItem('noiseType') || 'brown';
+
+  eqBands.forEach((b, i) => {
+    b.value = localStorage.getItem('eq' + i) || 0;
+  });
+}
+
+loadSettings();
+
+document.getElementById('resetEQ').onclick = () => {
+  eqBands.forEach((band, i) => {
+    band.value = 0;
+
+    if (filters[i]) {
+      filters[i].gain.value = 0;
+    }
+
+    localStorage.removeItem('eq' + i);
+  });
+};
+
+document.getElementById('resetAll').onclick = () => {
+  localStorage.clear();
+  location.reload();
+};
+</script>
+
+</body>
+</html>

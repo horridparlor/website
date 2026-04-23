@@ -1,0 +1,66 @@
+.container {
+  text-align: center;
+  padding: 2rem;
+}
+
+.play-btn {
+  font-size: 4rem;
+  background: #00ffcc;
+  border: none;
+  border-radius: 50%;
+  width: 120px;
+  height: 120px;
+  cursor: pointer;
+  box-shadow: 0 0 25px #00ffcc;
+  margin: 2rem auto;
+}
+
+.controls {
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+select, input[type=range] {
+  width: 220px;
+}
+
+/* MUCH tighter EQ */
+.eq {
+  margin-top: 2.5rem;
+}
+
+.eq-sliders {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 4px; /* tighter spacing */
+  margin-top: 1rem;
+}
+
+.eq-band-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.eq-band {
+  writing-mode: vertical-rl;
+  direction: rtl;
+  height: 160px;
+  width: 16px;
+}
+
+.eq-band-wrapper span {
+  font-size: 0.65rem;
+  color: #aaa;
+}
+
+.danger {
+  background-color: #ff0066;
+  color: white;
+  margin-top: 2rem;
+}
