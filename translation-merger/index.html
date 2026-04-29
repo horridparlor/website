@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Translation Merger</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+
+<style>
+:root{
+    --bg:#0f0f0f;--ink:#fff;--accent:#00ffcc;--accent2:#00ccff;--danger:#ff0033;
+}
+body{
+    margin:0;
+    font-family:'Roboto Mono', monospace;
+    background:#0f0f0f;
+    color:#fff;
+    padding:2rem;
+    background-image: radial-gradient(#333 1px, transparent 1px);
+    background-size:20px 20px;
+}
+
+.header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    margin-bottom:20px;
+}
+
+.title-wrap{
+    display:flex;
+    flex-direction:column;
+}
+
+h2{
+    margin:0;
+    color:var(--accent);
+}
+
+.subtitle{
+    font-size:13px;
+    color:#aaa;
+}
+
+.home-btn{
+    padding:10px 20px;
+    border-radius:10px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#000;
+    text-decoration:none;
+    font-weight:bold;
+    box-shadow:0 0 15px rgba(0,255,204,0.3);
+}
+
+.grid{
+    display:grid;
+    gap:16px;
+}
+@media(min-width:1000px){
+    .grid{grid-template-columns:1fr 1fr 1fr;}
+}
+
+.card{
+    background:#1e1e1e;
+    border:2px solid var(--accent);
+    border-radius:10px;
+    padding:12px;
+}
+
+textarea{
+    width:100%;
+    height:300px;
+    background:#0f0f0f;
+    color:#e6db74;
+    border:1px solid #333;
+    border-radius:8px;
+    padding:10px;
+    font-family:'Roboto Mono';
+    overflow:auto;
+    white-space:pre;
+}
+
+.card button{
+    margin-bottom:10px;
+}
+
+.buttons{
+    display:flex;
+    justify-content:center;
+    gap:10px;
+    margin-bottom:1rem;
+    flex-wrap:wrap;
+}
+
+button{
+    padding:10px 18px;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+    font-weight:bold;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));
+}
+
+button:disabled{
+    opacity:0.4;
+    cursor:not-allowed;
+}
+
+.secondary{background:#333;color:#fff}
+.danger{background:#ff3366;color:#fff}
+
+.list{
+    max-height:250px;
+    overflow:auto;
+    border:1px solid #333;
+    padding:8px;
+    border-radius:6px;
+}
+
+.item{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    margin-bottom:8px;
+    border-bottom:1px solid #333;
+    padding-bottom:6px;
+}
+
+.controls{
+    margin-bottom:10px;
+}
+
+.loading{
+    display:none;
+    text-align:center;
+    margin:1rem 0;
+}
+
+.bar{
+    height:6px;
+    background:var(--accent);
+    width:0%;
+    transition:width .3s;
+}
+.wrap{
+    background:#222;
+    border-radius:6px;
+    overflow:hidden;
+}
+
+.small{
+    font-size:12px;
+    color:#aaa;
+}
+
+/* simple JSON coloring */
+.json-key{color:#66d9ef}
+.json-string{color:#a6e22e}
+.json-number{color:#fd971f}
+.json-boolean{color:#f92672}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+    <div class="title-wrap">
+        <h2>Translation Merger</h2>
+        <div class="subtitle">Merge and review JSON conflicts visually</div>
+    </div>
+    <a href="../" class="home-btn">Home</a>
+</div>
+
+<div class="buttons">
+    <input type="file" id="fileInput" />
+    <button id="processBtn">Process</button>
+    <button id="resetBtn" class="secondary">Reset</button>
+</div>
+
+<div class="loading" id="loading">
+    <div>Reading & parsing...</div>
+    <div class="wrap"><div class="bar" id="bar"></div></div>
+</div>
+
+<div class="grid">
+    <div class="card">
+        <h3>Current</h3>
+        <button onclick="download('current')">Download</button>
+        <textarea id="current"></textarea>
+    </div>
+
+    <div class="card">
+        <h3>Result</h3>
+        <button onclick="download('result')">Download</button>
+        <textarea id="result"></textarea>
+    </div>
+
+    <div class="card">
+        <h3>Merged</h3>
+        <button onclick="download('merged')">Download</button>
+        <textarea id="merged"></textarea>
+    </div>
+</div>
+
+<div class="card" style="margin-top:20px;">
+    <h3 id="phase1Title">Step 1: Changed values</h3>
+    <div class="controls">
+        <button id="selAll1" onclick="toggleAll(true)">Select All</button>
+        <button id="unselAll1" onclick="toggleAll(false)">Unselect All</button>
+    </div>
+    <div id="changes" class="list"></div>
+</div>
+
+<div class="card" style="margin-top:20px;">
+    <h3 id="phase2Title">Step 2: New fields</h3>
+    <div class="controls">
+        <button id="selAll2" onclick="toggleAllNew(true)">Select All</button>
+        <button id="unselAll2" onclick="toggleAllNew(false)">Unselect All</button>
+    </div>
+    <div id="newFields" class="list"></div>
+</div>
+
+<script>
+const LS = {
+    save:(k,v)=>localStorage.setItem(k,JSON.stringify(v)),
+    load:(k)=>JSON.parse(localStorage.getItem(k)||"null")
+};
+
+let current={}, merged={}, result={};
+
+function colorize(json){
+    return json
+        .replace(/"(.*?)":/g,'<span class="json-key">"$1"</span>:')
+        .replace(/: "(.*?)"/g,': <span class="json-string">"$1"</span>')
+        .replace(/: (\d+)/g,': <span class="json-number">$1</span>')
+        .replace(/: (true|false)/g,': <span class="json-boolean">$1</span>');
+}
+
+function parseConflict(text){
+    const lines=text.split("\n");
+    let cur=[], mer=[];
+    let mode=null;
+
+    for(let l of lines){
+        if(l.startsWith("<<<<<<<")){mode="cur";continue;}
+        if(l.startsWith("=======")){mode="mer";continue;}
+        if(l.startsWith(">>>>>>>")){mode=null;continue;}
+
+        if(mode==="cur") cur.push(l);
+        else if(mode==="mer") mer.push(l);
+        else{
+            cur.push(l);
+            mer.push(l);
+        }
+    }
+
+    return {
+        current: JSON.parse(cur.join("\n")),
+        merged: JSON.parse(mer.join("\n"))
+    };
+}
+
+function sortObj(obj){
+    if(typeof obj!=="object"||obj===null) return obj;
+    return Object.keys(obj).sort().reduce((r,k)=>{
+        r[k]=sortObj(obj[k]);
+        return r;
+    },{});
+}
+
+function flatten(obj,p="",res={}){
+    for(let k in obj){
+        let path=p? p+"."+k : k;
+        if(typeof obj[k]==="object" && obj[k]!==null){
+            flatten(obj[k],path,res);
+        }else{
+            res[path]=obj[k];
+        }
+    }
+    return res;
+}
+
+function build(){
+    const cFlat=flatten(current);
+    const mFlat=flatten(merged);
+
+    const changes=[];
+    const additions=[];
+
+    for(let k in cFlat){
+        if(mFlat[k] !== undefined && mFlat[k]!==cFlat[k]){
+            changes.push(k);
+        }
+    }
+
+    for(let k in mFlat){
+        if(!(k in cFlat)){
+            additions.push(k);
+        }
+    }
+
+    const changesDiv=document.getElementById("changes");
+    const newDiv=document.getElementById("newFields");
+
+    changesDiv.innerHTML="";
+    newDiv.innerHTML="";
+
+    changes.forEach(k=>{
+        const el=document.createElement("div");
+        el.className="item";
+        el.innerHTML=`
+            <label><input type="checkbox" data-k="${k}"> ${k}</label>
+            <div class="small">Original: ${JSON.stringify(get(current,k))}</div>
+            <div class="small">New: ${JSON.stringify(get(merged,k))}</div>
+        `;
+        changesDiv.appendChild(el);
+    });
+
+    additions.forEach(k=>{
+        const el=document.createElement("div");
+        el.className="item";
+        el.innerHTML=`
+            <label><input type="checkbox" data-new="${k}"> ${k}</label>
+            <div class="small">Value: ${JSON.stringify(get(merged,k))}</div>
+        `;
+        newDiv.appendChild(el);
+    });
+
+    document.getElementById("phase1Title").innerText = `Step 1: Changed values (${changes.length})`;
+    document.getElementById("phase2Title").innerText = `Step 2: New fields (${additions.length})`;
+
+    const disable1 = changes.length===0;
+    const disable2 = additions.length===0;
+
+    document.getElementById("selAll1").disabled = disable1;
+    document.getElementById("unselAll1").disabled = disable1;
+    document.getElementById("selAll2").disabled = disable2;
+    document.getElementById("unselAll2").disabled = disable2;
+}
+
+function apply(){
+    result=JSON.parse(JSON.stringify(current));
+
+    document.querySelectorAll("[data-k]:checked").forEach(el=>{
+        const k=el.dataset.k;
+        set(result,k,get(merged,k));
+    });
+
+    document.querySelectorAll("[data-new]:checked").forEach(el=>{
+        const k=el.dataset.new;
+        set(result,k,get(merged,k));
+    });
+
+    document.getElementById("result").value=JSON.stringify(sortObj(result),null,2);
+    LS.save("state",{current,merged,result});
+}
+
+function get(obj,path){
+    return path.split(".").reduce((o,k)=>o[k],obj);
+}
+function set(obj,path,val){
+    const parts=path.split(".");
+    let o=obj;
+    parts.forEach((k,i)=>{
+        if(i===parts.length-1) o[k]=val;
+        else{
+            if(!o[k]) o[k]={};
+            o=o[k];
+        }
+    });
+}
+
+function toggleAll(v){
+    document.querySelectorAll("#changes input").forEach(i=>i.checked=v);
+    apply();
+}
+
+function toggleAllNew(v){
+    document.querySelectorAll("#newFields input").forEach(i=>i.checked=v);
+    apply();
+}
+
+document.getElementById("processBtn").onclick=()=>{
+    const file=document.getElementById("fileInput").files[0];
+    if(!file) return alert("Upload file");
+
+    const reader=new FileReader();
+    reader.onload=()=>{
+        animate(()=>{
+            const parsed=parseConflict(reader.result);
+            current=sortObj(parsed.current);
+            merged=sortObj(parsed.merged);
+            result=JSON.parse(JSON.stringify(current));
+
+            document.getElementById("current").value=JSON.stringify(current,null,2);
+            document.getElementById("merged").value=JSON.stringify(merged,null,2);
+            document.getElementById("result").value=JSON.stringify(result,null,2);
+
+            build();
+            apply();
+        });
+    };
+    reader.readAsText(file);
+};
+
+document.addEventListener("change",e=>{
+    if(e.target.matches("input[type=checkbox]")){
+        apply();
+    }
+});
+
+function download(type){
+    const data={current,merged,result}[type];
+    const blob=new Blob([JSON.stringify(data,null,2)]);
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=type+".json";
+    a.click();
+}
+
+function animate(cb){
+    const l=document.getElementById("loading");
+    const bar=document.getElementById("bar");
+    l.style.display="block";
+    let w=0;
+    const t=setInterval(()=>{
+        w+=25;
+        bar.style.width=w+"%";
+        if(w>=100){
+            clearInterval(t);
+            setTimeout(()=>{
+                l.style.display="none";
+                cb();
+            },200);
+        }
+    },150);
+}
+
+document.getElementById("resetBtn").onclick=()=>{
+    localStorage.clear();
+    location.reload();
+};
+
+window.onload=()=>{
+    const s=LS.load("state");
+    if(s){
+        current=s.current;
+        merged=s.merged;
+        result=s.result;
+
+        document.getElementById("current").value=JSON.stringify(current,null,2);
+        document.getElementById("merged").value=JSON.stringify(merged,null,2);
+        document.getElementById("result").value=JSON.stringify(result,null,2);
+
+        build();
+    }
+};
+</script>
+
+</body>
+</html>
+
