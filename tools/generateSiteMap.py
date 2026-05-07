@@ -18,10 +18,20 @@ def extract_links_from_index():
     links = set()
 
     for a in soup.find_all("a", href=True):
-        href = a["href"]
+        href = a["href"].strip()
+        href_lower = href.lower()
 
-        # ignore external links
-        if href.startswith("http"):
+        # Skip non-page links and in-page anchors.
+        if href_lower.startswith(("mailto:", "tel:", "javascript:", "#")):
+            continue
+
+        # Keep same-site absolute https links, ignore other external links.
+        if href_lower.startswith("https://"):
+            if href.startswith(BASE_URL):
+                links.add(href)
+            continue
+
+        if href_lower.startswith("http://"):
             continue
 
         links.add(href)
