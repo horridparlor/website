@@ -126,11 +126,28 @@
             </div>
 
             <footer class="modal-footer">
+                <button type="button" id="modalDeleteBtn" class="button danger hidden">Delete</button>
                 <button type="submit" class="button">Save</button>
             </footer>
         </form>
     </dialog>
+
+    <dialog id="deleteConfirmModal" class="modal confirm-modal">
+        <div class="modal-card confirm-card">
+            <header class="modal-header">
+                <h3>Delete event</h3>
+            </header>
+            <p id="deleteConfirmText" class="muted">Are you sure, for sure?</p>
+            <footer class="modal-footer confirm-footer">
+                <button type="button" id="cancelDeleteBtn" class="button subtle">Cancel</button>
+                <button type="button" id="confirmDeleteBtn" class="button danger">Delete</button>
+            </footer>
+        </div>
+    </dialog>
+
 </main>
+
+<div id="toastStack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
 
 <footer>
     <small>&copy; <span id="year"></span></small>
@@ -190,6 +207,9 @@
     let ALL_EVENTS = [];
     let EVENT_TYPES = [];
     let SELECTED_DATE = todayISO();
+    let EDITING_EVENT_ID = null;
+    let PENDING_DELETE_EVENT_ID = null;
+    let ACTIVE_TOAST_TIMER = null;
 
     // =========================
     // Elements
@@ -219,6 +239,13 @@
     const locationInput = $('#location');
     const colorPreview = $('#colorPreview');
     const closeModalBtn = $('#closeModal');
+    const modalTitle = $('#modalTitle');
+    const modalDeleteBtn = $('#modalDeleteBtn');
+    const deleteConfirmModal = $('#deleteConfirmModal');
+    const deleteConfirmText = $('#deleteConfirmText');
+    const cancelDeleteBtn = $('#cancelDeleteBtn');
+    const confirmDeleteBtn = $('#confirmDeleteBtn');
+    const toastStack = $('#toastStack');
 
     $('#year').textContent = new Date().getFullYear();
 
@@ -353,6 +380,42 @@
 
         if (!res.ok) {
             throw new Error('Failed to create event');
+        }
+
+        return res.json();
+    }
+
+    async function apiUpdateEvent(payload) {
+        const body = {
+            eventId: payload.eventId,
+            eventTypeId: payload.eventType,
+            name: payload.name,
+            startTime: payload.startTime,
+            endTime: payload.endTime,
+            location: payload.location,
+            date: payload.date
+        };
+
+        const res = await authenticatedFetch('../api/calendar/event', {
+            method: 'PUT',
+            body: JSON.stringify(body)
+        });
+
+        if (!res.ok) {
+            throw new Error('Failed to update event');
+        }
+
+        return res.json();
+    }
+
+    async function apiDeleteEvent(eventId) {
+        const res = await authenticatedFetch('../api/calendar/event', {
+            method: 'DELETE',
+            body: JSON.stringify({ eventId })
+        });
+
+        if (!res.ok) {
+            throw new Error('Failed to delete event');
         }
 
         return res.json();
@@ -606,10 +669,36 @@
                         <div class="sub">${e.location || ''}</div>
                     </div>
 
-                    <div class="times">
-                        ${e.startTime.slice(0,5)}
-                        –
-                        ${e.endTime.slice(0,5)}
+                    <div class="event-item-side">
+                        <div class="times">
+                            ${e.startTime.slice(0,5)}
+                            –
+                            ${e.endTime.slice(0,5)}
+                        </div>
+                        <div class="event-actions">
+                            <button
+                                type="button"
+                                class="button subtle event-action-btn edit"
+                                data-action="edit"
+                                data-event-id="${e.id}"
+                                title="Edit event"
+                                aria-label="Edit ${e.name}"
+                            >
+                                <span aria-hidden="true">✎</span>
+                                <span>Edit</span>
+                            </button>
+                            <button
+                                type="button"
+                                class="button danger event-action-btn delete"
+                                data-action="delete"
+                                data-event-id="${e.id}"
+                                title="Delete event"
+                                aria-label="Delete ${e.name}"
+                            >
+                                <span aria-hidden="true">🗑</span>
+                                <span>Delete</span>
+                            </button>
+                        </div>
                     </div>
                 `;
 
@@ -623,8 +712,10 @@
     function placeEventBlocks(events) {
         const layer = timeline.querySelector('.event-layer');
 
-        const toRow = (hhmm) =>
-            Math.round(minutesFromHHMM(hhmm)/30) + 1;
+        const toRowStart = (minutes) =>
+            Math.floor(minutes / 30) + 1;
+        const toRowEnd = (minutes) =>
+            Math.ceil(minutes / 30) + 1;
 
         events.forEach(ev => {
             const block = document.createElement('button');
@@ -632,8 +723,17 @@
             block.type = 'button';
             block.className = 'event-block';
 
-            const startRow = toRow(ev.startTime);
-            const endRow = toRow(ev.endTime);
+            const startMinutes = minutesFromHHMM(ev.startTime);
+            const rawEndMinutes = minutesFromHHMM(ev.endTime);
+
+            // If event ends at midnight or crosses to next day, draw until end of this day.
+            const endMinutes =
+                (rawEndMinutes === 0 || rawEndMinutes < startMinutes)
+                    ? 24 * 60
+                    : rawEndMinutes;
+
+            const startRow = toRowStart(startMinutes);
+            const endRow = toRowEnd(endMinutes);
 
             block.style.gridRow =
                 `${startRow} / ${Math.max(endRow,startRow+1)}`;
@@ -707,6 +807,7 @@
         endTime.value = hhmmFromMinutes(endMin);
 
         eventName.value = '';
+        EDITING_EVENT_ID = null;
 
         onEventTypeChange();
 
@@ -714,12 +815,90 @@
     }
 
     function openModal() {
-        $('#modalTitle').textContent = 'Add event';
+        modalTitle.textContent = EDITING_EVENT_ID ? 'Edit event' : 'Add event';
+        if (EDITING_EVENT_ID) {
+            modalDeleteBtn.classList.remove('hidden');
+        } else {
+            modalDeleteBtn.classList.add('hidden');
+        }
         eventModal.showModal();
     }
 
     function closeModal() {
+        EDITING_EVENT_ID = null;
         eventModal.close();
+    }
+
+    function showToast(message, type = 'success') {
+        // Keep a single quick toast visible at a time.
+        toastStack.innerHTML = '';
+        if (ACTIVE_TOAST_TIMER) {
+            clearTimeout(ACTIVE_TOAST_TIMER);
+            ACTIVE_TOAST_TIMER = null;
+        }
+
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.setAttribute('role', 'status');
+        toast.textContent = message;
+        toastStack.appendChild(toast);
+
+        requestAnimationFrame(() => {
+            toast.classList.add('show');
+        });
+
+        ACTIVE_TOAST_TIMER = setTimeout(() => {
+            toast.classList.remove('show');
+            toast.addEventListener('transitionend', () => toast.remove(), { once: true });
+            ACTIVE_TOAST_TIMER = null;
+        }, 3000);
+    }
+
+    function setEventFormFromEvent(event) {
+        EDITING_EVENT_ID = event.id;
+        eventTypeSel.value = String(event.eventTypeId);
+        onEventTypeChange();
+        eventName.value = event.name || '';
+        eventDate.value = event.date || SELECTED_DATE;
+        startTime.value = event.startTime.slice(0, 5);
+        endTime.value = event.endTime.slice(0, 5);
+        locationInput.value = event.location || '';
+        openModal();
+    }
+
+    function openDeleteConfirm(event) {
+        PENDING_DELETE_EVENT_ID = event.id;
+        deleteConfirmText.textContent = `Are you sure, for sure, that you want to delete "${event.name}"?`;
+        deleteConfirmModal.showModal();
+    }
+
+    function closeDeleteConfirm() {
+        PENDING_DELETE_EVENT_ID = null;
+        deleteConfirmModal.close();
+    }
+
+    async function confirmDeleteEvent() {
+        if (!PENDING_DELETE_EVENT_ID) {
+            closeDeleteConfirm();
+            return;
+        }
+
+        const eventId = PENDING_DELETE_EVENT_ID;
+
+        try {
+            await apiDeleteEvent(eventId);
+            ALL_EVENTS = ALL_EVENTS.filter(e => e.id !== eventId);
+
+            if (EDITING_EVENT_ID === eventId) {
+                closeModal();
+            }
+
+            closeDeleteConfirm();
+            renderForDate(SELECTED_DATE);
+            showToast('Event deleted', 'success');
+        } catch (err) {
+            showToast('Could not delete event', 'error');
+        }
     }
 
     async function submitEventForm(e) {
@@ -732,6 +911,7 @@
         );
 
         const payload = {
+            eventId: EDITING_EVENT_ID,
             eventType: typeId,
             name:
                 eventName.value.trim() ||
@@ -740,10 +920,33 @@
             startTime: startTime.value,
             endTime: endTime.value,
             location: locationInput.value.trim(),
-            date: SELECTED_DATE
+            date: eventDate.value || SELECTED_DATE
         };
 
         try {
+            if (EDITING_EVENT_ID) {
+                await apiUpdateEvent(payload);
+
+                const index = ALL_EVENTS.findIndex(e => e.id === EDITING_EVENT_ID);
+                if (index >= 0) {
+                    ALL_EVENTS[index] = {
+                        ...ALL_EVENTS[index],
+                        eventTypeId: typeId,
+                        name: payload.name,
+                        location: payload.location,
+                        color: (typeMeta?.eventColor || '41b7e2').replace('#',''),
+                        date: payload.date,
+                        startTime: payload.startTime + (payload.startTime.length === 5 ? ':00' : ''),
+                        endTime: payload.endTime + (payload.endTime.length === 5 ? ':00' : '')
+                    };
+                }
+
+                closeModal();
+                renderForDate(SELECTED_DATE);
+                showToast('Event updated', 'success');
+                return;
+            }
+
             const res = await apiCreateEvent(payload);
 
             const newEvent = res?.event || {
@@ -795,6 +998,40 @@
 
     closeModalBtn.addEventListener('click', closeModal);
 
+    eventList.addEventListener('click', (ev) => {
+        const actionButton = ev.target.closest('button[data-action]');
+        if (!actionButton) {
+            return;
+        }
+
+        const eventId = Number(actionButton.dataset.eventId);
+        const event = ALL_EVENTS.find(e => Number(e.id) === eventId);
+        if (!event) {
+            return;
+        }
+
+        if (actionButton.dataset.action === 'edit') {
+            setEventFormFromEvent(event);
+            return;
+        }
+
+        openDeleteConfirm(event);
+    });
+
+    modalDeleteBtn.addEventListener('click', () => {
+        if (!EDITING_EVENT_ID) {
+            return;
+        }
+        const event = ALL_EVENTS.find(e => Number(e.id) === Number(EDITING_EVENT_ID));
+        if (!event) {
+            return;
+        }
+        openDeleteConfirm(event);
+    });
+
+    cancelDeleteBtn.addEventListener('click', closeDeleteConfirm);
+    confirmDeleteBtn.addEventListener('click', confirmDeleteEvent);
+
     openModalBtn.addEventListener('click', () => {
         const now = new Date();
 
@@ -812,6 +1049,7 @@
         );
 
         eventName.value = '';
+        EDITING_EVENT_ID = null;
 
         onEventTypeChange();
 
@@ -850,6 +1088,11 @@
     eventModal.addEventListener('cancel', e => {
         e.preventDefault();
         closeModal();
+    });
+
+    deleteConfirmModal.addEventListener('cancel', e => {
+        e.preventDefault();
+        closeDeleteConfirm();
     });
 </script>
 </body>
