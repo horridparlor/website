@@ -9,8 +9,14 @@
 
 <style>
 :root{
-    --bg:#0f0f0f;--ink:#fff;--accent:#00ffcc;--accent2:#00ccff;--danger:#ff0033;
+    --bg:#0f0f0f;
+    --ink:#fff;
+    --accent:#00ffcc;
+    --accent2:#00ccff;
+    --danger:#ff0033;
+    --panel:#1e1e1e;
 }
+
 body{
     margin:0;
     font-family:'Roboto Mono', monospace;
@@ -58,15 +64,17 @@ h2{
     display:grid;
     gap:16px;
 }
+
 @media(min-width:1000px){
     .grid{grid-template-columns:1fr 1fr 1fr;}
 }
 
 .card{
-    background:#1e1e1e;
+    background:var(--panel);
     border:2px solid var(--accent);
-    border-radius:10px;
-    padding:12px;
+    border-radius:14px;
+    padding:14px;
+    box-shadow:0 0 20px rgba(0,255,204,0.08);
 }
 
 textarea{
@@ -75,11 +83,12 @@ textarea{
     background:#0f0f0f;
     color:#e6db74;
     border:1px solid #333;
-    border-radius:8px;
+    border-radius:10px;
     padding:10px;
     font-family:'Roboto Mono';
     overflow:auto;
     white-space:pre;
+    resize:vertical;
 }
 
 .card button{
@@ -94,13 +103,26 @@ textarea{
     flex-wrap:wrap;
 }
 
+.action-row{
+    display:flex;
+    gap:10px;
+    margin-bottom:10px;
+    flex-wrap:wrap;
+}
+
 button{
     padding:10px 18px;
     border:none;
-    border-radius:8px;
+    border-radius:10px;
     cursor:pointer;
     font-weight:bold;
     background:linear-gradient(90deg,var(--accent),var(--accent2));
+    transition:all .18s ease;
+}
+
+button:hover{
+    transform:translateY(-1px);
+    box-shadow:0 0 18px rgba(0,255,204,0.25);
 }
 
 button:disabled{
@@ -108,15 +130,43 @@ button:disabled{
     cursor:not-allowed;
 }
 
-.secondary{background:#333;color:#fff}
-.danger{background:#ff3366;color:#fff}
+.secondary{
+    background:#333;
+    color:#fff;
+}
+
+.danger{
+    background:#ff3366;
+    color:#fff;
+}
+
+.copy-btn{
+    background:#171717;
+    color:#fff;
+    border:1px solid #333;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    min-width:120px;
+    justify-content:center;
+}
+
+.copy-btn svg{
+    width:16px;
+    height:16px;
+}
+
+.copy-btn.copied{
+    background:linear-gradient(90deg,#00ffcc,#00cc88);
+    color:#000;
+}
 
 .list{
     max-height:250px;
     overflow:auto;
     border:1px solid #333;
     padding:8px;
-    border-radius:6px;
+    border-radius:8px;
 }
 
 .item{
@@ -144,6 +194,7 @@ button:disabled{
     width:0%;
     transition:width .3s;
 }
+
 .wrap{
     background:#222;
     border-radius:6px;
@@ -155,11 +206,47 @@ button:disabled{
     color:#aaa;
 }
 
-/* simple JSON coloring */
-.json-key{color:#66d9ef}
-.json-string{color:#a6e22e}
-.json-number{color:#fd971f}
-.json-boolean{color:#f92672}
+.ready-panel{
+    margin-top:20px;
+    display:none;
+}
+
+.ready-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
+.ready-badge{
+    padding:8px 14px;
+    border-radius:999px;
+    background:rgba(0,255,204,0.15);
+    border:1px solid rgba(0,255,204,0.35);
+    color:var(--accent);
+    font-size:13px;
+}
+
+.change-log{
+    margin-top:14px;
+    border-top:1px solid #333;
+    padding-top:12px;
+}
+
+.change-entry{
+    padding:10px;
+    background:#121212;
+    border-radius:10px;
+    margin-bottom:10px;
+    border:1px solid #2d2d2d;
+}
+
+.change-type{
+    color:var(--accent);
+    font-size:12px;
+    margin-bottom:4px;
+}
 </style>
 </head>
 
@@ -187,19 +274,46 @@ button:disabled{
 <div class="grid">
     <div class="card">
         <h3>Current</h3>
-        <button onclick="download('current')">Download</button>
+        <div class="action-row">
+            <button onclick="download('current')">Download</button>
+            <button class="copy-btn" onclick="copyJson('current', this)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                <span>Copy</span>
+            </button>
+        </div>
         <textarea id="current"></textarea>
     </div>
 
     <div class="card">
         <h3>Result</h3>
-        <button onclick="download('result')">Download</button>
+        <div class="action-row">
+            <button onclick="download('result')">Download</button>
+            <button class="copy-btn" onclick="copyJson('result', this)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                <span>Copy</span>
+            </button>
+        </div>
         <textarea id="result"></textarea>
     </div>
 
     <div class="card">
         <h3>Merged</h3>
-        <button onclick="download('merged')">Download</button>
+        <div class="action-row">
+            <button onclick="download('merged')">Download</button>
+            <button class="copy-btn" onclick="copyJson('merged', this)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                <span>Copy</span>
+            </button>
+        </div>
         <textarea id="merged"></textarea>
     </div>
 </div>
@@ -222,6 +336,36 @@ button:disabled{
     <div id="newFields" class="list"></div>
 </div>
 
+<div class="card ready-panel" id="readyPanel">
+    <div class="ready-header">
+        <div>
+            <h3 style="margin:0;">Ready after Step 2</h3>
+            <div class="small">Final generated JSON and summary of applied changes</div>
+        </div>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <div class="ready-badge">Ready</div>
+
+            <button onclick="download('result')">Download Final JSON</button>
+
+            <button class="copy-btn" onclick="copyJson('result', this)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                <span>Copy Final JSON</span>
+            </button>
+        </div>
+    </div>
+
+    <textarea id="finalOnly" style="margin-top:14px;height:280px;"></textarea>
+
+    <div class="change-log">
+        <h4>Applied Changes</h4>
+        <div id="changeLog"></div>
+    </div>
+</div>
+
 <script>
 const LS = {
     save:(k,v)=>localStorage.setItem(k,JSON.stringify(v)),
@@ -229,14 +373,6 @@ const LS = {
 };
 
 let current={}, merged={}, result={};
-
-function colorize(json){
-    return json
-        .replace(/"(.*?)":/g,'<span class="json-key">"$1"</span>:')
-        .replace(/: "(.*?)"/g,': <span class="json-string">"$1"</span>')
-        .replace(/: (\d+)/g,': <span class="json-number">$1</span>')
-        .replace(/: (true|false)/g,': <span class="json-boolean">$1</span>');
-}
 
 function parseConflict(text){
     const lines=text.split("\n");
@@ -264,6 +400,7 @@ function parseConflict(text){
 
 function sortObj(obj){
     if(typeof obj!=="object"||obj===null) return obj;
+
     return Object.keys(obj).sort().reduce((r,k)=>{
         r[k]=sortObj(obj[k]);
         return r;
@@ -273,12 +410,14 @@ function sortObj(obj){
 function flatten(obj,p="",res={}){
     for(let k in obj){
         let path=p? p+"."+k : k;
+
         if(typeof obj[k]==="object" && obj[k]!==null){
             flatten(obj[k],path,res);
         }else{
             res[path]=obj[k];
         }
     }
+
     return res;
 }
 
@@ -331,38 +470,84 @@ function build(){
     document.getElementById("phase1Title").innerText = `Step 1: Changed values (${changes.length})`;
     document.getElementById("phase2Title").innerText = `Step 2: New fields (${additions.length})`;
 
-    const disable1 = changes.length===0;
-    const disable2 = additions.length===0;
-
-    document.getElementById("selAll1").disabled = disable1;
-    document.getElementById("unselAll1").disabled = disable1;
-    document.getElementById("selAll2").disabled = disable2;
-    document.getElementById("unselAll2").disabled = disable2;
+    document.getElementById("selAll1").disabled = changes.length===0;
+    document.getElementById("unselAll1").disabled = changes.length===0;
+    document.getElementById("selAll2").disabled = additions.length===0;
+    document.getElementById("unselAll2").disabled = additions.length===0;
 }
 
 function apply(){
     result=JSON.parse(JSON.stringify(current));
 
+    const applied=[];
+
     document.querySelectorAll("[data-k]:checked").forEach(el=>{
         const k=el.dataset.k;
-        set(result,k,get(merged,k));
+        const oldVal=get(current,k);
+        const newVal=get(merged,k);
+
+        set(result,k,newVal);
+
+        applied.push({
+            type:"Changed",
+            key:k,
+            from:oldVal,
+            to:newVal
+        });
     });
 
     document.querySelectorAll("[data-new]:checked").forEach(el=>{
         const k=el.dataset.new;
-        set(result,k,get(merged,k));
+        const newVal=get(merged,k);
+
+        set(result,k,newVal);
+
+        applied.push({
+            type:"Added",
+            key:k,
+            from:null,
+            to:newVal
+        });
     });
 
-    document.getElementById("result").value=JSON.stringify(sortObj(result),null,2);
+    const formatted=JSON.stringify(sortObj(result),null,2);
+
+    document.getElementById("result").value=formatted;
+    document.getElementById("finalOnly").value=formatted;
+
+    updateChangeLog(applied);
+
+    document.getElementById("readyPanel").style.display = applied.length ? "block" : "none";
+
     LS.save("state",{current,merged,result});
+}
+
+function updateChangeLog(applied){
+    const log=document.getElementById("changeLog");
+
+    if(!applied.length){
+        log.innerHTML='<div class="small">No changes selected yet.</div>';
+        return;
+    }
+
+    log.innerHTML = applied.map(item => `
+        <div class="change-entry">
+            <div class="change-type">${item.type}</div>
+            <strong>${item.key}</strong>
+            <div class="small">From: ${JSON.stringify(item.from)}</div>
+            <div class="small">To: ${JSON.stringify(item.to)}</div>
+        </div>
+    `).join("");
 }
 
 function get(obj,path){
     return path.split(".").reduce((o,k)=>o[k],obj);
 }
+
 function set(obj,path,val){
     const parts=path.split(".");
     let o=obj;
+
     parts.forEach((k,i)=>{
         if(i===parts.length-1) o[k]=val;
         else{
@@ -382,14 +567,73 @@ function toggleAllNew(v){
     apply();
 }
 
+async function copyJson(type, btn){
+    const text=document.getElementById(type).value;
+
+    try{
+        await navigator.clipboard.writeText(text);
+
+        const label=btn.querySelector("span");
+        const original=label.innerText;
+
+        btn.classList.add("copied");
+        label.innerText="Copied";
+
+        setTimeout(()=>{
+            btn.classList.remove("copied");
+            label.innerText=original.includes("Final") ? "Copy Final JSON" : "Copy";
+        },1500);
+
+    }catch(err){
+        alert("Clipboard copy failed");
+    }
+}
+
+function download(type){
+    const data={current,merged,result}[type];
+
+    const blob=new Blob([JSON.stringify(data,null,2)]);
+    const a=document.createElement("a");
+
+    a.href=URL.createObjectURL(blob);
+    a.download=type+".json";
+    a.click();
+}
+
+function animate(cb){
+    const l=document.getElementById("loading");
+    const bar=document.getElementById("bar");
+
+    l.style.display="block";
+
+    let w=0;
+
+    const t=setInterval(()=>{
+        w+=25;
+        bar.style.width=w+"%";
+
+        if(w>=100){
+            clearInterval(t);
+
+            setTimeout(()=>{
+                l.style.display="none";
+                cb();
+            },200);
+        }
+    },150);
+}
+
 document.getElementById("processBtn").onclick=()=>{
     const file=document.getElementById("fileInput").files[0];
+
     if(!file) return alert("Upload file");
 
     const reader=new FileReader();
+
     reader.onload=()=>{
         animate(()=>{
             const parsed=parseConflict(reader.result);
+
             current=sortObj(parsed.current);
             merged=sortObj(parsed.merged);
             result=JSON.parse(JSON.stringify(current));
@@ -402,6 +646,7 @@ document.getElementById("processBtn").onclick=()=>{
             apply();
         });
     };
+
     reader.readAsText(file);
 };
 
@@ -411,33 +656,6 @@ document.addEventListener("change",e=>{
     }
 });
 
-function download(type){
-    const data={current,merged,result}[type];
-    const blob=new Blob([JSON.stringify(data,null,2)]);
-    const a=document.createElement("a");
-    a.href=URL.createObjectURL(blob);
-    a.download=type+".json";
-    a.click();
-}
-
-function animate(cb){
-    const l=document.getElementById("loading");
-    const bar=document.getElementById("bar");
-    l.style.display="block";
-    let w=0;
-    const t=setInterval(()=>{
-        w+=25;
-        bar.style.width=w+"%";
-        if(w>=100){
-            clearInterval(t);
-            setTimeout(()=>{
-                l.style.display="none";
-                cb();
-            },200);
-        }
-    },150);
-}
-
 document.getElementById("resetBtn").onclick=()=>{
     localStorage.clear();
     location.reload();
@@ -445,6 +663,7 @@ document.getElementById("resetBtn").onclick=()=>{
 
 window.onload=()=>{
     const s=LS.load("state");
+
     if(s){
         current=s.current;
         merged=s.merged;
@@ -453,12 +672,13 @@ window.onload=()=>{
         document.getElementById("current").value=JSON.stringify(current,null,2);
         document.getElementById("merged").value=JSON.stringify(merged,null,2);
         document.getElementById("result").value=JSON.stringify(result,null,2);
+        document.getElementById("finalOnly").value=JSON.stringify(result,null,2);
 
         build();
+        apply();
     }
 };
 </script>
 
 </body>
 </html>
-

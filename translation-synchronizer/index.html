@@ -1,684 +1,701 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fi">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Translation Merger</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Translation Synchronizer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+    <style>
+        /* === Shared look & feel (copied from your JSON Formatter) === */
+        :root{
+            --bg:#0f0f0f;--ink:#fff;--accent:#00ffcc;--accent2:#00ccff;--danger:#ff0033;--warm1:#ff0066;--warm2:#ff6600;
+        }
+        *{box-sizing:border-box}
+        body {
+            margin: 0;
+            font-family: 'Roboto Mono', monospace;
+            background-color: var(--bg);
+            color: var(--ink);
+            padding: 2rem;
+            background-image: radial-gradient(#333 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        h2 {
+            text-align: center;
+            font-size: 2rem;
+            color: var(--accent);
+            margin-bottom: 1rem;
+        }
+        .subtle {opacity:.8; text-align:center; margin:0 0 2rem;}
 
-<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+        .grid {display:grid; gap:18px}
+        @media (min-width: 1000px) {
+            .grid{grid-template-columns: 1fr 1fr}
+        }
 
-<style>
-:root{
-    --bg:#0f0f0f;
-    --ink:#fff;
-    --accent:#00ffcc;
-    --accent2:#00ccff;
-    --danger:#ff0033;
-    --panel:#1e1e1e;
-}
+        .card{background:#1e1e1e;border:2px solid var(--accent);border-radius:12px;padding:16px;box-shadow:0 0 10px rgba(0,255,204,.15)}
+        .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 
-body{
-    margin:0;
-    font-family:'Roboto Mono', monospace;
-    background:#0f0f0f;
-    color:#fff;
-    padding:2rem;
-    background-image: radial-gradient(#333 1px, transparent 1px);
-    background-size:20px 20px;
-}
+        label{font-weight:700}
+        input[type="file"]{background:#121212;border:1px dashed var(--accent);padding:10px;border-radius:8px;color:var(--ink)}
 
-.header{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    flex-wrap:wrap;
-    margin-bottom:20px;
-}
+        .buttons{display:flex;gap:15px;justify-content:center;margin-top:1rem;flex-wrap:wrap}
+        button, .home-btn{
+            padding: 12px 24px; font-size: 16px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; text-decoration: none; text-align: center; display: inline-block; transition: transform .2s, box-shadow .2s
+        }
+        button{background:linear-gradient(90deg,var(--accent),var(--accent2));color:#000;box-shadow:0 0 10px var(--accent)}
+        button:hover{transform:scale(1.05); box-shadow:0 0 20px var(--accent)}
+        .secondary{background:#252525;color:#ddd;border:1px solid #333}
+        .danger{background:linear-gradient(90deg,#ff4d4d,#ff1a75);color:#fff;box-shadow:0 0 10px #ff3366}
+        .home-btn{background:linear-gradient(90deg,var(--warm1),var(--warm2)); color:#fff; box-shadow:0 0 10px var(--warm1)}
+        .home-btn:hover{transform:scale(1.05); box-shadow:0 0 20px var(--warm1)}
 
-.title-wrap{
-    display:flex;
-    flex-direction:column;
-}
+        .json-output { width: 100%; min-height: 280px; background:#1e1e1e; border:2px solid var(--accent); border-radius:8px; padding:12px 14px; overflow:auto; font-size:14px; line-height:1.4; opacity:0; transform:translateY(10px); transition:all 1s ease }
+        .json-output.visible{opacity:1; transform:translateY(0)}
+        .k { color: #ffcc66; }
+        .s { color: #a6e22e; }
+        .n { color: #66d9ef; }
+        .b { color: #ff6; }
+        .nl{ color: #f92672; }
+        .meta { color:#00ccff; opacity:.9; }
+        details{margin-left:16px}
+        summary{cursor:pointer; list-style:none; position:relative; padding-left:16px; user-select:none}
+        summary::before{content:"▶"; position:absolute; left:0; top:0; transform:translateY(1px) rotate(0deg); transition:transform .15s ease; font-size:10px; color:var(--accent)}
+        details[open]>summary::before{transform:translateY(1px) rotate(90deg)}
+        .line{white-space:pre-wrap; margin:2px 0}
+        .sep{color:#888}
 
-h2{
-    margin:0;
-    color:var(--accent);
-}
+        .toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background-color:#00cc88; color:white; padding:12px 20px; border-radius:8px; box-shadow:0 0 10px rgba(0,0,0,.3); font-size:14px; opacity:0; pointer-events:none; transition:opacity .5s ease; z-index:1000}
+        .toast.show{opacity:1}
+        .toast.error{background-color:var(--danger)}
 
-.subtitle{
-    font-size:13px;
-    color:#aaa;
-}
+        .stepper{display:flex; gap:10px; justify-content:center; margin:14px 0 6px}
+        .chip{border:1px solid var(--accent); color:var(--accent); padding:2px 8px; border-radius:999px; font-size:12px; opacity:.85}
 
-.home-btn{
-    padding:10px 20px;
-    border-radius:10px;
-    background:linear-gradient(135deg,var(--accent),var(--accent2));
-    color:#000;
-    text-decoration:none;
-    font-weight:bold;
-    box-shadow:0 0 15px rgba(0,255,204,0.3);
-}
+        .progress-wrap{height:8px; background:#222; border:1px solid #333; border-radius:999px; overflow:hidden}
+        .bar{height:100%; width:0%; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition:width .2s ease}
 
-.grid{
-    display:grid;
-    gap:16px;
-}
+        .hint{opacity:.75; font-size:12px}
+        .path{color:#ffcc66}
+        .field-input{width:100%; background:#121212; color:#00ffcc; border:1px solid var(--accent2); border-radius:8px; padding:10px; font-family:'Roboto Mono', monospace}
+        .twocol{display:grid; grid-template-columns:1fr; gap:12px}
+        @media (min-width: 900px){.twocol{grid-template-columns:1fr 1fr}}
 
-@media(min-width:1000px){
-    .grid{grid-template-columns:1fr 1fr 1fr;}
-}
+        .toolbar{display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end}
 
-.card{
-    background:var(--panel);
-    border:2px solid var(--accent);
-    border-radius:14px;
-    padding:14px;
-    box-shadow:0 0 20px rgba(0,255,204,0.08);
-}
-
-textarea{
-    width:100%;
-    height:300px;
-    background:#0f0f0f;
-    color:#e6db74;
-    border:1px solid #333;
-    border-radius:10px;
-    padding:10px;
-    font-family:'Roboto Mono';
-    overflow:auto;
-    white-space:pre;
-    resize:vertical;
-}
-
-.card button{
-    margin-bottom:10px;
-}
-
-.buttons{
-    display:flex;
-    justify-content:center;
-    gap:10px;
-    margin-bottom:1rem;
-    flex-wrap:wrap;
-}
-
-.action-row{
-    display:flex;
-    gap:10px;
-    margin-bottom:10px;
-    flex-wrap:wrap;
-}
-
-button{
-    padding:10px 18px;
-    border:none;
-    border-radius:10px;
-    cursor:pointer;
-    font-weight:bold;
-    background:linear-gradient(90deg,var(--accent),var(--accent2));
-    transition:all .18s ease;
-}
-
-button:hover{
-    transform:translateY(-1px);
-    box-shadow:0 0 18px rgba(0,255,204,0.25);
-}
-
-button:disabled{
-    opacity:0.4;
-    cursor:not-allowed;
-}
-
-.secondary{
-    background:#333;
-    color:#fff;
-}
-
-.danger{
-    background:#ff3366;
-    color:#fff;
-}
-
-.copy-btn{
-    background:#171717;
-    color:#fff;
-    border:1px solid #333;
-    display:flex;
-    align-items:center;
-    gap:8px;
-    min-width:120px;
-    justify-content:center;
-}
-
-.copy-btn svg{
-    width:16px;
-    height:16px;
-}
-
-.copy-btn.copied{
-    background:linear-gradient(90deg,#00ffcc,#00cc88);
-    color:#000;
-}
-
-.list{
-    max-height:250px;
-    overflow:auto;
-    border:1px solid #333;
-    padding:8px;
-    border-radius:8px;
-}
-
-.item{
-    display:flex;
-    flex-direction:column;
-    gap:4px;
-    margin-bottom:8px;
-    border-bottom:1px solid #333;
-    padding-bottom:6px;
-}
-
-.controls{
-    margin-bottom:10px;
-}
-
-.loading{
-    display:none;
-    text-align:center;
-    margin:1rem 0;
-}
-
-.bar{
-    height:6px;
-    background:var(--accent);
-    width:0%;
-    transition:width .3s;
-}
-
-.wrap{
-    background:#222;
-    border-radius:6px;
-    overflow:hidden;
-}
-
-.small{
-    font-size:12px;
-    color:#aaa;
-}
-
-.ready-panel{
-    margin-top:20px;
-    display:none;
-}
-
-.ready-header{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
-    flex-wrap:wrap;
-}
-
-.ready-badge{
-    padding:8px 14px;
-    border-radius:999px;
-    background:rgba(0,255,204,0.15);
-    border:1px solid rgba(0,255,204,0.35);
-    color:var(--accent);
-    font-size:13px;
-}
-
-.change-log{
-    margin-top:14px;
-    border-top:1px solid #333;
-    padding-top:12px;
-}
-
-.change-entry{
-    padding:10px;
-    background:#121212;
-    border-radius:10px;
-    margin-bottom:10px;
-    border:1px solid #2d2d2d;
-}
-
-.change-type{
-    color:var(--accent);
-    font-size:12px;
-    margin-bottom:4px;
-}
-</style>
+        /* Batch mode area */
+        .mode-row{display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap}
+        .mode-pill{display:flex; gap:6px; background:#151515; border:1px solid #2a2a2a; padding:6px; border-radius:999px}
+        .mode-pill button{padding:8px 14px; font-size:13px}
+        .mode-pill .active{background:linear-gradient(90deg,var(--accent),var(--accent2)); color:#000}
+        .textarea{width:100%; min-height:220px; background:#0f0f0f; color:#a6e22e; border:1px solid #2a2a2a; border-radius:8px; padding:10px; font-family:'Roboto Mono', monospace}
+    </style>
 </head>
-
 <body>
-
-<div class="header">
-    <div class="title-wrap">
-        <h2>Translation Merger</h2>
-        <div class="subtitle">Merge and review JSON conflicts visually</div>
-    </div>
-    <a href="../" class="home-btn">Home</a>
-</div>
+<h2>Translation Synchronizer</h2>
+<p class="subtle">Valitse <strong>Parent</strong> ja <strong>Child</strong> .json käännöstiedostot, täydennä puuttuvat kentät ohjatusti ja synkronoi avainten järjestys.</p>
 
 <div class="buttons">
-    <input type="file" id="fileInput" />
-    <button id="processBtn">Process</button>
+    <button id="syncBtn">Synchronize</button>
     <button id="resetBtn" class="secondary">Reset</button>
+    <a href="/" class="home-btn">← Takaisin kotiin</a>
 </div>
 
-<div class="loading" id="loading">
-    <div>Reading & parsing...</div>
-    <div class="wrap"><div class="bar" id="bar"></div></div>
+<div id="wizard" class="card" style="margin-top:18px; display:none">
+    <div class="stepper">
+        <span class="chip" id="phaseChip">Phase</span>
+        <span class="chip" id="progressChip">0/0</span>
+    </div>
+
+    <div class="mode-row" style="margin:6px 0 10px">
+        <div id="question"></div>
+        <div class="mode-pill" role="tablist" aria-label="Fill mode">
+            <button id="singleModeBtn" class="active" role="tab" aria-selected="true">Single</button>
+            <button id="batchModeBtn" role="tab" aria-selected="false">50 at a time</button>
+        </div>
+    </div>
+
+    <!-- Single mode controls -->
+    <div id="singleWrap">
+        <div class="buttons" style="margin-top:0">
+            <button id="prevBtn" class="secondary">← Previous</button>
+            <button id="refuseBtn" class="danger" title="Poista tämä ylimääräinen kenttä Child-tiedostosta">Refuse this</button>
+            <button id="nextBtn">Next →</button>
+        </div>
+        <div class="twocol" style="margin-top:10px">
+            <div>
+                <label for="valueInput">Anna arvo (pakollinen)</label>
+                <input id="valueInput" class="field-input" placeholder="" />
+                <div class="hint" id="valueHint"></div>
+                <div class="hint" style="margin-top:6px">Vinkki: Enter = Next</div>
+            </div>
+            <div>
+                <div class="hint">Konteksti</div>
+                <div id="context" class="json-output" style="min-height:140px"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Batch mode controls -->
+    <div id="batchWrap" style="display:none">
+        <div class="hint" id="batchRange"></div>
+        <textarea id="batchTextarea" class="textarea" placeholder="{\n  \"key.path.1\": \"default from parent\",\n  ... up to 50 entries\n}"></textarea>
+        <div class="buttons" style="margin-top:10px">
+            <button id="generateBatchBtn" class="secondary">Generate 50-pack</button>
+            <button id="copyBatchBtn" class="secondary">Copy JSON</button>
+            <button id="refuseBatchBtn" class="danger" title="Poista nämä 50 ylimääräistä kenttää Child-tiedostosta">Refuse these 50</button>
+            <button id="applyBatchBtn">Apply & Advance →</button>
+        </div>
+        <div class="hint">Kopioi teksti käännöstyökaluusi, käännä ja liimaa takaisin tähän. Napsauta sitten “Apply & Advance”. Vaihtoehtoisesti voit hylätä nämä 50 ylimääräistä Child-avainta painamalla “Refuse these 50”.</div>
+    </div>
+</div>
+
+<div id="loading" class="card" style="margin-top:18px; display:none">
+    <div class="hint" style="margin-bottom:8px">Processing…</div>
+    <div class="progress-wrap"><div class="bar" id="bar"></div></div>
+</div>
+
+
+<div id="parentPreviewCard" class="card" style="margin-top:18px; display:none">
+    <div class="row" style="justify-content:space-between; align-items:center">
+        <h3 style="margin:0;color:var(--accent)">Updated Parent (after Phase 1)</h3>
+        <div class="toolbar">
+            <button id="parentCopyBtn" class="secondary">Copy JSON</button>
+            <button id="parentExportBtn">Export .json</button>
+            <button id="parentProceedBtn" class="danger">Continue → Phase 2</button>
+        </div>
+    </div>
+    <div class="hint">Review and export/copy the updated <strong>Parent</strong> before proceeding to fill missing values in the Child.</div>
+    <div id="parentPreviewView" class="json-output" aria-live="polite"></div>
+</div>
+
+
+<div id="resultCard" class="card" style="margin-top:18px; display:none">
+    <div class="row" style="justify-content:space-between; align-items:center">
+        <h3 style="margin:0;color:var(--accent)">Synchronized Child</h3>
+        <div class="toolbar">
+            <button id="copyBtn" class="secondary">Copy JSON</button>
+            <button id="exportBtn">Export .json</button>
+        </div>
+    </div>
+    <div id="resultView" class="json-output" aria-live="polite"></div>
 </div>
 
 <div class="grid">
     <div class="card">
-        <h3>Current</h3>
-        <div class="action-row">
-            <button onclick="download('current')">Download</button>
-            <button class="copy-btn" onclick="copyJson('current', this)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="9" y="9" width="13" height="13" rx="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                </svg>
-                <span>Copy</span>
-            </button>
+        <div class="row" style="justify-content:space-between">
+            <label>Parent (.json)</label>
+            <small id="parentMeta" class="hint"></small>
         </div>
-        <textarea id="current"></textarea>
+        <input id="parentFile" type="file" accept="application/json,.json" />
+        <div id="parentView" class="json-output" aria-live="polite"></div>
     </div>
 
     <div class="card">
-        <h3>Result</h3>
-        <div class="action-row">
-            <button onclick="download('result')">Download</button>
-            <button class="copy-btn" onclick="copyJson('result', this)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="9" y="9" width="13" height="13" rx="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                </svg>
-                <span>Copy</span>
-            </button>
+        <div class="row" style="justify-content:space-between">
+            <label>Child (.json)</label>
+            <small id="childMeta" class="hint"></small>
         </div>
-        <textarea id="result"></textarea>
-    </div>
-
-    <div class="card">
-        <h3>Merged</h3>
-        <div class="action-row">
-            <button onclick="download('merged')">Download</button>
-            <button class="copy-btn" onclick="copyJson('merged', this)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="9" y="9" width="13" height="13" rx="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                </svg>
-                <span>Copy</span>
-            </button>
-        </div>
-        <textarea id="merged"></textarea>
+        <input id="childFile" type="file" accept="application/json,.json" />
+        <div id="childView" class="json-output" aria-live="polite"></div>
     </div>
 </div>
 
-<div class="card" style="margin-top:20px;">
-    <h3 id="phase1Title">Step 1: Changed values</h3>
-    <div class="controls">
-        <button id="selAll1" onclick="toggleAll(true)">Select All</button>
-        <button id="unselAll1" onclick="toggleAll(false)">Unselect All</button>
-    </div>
-    <div id="changes" class="list"></div>
-</div>
-
-<div class="card" style="margin-top:20px;">
-    <h3 id="phase2Title">Step 2: New fields</h3>
-    <div class="controls">
-        <button id="selAll2" onclick="toggleAllNew(true)">Select All</button>
-        <button id="unselAll2" onclick="toggleAllNew(false)">Unselect All</button>
-    </div>
-    <div id="newFields" class="list"></div>
-</div>
-
-<div class="card ready-panel" id="readyPanel">
-    <div class="ready-header">
-        <div>
-            <h3 style="margin:0;">Ready after Step 2</h3>
-            <div class="small">Final generated JSON and summary of applied changes</div>
-        </div>
-
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <div class="ready-badge">Ready</div>
-
-            <button onclick="download('result')">Download Final JSON</button>
-
-            <button class="copy-btn" onclick="copyJson('result', this)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="9" y="9" width="13" height="13" rx="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                </svg>
-                <span>Copy Final JSON</span>
-            </button>
-        </div>
-    </div>
-
-    <textarea id="finalOnly" style="margin-top:14px;height:280px;"></textarea>
-
-    <div class="change-log">
-        <h4>Applied Changes</h4>
-        <div id="changeLog"></div>
-    </div>
-</div>
+<div id="toast" class="toast"></div>
 
 <script>
-const LS = {
-    save:(k,v)=>localStorage.setItem(k,JSON.stringify(v)),
-    load:(k)=>JSON.parse(localStorage.getItem(k)||"null")
-};
-
-let current={}, merged={}, result={};
-
-function parseConflict(text){
-    const lines=text.split("\n");
-    let cur=[], mer=[];
-    let mode=null;
-
-    for(let l of lines){
-        if(l.startsWith("<<<<<<<")){mode="cur";continue;}
-        if(l.startsWith("=======")){mode="mer";continue;}
-        if(l.startsWith(">>>>>>>")){mode=null;continue;}
-
-        if(mode==="cur") cur.push(l);
-        else if(mode==="mer") mer.push(l);
-        else{
-            cur.push(l);
-            mer.push(l);
-        }
+    // ===== UI helpers =====
+    const toast = document.getElementById('toast');
+    function showToast(message, isError=false){
+        toast.textContent = message; toast.className = 'toast' + (isError ? ' error' : '');
+        toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), 2500);
+    }
+    function showAnimatedOutput(container, node){
+        container.classList.remove('visible'); container.replaceChildren();
+        setTimeout(()=>{ container.appendChild(node); container.classList.add('visible'); }, 50);
     }
 
-    return {
-        current: JSON.parse(cur.join("\n")),
-        merged: JSON.parse(mer.join("\n"))
-    };
-}
-
-function sortObj(obj){
-    if(typeof obj!=="object"||obj===null) return obj;
-
-    return Object.keys(obj).sort().reduce((r,k)=>{
-        r[k]=sortObj(obj[k]);
-        return r;
-    },{});
-}
-
-function flatten(obj,p="",res={}){
-    for(let k in obj){
-        let path=p? p+"."+k : k;
-
-        if(typeof obj[k]==="object" && obj[k]!==null){
-            flatten(obj[k],path,res);
-        }else{
-            res[path]=obj[k];
-        }
+    // ===== Collapsible JSON renderer (same palette as your existing page) =====
+    function renderJSON(value, keyLabel){
+        const span = (cls, text)=>{ const el=document.createElement('span'); el.className=cls; el.textContent=text; return el };
+        if(value===null)return span('nl','null');
+        const t=typeof value; if(t==='string')return span('s',`"${value}"`); if(t==='number')return span('n',String(value)); if(t==='boolean')return span('b',String(value));
+        const isArr=Array.isArray(value); const keys=isArr? value.map((_,i)=>i) : Object.keys(value);
+        const details=document.createElement('details'); details.open=true;
+        const summary=document.createElement('summary'); const wrapper=document.createElement('span'); wrapper.className='meta';
+        const bo=isArr?'[':'{', bc=isArr?']':'}';
+        const labelText=isArr? `${bo} Array · ${keys.length} ${keys.length===1?'item':'items'} ${bc}` : `${bo} Object · ${keys.length} ${keys.length===1?'key':'keys'} ${bc}`;
+        if(keyLabel!==undefined){ const keySpan=document.createElement('span'); keySpan.className='k'; keySpan.textContent=keyLabel; summary.appendChild(keySpan); summary.appendChild(span('sep',': ')); }
+        wrapper.textContent=labelText; summary.appendChild(wrapper); details.appendChild(summary);
+        keys.forEach(k=>{ const line=document.createElement('div'); line.className='line'; if(isArr){ const idx=document.createElement('span'); idx.className='k'; idx.textContent=`[${k}]`; line.appendChild(idx); line.appendChild(span('sep',': ')); line.appendChild(renderJSON(value[k])); } else { const keySpan=document.createElement('span'); keySpan.className='k'; keySpan.textContent=k; line.appendChild(keySpan); line.appendChild(span('sep',': ')); line.appendChild(renderJSON(value[k])); } details.appendChild(line) });
+        return details;
     }
 
-    return res;
-}
+    // ===== File + state =====
+    const parentFile = document.getElementById('parentFile');
+    const childFile = document.getElementById('childFile');
+    const parentView = document.getElementById('parentView');
+    const childView = document.getElementById('childView');
+    const parentMeta = document.getElementById('parentMeta');
+    const childMeta = document.getElementById('childMeta');
+    const syncBtn = document.getElementById('syncBtn');
+    const resetBtn = document.getElementById('resetBtn');
 
-function build(){
-    const cFlat=flatten(current);
-    const mFlat=flatten(merged);
+    const wizard = document.getElementById('wizard');
+    const phaseChip = document.getElementById('phaseChip');
+    const progressChip = document.getElementById('progressChip');
+    const question = document.getElementById('question');
+    const valueInput = document.getElementById('valueInput');
+    const valueHint = document.getElementById('valueHint');
+    const contextView = document.getElementById('context');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const refuseBtn = document.getElementById('refuseBtn');
 
-    const changes=[];
-    const additions=[];
+    // mode controls
+    const singleModeBtn = document.getElementById('singleModeBtn');
+    const batchModeBtn = document.getElementById('batchModeBtn');
+    const singleWrap = document.getElementById('singleWrap');
+    const batchWrap = document.getElementById('batchWrap');
+    const batchRange = document.getElementById('batchRange');
+    const batchTextarea = document.getElementById('batchTextarea');
+    const generateBatchBtn = document.getElementById('generateBatchBtn');
+    const copyBatchBtn = document.getElementById('copyBatchBtn');
+    const applyBatchBtn = document.getElementById('applyBatchBtn');
+    const refuseBatchBtn = document.getElementById('refuseBatchBtn');
 
-    for(let k in cFlat){
-        if(mFlat[k] !== undefined && mFlat[k]!==cFlat[k]){
-            changes.push(k);
-        }
-    }
+    const loading = document.getElementById('loading');
+    const bar = document.getElementById('bar');
 
-    for(let k in mFlat){
-        if(!(k in cFlat)){
-            additions.push(k);
-        }
-    }
+    const resultCard = document.getElementById('resultCard');
+    const resultView = document.getElementById('resultView');
+    const copyBtn = document.getElementById('copyBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    // Parent preview (between phases)
+    const parentPreviewCard = document.getElementById('parentPreviewCard');
+    const parentPreviewView = document.getElementById('parentPreviewView');
+    const parentCopyBtn = document.getElementById('parentCopyBtn');
+    const parentExportBtn = document.getElementById('parentExportBtn');
+    const parentProceedBtn = document.getElementById('parentProceedBtn');
 
-    const changesDiv=document.getElementById("changes");
-    const newDiv=document.getElementById("newFields");
 
-    changesDiv.innerHTML="";
-    newDiv.innerHTML="";
-
-    changes.forEach(k=>{
-        const el=document.createElement("div");
-        el.className="item";
-        el.innerHTML=`
-            <label><input type="checkbox" data-k="${k}"> ${k}</label>
-            <div class="small">Original: ${JSON.stringify(get(current,k))}</div>
-            <div class="small">New: ${JSON.stringify(get(merged,k))}</div>
-        `;
-        changesDiv.appendChild(el);
-    });
-
-    additions.forEach(k=>{
-        const el=document.createElement("div");
-        el.className="item";
-        el.innerHTML=`
-            <label><input type="checkbox" data-new="${k}"> ${k}</label>
-            <div class="small">Value: ${JSON.stringify(get(merged,k))}</div>
-        `;
-        newDiv.appendChild(el);
-    });
-
-    document.getElementById("phase1Title").innerText = `Step 1: Changed values (${changes.length})`;
-    document.getElementById("phase2Title").innerText = `Step 2: New fields (${additions.length})`;
-
-    document.getElementById("selAll1").disabled = changes.length===0;
-    document.getElementById("unselAll1").disabled = changes.length===0;
-    document.getElementById("selAll2").disabled = additions.length===0;
-    document.getElementById("unselAll2").disabled = additions.length===0;
-}
-
-function apply(){
-    result=JSON.parse(JSON.stringify(current));
-
-    const applied=[];
-
-    document.querySelectorAll("[data-k]:checked").forEach(el=>{
-        const k=el.dataset.k;
-        const oldVal=get(current,k);
-        const newVal=get(merged,k);
-
-        set(result,k,newVal);
-
-        applied.push({
-            type:"Changed",
-            key:k,
-            from:oldVal,
-            to:newVal
-        });
-    });
-
-    document.querySelectorAll("[data-new]:checked").forEach(el=>{
-        const k=el.dataset.new;
-        const newVal=get(merged,k);
-
-        set(result,k,newVal);
-
-        applied.push({
-            type:"Added",
-            key:k,
-            from:null,
-            to:newVal
-        });
-    });
-
-    const formatted=JSON.stringify(sortObj(result),null,2);
-
-    document.getElementById("result").value=formatted;
-    document.getElementById("finalOnly").value=formatted;
-
-    updateChangeLog(applied);
-
-    document.getElementById("readyPanel").style.display = applied.length ? "block" : "none";
-
-    LS.save("state",{current,merged,result});
-}
-
-function updateChangeLog(applied){
-    const log=document.getElementById("changeLog");
-
-    if(!applied.length){
-        log.innerHTML='<div class="small">No changes selected yet.</div>';
-        return;
-    }
-
-    log.innerHTML = applied.map(item => `
-        <div class="change-entry">
-            <div class="change-type">${item.type}</div>
-            <strong>${item.key}</strong>
-            <div class="small">From: ${JSON.stringify(item.from)}</div>
-            <div class="small">To: ${JSON.stringify(item.to)}</div>
-        </div>
-    `).join("");
-}
-
-function get(obj,path){
-    return path.split(".").reduce((o,k)=>o[k],obj);
-}
-
-function set(obj,path,val){
-    const parts=path.split(".");
-    let o=obj;
-
-    parts.forEach((k,i)=>{
-        if(i===parts.length-1) o[k]=val;
-        else{
-            if(!o[k]) o[k]={};
-            o=o[k];
-        }
-    });
-}
-
-function toggleAll(v){
-    document.querySelectorAll("#changes input").forEach(i=>i.checked=v);
-    apply();
-}
-
-function toggleAllNew(v){
-    document.querySelectorAll("#newFields input").forEach(i=>i.checked=v);
-    apply();
-}
-
-async function copyJson(type, btn){
-    const text=document.getElementById(type).value;
-
-    try{
-        await navigator.clipboard.writeText(text);
-
-        const label=btn.querySelector("span");
-        const original=label.innerText;
-
-        btn.classList.add("copied");
-        label.innerText="Copied";
-
-        setTimeout(()=>{
-            btn.classList.remove("copied");
-            label.innerText=original.includes("Final") ? "Copy Final JSON" : "Copy";
-        },1500);
-
-    }catch(err){
-        alert("Clipboard copy failed");
-    }
-}
-
-function download(type){
-    const data={current,merged,result}[type];
-
-    const blob=new Blob([JSON.stringify(data,null,2)]);
-    const a=document.createElement("a");
-
-    a.href=URL.createObjectURL(blob);
-    a.download=type+".json";
-    a.click();
-}
-
-function animate(cb){
-    const l=document.getElementById("loading");
-    const bar=document.getElementById("bar");
-
-    l.style.display="block";
-
-    let w=0;
-
-    const t=setInterval(()=>{
-        w+=25;
-        bar.style.width=w+"%";
-
-        if(w>=100){
-            clearInterval(t);
-
-            setTimeout(()=>{
-                l.style.display="none";
-                cb();
-            },200);
-        }
-    },150);
-}
-
-document.getElementById("processBtn").onclick=()=>{
-    const file=document.getElementById("fileInput").files[0];
-
-    if(!file) return alert("Upload file");
-
-    const reader=new FileReader();
-
-    reader.onload=()=>{
-        animate(()=>{
-            const parsed=parseConflict(reader.result);
-
-            current=sortObj(parsed.current);
-            merged=sortObj(parsed.merged);
-            result=JSON.parse(JSON.stringify(current));
-
-            document.getElementById("current").value=JSON.stringify(current,null,2);
-            document.getElementById("merged").value=JSON.stringify(merged,null,2);
-            document.getElementById("result").value=JSON.stringify(result,null,2);
-
-            build();
-            apply();
-        });
+    // LocalStorage helpers
+    const LS = {
+        save(key, val){ localStorage.setItem(key, JSON.stringify(val)); },
+        load(key){ const v = localStorage.getItem(key); return v? JSON.parse(v):null },
+        remove(...keys){ keys.forEach(k=>localStorage.removeItem(k)) }
     };
 
-    reader.readAsText(file);
-};
+    let parentJSON = LS.load('ts_parent') || null;
+    let childJSON = LS.load('ts_child') || null;
 
-document.addEventListener("change",e=>{
-    if(e.target.matches("input[type=checkbox]")){
-        apply();
+    // Wizard / diff state
+    let phase = LS.load('ts_phase') || 'childExtras'; // childExtras -> parentMissingInChild -> done
+    let queue = LS.load('ts_queue') || []; // array of path strings
+    let idx = LS.load('ts_idx') || 0;
+    let mode = LS.load('ts_mode') || 'single';
+
+    // Utilities: deep get/set & traversal
+    const PATH_SEP = '.';
+    const isObject = (x)=> x && typeof x === 'object' && !Array.isArray(x);
+    function deepGet(obj, path){ return path.split(PATH_SEP).reduce((o,k)=> (o||{})[k], obj) }
+    function deepSet(obj, path, value){ const parts=path.split(PATH_SEP); let cur=obj; parts.forEach((k,i)=>{ if(i===parts.length-1){ cur[k]=value; } else { if(!isObject(cur[k])) cur[k]={}; cur=cur[k]; } }); return obj }
+    function walk(obj, base='', acc=[]){ if(!isObject(obj)) return acc; Object.keys(obj).forEach(k=>{ const p = base? base+PATH_SEP+k : k; if(isObject(obj[k])){ walk(obj[k], p, acc) } else { acc.push(p) } }); return acc }
+    function deepDelete(obj, path){
+        const parts = path.split(PATH_SEP);
+        const stack = [];
+        let cur = obj;
+        for(let i=0;i<parts.length-1;i++){
+            const k = parts[i];
+            if(!isObject(cur[k])) return; // nothing to delete
+            stack.push([cur, k]);
+            cur = cur[k];
+        }
+        const leafKey = parts[parts.length-1];
+        if(cur && Object.prototype.hasOwnProperty.call(cur, leafKey)){
+            delete cur[leafKey];
+            // clean up empty objects upwards
+            for(let i=stack.length-1;i>=0;i--){
+                const [parent, key] = stack[i];
+                if(isObject(parent[key]) && Object.keys(parent[key]).length===0){
+                    delete parent[key];
+                } else {
+                    break;
+                }
+            }
+        }
     }
-});
 
-document.getElementById("resetBtn").onclick=()=>{
-    localStorage.clear();
-    location.reload();
-};
-
-window.onload=()=>{
-    const s=LS.load("state");
-
-    if(s){
-        current=s.current;
-        merged=s.merged;
-        result=s.result;
-
-        document.getElementById("current").value=JSON.stringify(current,null,2);
-        document.getElementById("merged").value=JSON.stringify(merged,null,2);
-        document.getElementById("result").value=JSON.stringify(result,null,2);
-        document.getElementById("finalOnly").value=JSON.stringify(result,null,2);
-
-        build();
-        apply();
+    function computeDiffs(){
+        if(!isObject(parentJSON) || !isObject(childJSON)) return {childExtras:[], missingInChild:[], missingInParent:[]};
+        const parentLeaves = walk(parentJSON);
+        const childLeaves = walk(childJSON);
+        const setP = new Set(parentLeaves);
+        const setC = new Set(childLeaves);
+        const childExtras = [...childLeaves.filter(p=>!setP.has(p))]; // in child, not in parent
+        const missingInChild = [...parentLeaves.filter(p=>!setC.has(p))]; // in parent, not in child
+        const missingInParent = childExtras; // alias for clarity in wizard phase 1
+        return {childExtras, missingInChild, missingInParent}
     }
-};
+
+    function orderLike(parentObj, childObj){
+        if(!isObject(parentObj)) return childObj; // primitives
+        const out = Array.isArray(parentObj)? [] : {};
+        Object.keys(parentObj).forEach(k=>{
+            const pv = parentObj[k]; const cv = childObj? childObj[k] : undefined;
+            if(isObject(pv)){
+                out[k] = orderLike(pv, cv||{});
+            } else {
+                out[k] = cv;
+            }
+        });
+        return out;
+    }
+
+    function fileToJSON(file, cb){
+        if(!file){ cb(null); return }
+        if(!/\.json$/i.test(file.name)){ showToast('Tiedoston tulee olla .json', true); cb(null); return }
+        const reader=new FileReader();
+        reader.onload=()=>{
+            try{ const json=JSON.parse(reader.result); cb(json) }catch(e){ showToast('JSON ei ole kelvollinen: '+e.message, true); cb(null) }
+        };
+        reader.readAsText(file);
+    }
+
+    function refreshViews(){
+        if(parentJSON){ showAnimatedOutput(parentView, renderJSON(parentJSON)); parentMeta.textContent = Object.keys(parentJSON).length+ ' top‑keys'; } else { parentView.replaceChildren(); parentMeta.textContent=''; }
+        if(childJSON){ showAnimatedOutput(childView, renderJSON(childJSON)); childMeta.textContent = Object.keys(childJSON).length+ ' top‑keys'; } else { childView.replaceChildren(); childMeta.textContent=''; }
+        LS.save('ts_parent', parentJSON); LS.save('ts_child', childJSON);
+    }
+
+    function startWizard(){
+        const {missingInParent, missingInChild} = computeDiffs();
+        if(missingInParent.length){ phase='childExtras'; queue=missingInParent; idx=0; showToast('Child sisältää avaimia joita Parentilta puuttuu. Täydennä Parent tai hylkää Childin ylimääräiset.'); }
+        else if(missingInChild.length){ phase='parentMissingInChild'; queue=missingInChild; idx=0; showToast('Parent sisältää avaimia joita Childilta puuttuu. Täydennetään Child seuraavaksi.'); }
+        else { // nothing missing; go straight to ordering
+            return finalize();
+        }
+        LS.save('ts_phase', phase); LS.save('ts_queue', queue); LS.save('ts_idx', idx);
+        renderWizardStep();
+    }
+
+    function setMode(nextMode){
+        mode = nextMode; LS.save('ts_mode', mode);
+        if(mode==='single'){
+            singleModeBtn.classList.add('active'); singleModeBtn.setAttribute('aria-selected','true');
+            batchModeBtn.classList.remove('active'); batchModeBtn.setAttribute('aria-selected','false');
+            singleWrap.style.display='block'; batchWrap.style.display='none';
+            valueInput.focus();
+        } else {
+            batchModeBtn.classList.add('active'); batchModeBtn.setAttribute('aria-selected','true');
+            singleModeBtn.classList.remove('active'); singleModeBtn.setAttribute('aria-selected','false');
+            singleWrap.style.display='none'; batchWrap.style.display='block';
+            generateBatch();
+            batchTextarea.focus();
+        }
+    }
+
+    singleModeBtn.addEventListener('click',()=>setMode('single'));
+    batchModeBtn.addEventListener('click',()=>setMode('batch'));
+
+    function toggleRefuseVisibility(){
+        const vis = (phase==='childExtras');
+        if(refuseBtn) refuseBtn.style.display = vis ? 'inline-block' : 'none';
+        if(refuseBatchBtn) refuseBatchBtn.style.display = vis ? 'inline-block' : 'none';
+    }
+
+    function renderWizardStep(){
+        if(!queue.length){ // no steps
+            wizard.style.display='none';
+            return finalize();
+        }
+        wizard.style.display='block';
+        const path = queue[idx];
+        phaseChip.textContent = (phase==='childExtras' ? 'Phase 1: Täydennä Parent (tai hylkää Child-ylimääräiset)' : 'Phase 2: Täydennä Child');
+        progressChip.textContent = (idx+1) + '/' + queue.length;
+
+        // Build question
+        const where = document.createElement('div');
+        where.innerHTML = (phase==='childExtras'
+            ? `Childissa on avain, jota <strong>Parent</strong> ei sisällä: <span class="path">${path}</span>. Voit <strong>luoda vastaavan kentän Parenttiin</strong> tai <strong>hylätä</strong> tämän avaimen poistamalla sen Childista.`
+            : `Parentissa on avain, jota <strong>Child</strong> ei sisällä: <span class="path">${path}</span>. Lisää käännös Child‑tiedostoon.`);
+        question.replaceChildren(where);
+
+        // Suggest placeholder from the opposite file for context
+        const fromObj = (phase==='childExtras')? childJSON : parentJSON;
+        const ctxVal = deepGet(fromObj, path);
+        valueInput.value = (typeof ctxVal==='string')? ctxVal : '';
+        valueHint.textContent = (typeof ctxVal==='string')? 'Vihje: vastinkentän arvo' : 'Anna arvo merkkijonona';
+
+        // Show context parent branch
+        const branchPath = path.split('.').slice(0,-1).join('.');
+        const branchObj = branchPath? deepGet((phase==='childExtras')? parentJSON : childJSON, branchPath) || {} : (phase==='childExtras'? parentJSON : childJSON);
+        showAnimatedOutput(contextView, renderJSON(branchObj || {}));
+
+        // Update batch range note
+        const end = Math.min(queue.length-1, idx+49);
+        batchRange.textContent = `This pack covers ${idx+1}–${end+1} / ${queue.length}`;
+
+        if(mode==='batch') generateBatch();
+
+        toggleRefuseVisibility();
+
+        // persist
+        LS.save('ts_phase', phase); LS.save('ts_queue', queue); LS.save('ts_idx', idx);
+    }
+
+    // === Single mode actions ===
+    prevBtn.addEventListener('click', ()=>{
+        if(idx>0){ idx--; renderWizardStep(); LS.save('ts_idx', idx) }
+    });
+
+    nextBtn.addEventListener('click', ()=>{
+        const val = valueInput.value;
+        if(!val || !val.trim()){ showToast('Kenttä on pakollinen.', true); return }
+        const path = queue[idx];
+        if(phase==='childExtras'){
+            deepSet(parentJSON, path, val);
+            LS.save('ts_parent', parentJSON);
+        } else {
+            deepSet(childJSON, path, val);
+            LS.save('ts_child', childJSON);
+        }
+        advance(1);
+    });
+
+    // ENTER => Next in single mode
+    valueInput.addEventListener('keydown', (e)=>{
+        if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); nextBtn.click(); }
+    });
+
+    // Refuse (single) => delete this extra from Child
+    if(refuseBtn){
+        refuseBtn.addEventListener('click', ()=>{
+            if(phase!=='childExtras'){ showToast('Hylkääminen on käytettävissä vain Phase 1:ssä.', true); return; }
+            const path = queue[idx];
+            deepDelete(childJSON, path);
+            LS.save('ts_child', childJSON);
+            showToast('Avain poistettu Childista: ' + path);
+            advance(1);
+        });
+    }
+
+    // === Batch mode helpers ===
+    function getBatchSlice(){
+        const slice = [];
+        for(let i=idx; i<Math.min(queue.length, idx+50); i++) slice.push(queue[i]);
+        return slice;
+    }
+    function generateBatch(){
+        const slice = getBatchSlice();
+        if(!slice.length){ batchTextarea.value='{}'; return }
+        const fromObj = (phase==='childExtras')? childJSON : parentJSON; // defaults from opposite for context
+        const obj = {};
+        slice.forEach(p=>{ const v = deepGet(fromObj, p); obj[p] = (typeof v==='string')? v : '' });
+        batchTextarea.value = JSON.stringify(obj, null, 2);
+    }
+
+    generateBatchBtn.addEventListener('click', generateBatch);
+    copyBatchBtn.addEventListener('click', async ()=>{
+        try{ await navigator.clipboard.writeText(batchTextarea.value); showToast('Kopioitu leikepöydälle!'); }catch(e){ showToast('Kopiointi epäonnistui', true) }
+    });
+    applyBatchBtn.addEventListener('click', ()=>{
+        let obj;
+        try{ obj = JSON.parse(batchTextarea.value); }
+        catch(e){ showToast('Liitetty JSON ei ole kelvollinen.', true); return }
+
+        const slice = getBatchSlice();
+        // Validate keys
+        const keys = Object.keys(obj);
+        const expected = new Set(slice);
+        const unknown = keys.filter(k=>!expected.has(k));
+        if(unknown.length){ showToast('Varoitus: ylimääräiset avaimet ohitettiin ('+unknown.length+')'); }
+
+        // Apply values
+        let applied = 0;
+        slice.forEach(path=>{
+            const val = obj[path];
+            if(typeof val === 'string' && val.trim() !== ''){
+                if(phase==='childExtras'){ deepSet(parentJSON, path, val); }
+                else { deepSet(childJSON, path, val); }
+                applied++;
+            }
+        });
+        if(phase==='childExtras') LS.save('ts_parent', parentJSON); else LS.save('ts_child', childJSON);
+        if(applied===0){ showToast('Ei päivitettäviä arvoja.', true); return }
+        advance(slice.length);
+    });
+
+    // Refuse 50 => delete the batch of extras from Child
+    if(refuseBatchBtn){
+        refuseBatchBtn.addEventListener('click', ()=>{
+            if(phase!=='childExtras'){ showToast('Hylkääminen on käytettävissä vain Phase 1:ssä.', true); return; }
+            const slice = getBatchSlice();
+            if(!slice.length){ showToast('Ei poistettavaa.', true); return; }
+            slice.forEach(path=> deepDelete(childJSON, path));
+            LS.save('ts_child', childJSON);
+            showToast('Poistettu Childista: ' + slice.length + ' avainta');
+            advance(slice.length);
+        });
+    }
+
+    function advance(step){
+        refreshViews();
+        if(idx + step < queue.length){
+            idx += step; LS.save('ts_idx', idx); renderWizardStep();
+        } else {
+            // phase done
+            wizard.style.display='none';
+            if(phase==='childExtras'){
+                const { missingInChild } = computeDiffs();
+                if(missingInChild.length){
+                    // Stop to show parent preview; user can copy/export updated parent before Phase 2
+                    if (showParentPreview()) {
+                        return; // Wait for user action
+                    }
+                }
+                finalize();
+            } else {
+                finalize();
+            }
+        }
+    }
+
+    function fakeLoading(cb){
+        loading.style.display='block';
+        let w=0; bar.style.width='0%';
+        const t = setInterval(()=>{ w+=20; bar.style.width=w+'%'; if(w>=100){ clearInterval(t); setTimeout(()=>{ loading.style.display='none'; cb&&cb() }, 150) } }, 200); // ~1s
+    }
+
+    function finalize(){
+        fakeLoading(()=>{
+            const diffs = computeDiffs();
+            if(diffs.missingInParent.length || diffs.missingInChild.length){ // safety
+                showToast('Täydennä puuttuvat kentät ensin.', true);
+                startWizard();
+                return;
+            }
+            const orderedChild = orderLike(parentJSON, childJSON || {});
+            showAnimatedOutput(resultView, renderJSON(orderedChild));
+            resultCard.style.display='block';
+            LS.save('ts_result', orderedChild);
+            showToast('Synkronointi onnistui!');
+        });
+    }
+
+
+    // === Parent preview (checkpoint between phases) ===
+    function showParentPreview(){
+        if(!isObject(parentJSON)){
+            showToast('Parent puuttuu.', true);
+            return false;
+        }
+        showAnimatedOutput(parentPreviewView, renderJSON(parentJSON));
+        parentPreviewCard.style.display='block';
+        LS.save('ts_show_parent_preview', true);
+        return true;
+    }
+    function hideParentPreview(){
+        parentPreviewCard.style.display='none';
+        LS.remove('ts_show_parent_preview');
+    }
+    if (typeof parentCopyBtn !== 'undefined' && parentCopyBtn) {
+        parentCopyBtn.addEventListener('click', async ()=>{
+            try{
+                await navigator.clipboard.writeText(JSON.stringify(parentJSON, null, 2));
+                showToast('Parent kopioitu leikepöydälle!');
+            }catch(e){ showToast('Kopiointi epäonnistui', true); }
+        });
+    }
+    if (typeof parentExportBtn !== 'undefined' && parentExportBtn) {
+        parentExportBtn.addEventListener('click', ()=>{
+            const blob = new Blob([JSON.stringify(parentJSON, null, 2)], {type:'application/json'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'parent.updated.json';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        });
+    }
+    if (typeof parentProceedBtn !== 'undefined' && parentProceedBtn) {
+        parentProceedBtn.addEventListener('click', ()=>{
+            hideParentPreview();
+            const { missingInChild } = computeDiffs();
+            if(missingInChild.length){
+                phase = 'parentMissingInChild';
+                queue = missingInChild;
+                idx = 0;
+                LS.save('ts_phase', phase);
+                LS.save('ts_queue', queue);
+                LS.save('ts_idx', idx);
+                renderWizardStep();
+                wizard.style.display='block';
+                if(LS.load('ts_show_parent_preview')){ showParentPreview(); }
+                setMode(mode);
+                showToast('Siirryttiin Phase 2: Täydennä Child');
+            } else {
+                finalize();
+            }
+        });
+    }
+
+
+    // Actions
+    syncBtn.addEventListener('click', ()=>{
+        if(!parentJSON || !childJSON){ showToast('Valitse sekä Parent että Child .json tiedostot.', true); return }
+        // phase 1 check
+        const {missingInParent, missingInChild} = computeDiffs();
+        if(missingInParent.length){ showToast('Child sisältää ylimääräisiä kenttiä. Voit lisätä ne Parenttiin tai hylätä Childista.', false); }
+        else if(missingInChild.length){ showToast('Childista puuttuu Parentin kenttiä. Lisätään ne Childiin.', false); }
+        startWizard();
+        // restore last chosen mode
+        if(LS.load('ts_show_parent_preview')){ showParentPreview(); }
+        setMode(mode);
+    });
+
+    resetBtn.addEventListener('click', ()=>{
+        parentJSON=null; childJSON=null; phase='childExtras'; queue=[]; idx=0; mode='single';
+        LS.remove('ts_parent','ts_child','ts_phase','ts_queue','ts_idx','ts_result','ts_mode');
+        [parentView, childView, contextView, resultView].forEach(v=>v.replaceChildren());
+        [parentMeta, childMeta].forEach(m=>m.textContent='');
+        wizard.style.display='none'; loading.style.display='none'; resultCard.style.display='none';
+        bar.style.width='0%'; valueInput.value=''; batchTextarea.value='';
+        parentFile.value=''; childFile.value='';
+        toggleRefuseVisibility();
+        showToast('Reset complete');
+    });
+
+    copyBtn.addEventListener('click', async ()=>{
+        const data = LS.load('ts_result');
+        if(!data){ showToast('Ei tulosta kopioitavaksi.', true); return }
+        try{ await navigator.clipboard.writeText(JSON.stringify(data, null, 2)); showToast('Kopioitu leikepöydälle!'); }catch(e){ showToast('Kopiointi epäonnistui', true) }
+    });
+
+    exportBtn.addEventListener('click', ()=>{
+        const data = LS.load('ts_result');
+        if(!data){ showToast('Ei mitään vietävää.', true); return }
+        const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob); a.download = 'child.synchronized.json'; a.click(); URL.revokeObjectURL(a.href);
+    });
+
+    // file handlers
+    parentFile.addEventListener('change', (e)=>{
+        const f=e.target.files[0]; fileToJSON(f, json=>{ if(json){ parentJSON=json; LS.save('ts_parent', parentJSON); refreshViews(); showToast('Parent ladattu'); } })
+    });
+    childFile.addEventListener('change', (e)=>{
+        const f=e.target.files[0]; fileToJSON(f, json=>{ if(json){ childJSON=json; LS.save('ts_child', childJSON); refreshViews(); showToast('Child ladattu'); } })
+    });
+
+    // Restore session
+    (function restore(){
+        refreshViews();
+        const r = LS.load('ts_result'); if(r){ resultCard.style.display='block'; showAnimatedOutput(resultView, renderJSON(r)); }
+        if(LS.load('ts_queue') && LS.load('ts_queue').length){ queue=LS.load('ts_queue'); idx=LS.load('ts_idx')||0; phase=LS.load('ts_phase')||'childExtras'; renderWizardStep(); wizard.style.display='block'; }
+        if(LS.load('ts_show_parent_preview')){ showParentPreview(); }
+        setMode(mode);
+        toggleRefuseVisibility();
+    })();
 </script>
-
 </body>
 </html>
