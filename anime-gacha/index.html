@@ -1,0 +1,1255 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Anime Gacha System</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0e1117;
+      --panel: #171b24;
+      --panel-strong: #202634;
+      --field: #0b0f17;
+      --line: rgba(255, 255, 255, 0.12);
+      --line-strong: rgba(255, 255, 255, 0.18);
+      --text: #f5f7fb;
+      --muted: #a8b0bf;
+      --accent: #60a5fa;
+      --danger: #fb7185;
+      --success: #86efac;
+      --gold: #facc15;
+      --shadow: 0 12px 34px rgba(0, 0, 0, 0.26);
+      --radius: 18px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { min-height: 100%; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    button, textarea { font: inherit; }
+
+    .app-shell {
+      width: min(1160px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 24px 0 44px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .hero-card,
+    .rules,
+    .controls-card,
+    .summon-card,
+    .history-card {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      border-radius: var(--radius);
+    }
+
+    .hero-card {
+      padding: clamp(22px, 4vw, 34px);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      margin: 0 0 14px;
+      padding: 7px 11px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: #d7dee9;
+      background: var(--panel-strong);
+      font-size: 0.88rem;
+      letter-spacing: 0.01em;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 3.6rem);
+      line-height: 1;
+      letter-spacing: -0.055em;
+    }
+
+    .subtitle {
+      width: min(720px, 100%);
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.65;
+    }
+
+    .rules {
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .rules h2,
+    .controls-card h2,
+    .history-card h2 {
+      margin: 0;
+      font-size: 0.92rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #eef2ff;
+    }
+
+    .rule-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 8px;
+    }
+
+    .rule {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 9px 10px;
+      border-radius: 12px;
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+    }
+
+    .rule b { color: var(--gold); }
+    .rule span { color: var(--muted); font-size: 0.88rem; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 360px minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .controls-card,
+    .history-card {
+      padding: 18px;
+    }
+
+    .controls-card {
+      position: sticky;
+      top: 16px;
+    }
+
+    .input-header,
+    .status-header,
+    .history-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .line-count {
+      color: var(--muted);
+      font-size: 0.9rem;
+      white-space: nowrap;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 300px;
+      resize: vertical;
+      border: 1px solid var(--line-strong);
+      border-radius: 14px;
+      outline: none;
+      padding: 14px;
+      color: var(--text);
+      background: var(--field);
+      line-height: 1.45;
+    }
+
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.18);
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .button-row.single { grid-template-columns: 1fr; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 11px 14px;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      color: white;
+      cursor: pointer;
+      font-weight: 750;
+      letter-spacing: 0.005em;
+      transition: transform 140ms ease, opacity 140ms ease, background-color 140ms ease;
+    }
+
+    .btn:hover { transform: translateY(-1px); }
+    .btn:active { transform: translateY(1px); }
+    .btn:disabled { cursor: not-allowed; opacity: 0.5; transform: none; }
+
+    .btn-primary { background: #2563eb; }
+    .btn-gacha { background: #b45309; }
+    .btn-ghost {
+      border-color: var(--line-strong);
+      background: var(--panel-strong);
+      color: #e5e7eb;
+    }
+
+    .status-box {
+      margin-top: 16px;
+      padding: 13px;
+      border-radius: 14px;
+      background: var(--field);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      line-height: 1.5;
+      min-height: 94px;
+    }
+
+    .progress {
+      height: 8px;
+      margin-top: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.08);
+    }
+
+    .progress > div {
+      width: 0%;
+      height: 100%;
+      background: var(--accent);
+      transition: width 220ms ease;
+    }
+
+    .pool-list {
+      margin-top: 14px;
+      display: grid;
+      gap: 8px;
+      max-height: 240px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .pool-item {
+      display: grid;
+      grid-template-columns: 42px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 8px;
+      border-radius: 12px;
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+    }
+
+    .pool-item img {
+      width: 42px;
+      height: 56px;
+      object-fit: cover;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.08);
+    }
+
+    .pool-title {
+      font-weight: 700;
+      font-size: 0.92rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pool-meta {
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .mini-stars { color: var(--gold); }
+
+    .summon-card {
+      min-height: 735px;
+      padding: 14px;
+      overflow: hidden;
+    }
+
+    .summon-stage {
+      position: relative;
+      min-height: 690px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.14);
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 42%, rgba(255,255,255,0.16), transparent 6rem),
+        radial-gradient(circle at 50% 48%, rgba(56, 189, 248, 0.14), transparent 18rem),
+        linear-gradient(180deg, rgba(15, 23, 42, 0.78), rgba(2, 6, 23, 0.96));
+      isolation: isolate;
+    }
+
+    .summon-stage::before,
+    .summon-stage::after {
+      content: "";
+      position: absolute;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .summon-stage::before {
+      inset: -40%;
+      background: conic-gradient(from 0deg, transparent, rgba(255,255,255,0.08), transparent, rgba(56,189,248,0.12), transparent);
+      animation: rotateField 22s linear infinite;
+      opacity: 0.65;
+    }
+
+    .summon-stage::after {
+      inset: 0;
+      background:
+        linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px);
+      background-size: 46px 46px;
+      mask-image: radial-gradient(circle at 50% 46%, black, transparent 72%);
+      opacity: 0.45;
+    }
+
+    .summon-stage.rank-1 { --rank-color: #93c5fd; --rank-glow: rgba(147, 197, 253, 0.45); }
+    .summon-stage.rank-2 { --rank-color: #86efac; --rank-glow: rgba(134, 239, 172, 0.48); }
+    .summon-stage.rank-3 { --rank-color: #c084fc; --rank-glow: rgba(192, 132, 252, 0.56); }
+    .summon-stage.rank-4 { --rank-color: #fbbf24; --rank-glow: rgba(251, 191, 36, 0.62); }
+    .summon-stage.rank-5 { --rank-color: #fff7ad; --rank-glow: rgba(255, 255, 255, 0.88); }
+
+    .summon-stage.rank-2 {
+      background:
+        radial-gradient(circle at 50% 42%, rgba(134,239,172,0.22), transparent 8rem),
+        radial-gradient(circle at 50% 48%, rgba(20,184,166,0.18), transparent 18rem),
+        linear-gradient(180deg, rgba(6,78,59,0.58), rgba(2,6,23,0.97));
+    }
+
+    .summon-stage.rank-3 {
+      background:
+        radial-gradient(circle at 50% 42%, rgba(216,180,254,0.28), transparent 9rem),
+        radial-gradient(circle at 50% 52%, rgba(126,34,206,0.28), transparent 20rem),
+        linear-gradient(180deg, rgba(46,16,101,0.62), rgba(2,6,23,0.97));
+    }
+
+    .summon-stage.rank-4 {
+      background:
+        radial-gradient(circle at 50% 40%, rgba(251,191,36,0.38), transparent 10rem),
+        radial-gradient(circle at 50% 52%, rgba(249,115,22,0.25), transparent 23rem),
+        linear-gradient(180deg, rgba(113,63,18,0.55), rgba(2,6,23,0.97));
+    }
+
+    .summon-stage.rank-5 {
+      background:
+        radial-gradient(circle at 50% 38%, rgba(255,255,255,0.62), transparent 7rem),
+        radial-gradient(circle at 34% 34%, rgba(56,189,248,0.30), transparent 17rem),
+        radial-gradient(circle at 68% 46%, rgba(244,114,182,0.35), transparent 18rem),
+        radial-gradient(circle at 45% 70%, rgba(250,204,21,0.28), transparent 22rem),
+        linear-gradient(180deg, rgba(88,28,135,0.72), rgba(2,6,23,0.98));
+      animation: legendaryPulse 1200ms ease-in-out infinite alternate;
+    }
+
+    .stage-content {
+      position: relative;
+      z-index: 3;
+      min-height: 690px;
+      display: grid;
+      place-items: center;
+      padding: 28px;
+    }
+
+    .idle-state {
+      width: min(520px, 100%);
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .idle-orb {
+      width: 150px;
+      height: 150px;
+      margin: 0 auto 20px;
+      border-radius: 999px;
+      background:
+        radial-gradient(circle at 35% 30%, rgba(255,255,255,0.72), transparent 14%),
+        radial-gradient(circle at 50% 50%, rgba(56,189,248,0.62), rgba(124,58,237,0.28) 45%, rgba(0,0,0,0.1) 72%);
+      border: 1px solid rgba(255,255,255,0.24);
+      box-shadow: 0 0 34px rgba(56,189,248,0.28), inset 0 0 34px rgba(255,255,255,0.10);
+      animation: floatOrb 2600ms ease-in-out infinite;
+    }
+
+    .idle-state h2 {
+      margin: 0 0 8px;
+      font-size: clamp(1.5rem, 3vw, 2.2rem);
+      letter-spacing: -0.035em;
+    }
+
+    .idle-state p { margin: 0; line-height: 1.6; }
+
+    .summon-overlay,
+    .effects-layer,
+    .ring-layer,
+    .flash-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .effects-layer { z-index: 2; }
+    .ring-layer { z-index: 1; }
+    .flash-layer { z-index: 4; mix-blend-mode: screen; }
+
+    .summon-overlay {
+      z-index: 5;
+      display: grid;
+      place-items: center;
+      opacity: 0;
+      transition: opacity 180ms ease;
+    }
+
+    .summon-overlay.is-active { opacity: 1; }
+
+    .summon-text {
+      text-align: center;
+      padding: 22px 26px;
+      border-radius: 22px;
+      background: rgba(0,0,0,0.42);
+      border: 1px solid rgba(255,255,255,0.18);
+      box-shadow: 0 0 50px var(--rank-glow, rgba(56,189,248,0.28));
+      transform: translateY(10px) scale(0.98);
+      animation: summonTextIn 500ms ease forwards;
+    }
+
+    .summon-text h2 {
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 4.5rem);
+      letter-spacing: -0.06em;
+      color: white;
+      text-shadow: 0 0 22px var(--rank-glow, rgba(56,189,248,0.3));
+    }
+
+    .summon-text p {
+      margin: 8px 0 0;
+      color: var(--rank-color, #e0f2fe);
+      font-weight: 900;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .ring {
+      position: absolute;
+      left: 50%;
+      top: 48%;
+      width: var(--size);
+      height: var(--size);
+      border-radius: 999px;
+      border: 2px solid var(--rank-color, #bfdbfe);
+      box-shadow: 0 0 28px var(--rank-glow, rgba(147,197,253,0.4)), inset 0 0 26px var(--rank-glow, rgba(147,197,253,0.25));
+      transform: translate(-50%, -50%) scale(0.15);
+      opacity: 0;
+      animation: ringPulse var(--dur) ease-out forwards;
+      animation-delay: var(--delay);
+    }
+
+    .particle {
+      position: absolute;
+      left: 50%;
+      top: 47%;
+      z-index: 2;
+      font-size: var(--size);
+      line-height: 1;
+      color: var(--rank-color, #e0f2fe);
+      text-shadow: 0 0 16px var(--rank-glow, rgba(147,197,253,0.4)), 0 0 30px currentColor;
+      opacity: 0;
+      animation: particleFly var(--dur) cubic-bezier(.16,.84,.25,1) forwards;
+      animation-delay: var(--delay);
+      will-change: transform, opacity;
+    }
+
+    .particle.dot {
+      width: var(--size);
+      height: var(--size);
+      border-radius: 999px;
+      background: currentColor;
+      box-shadow: 0 0 18px var(--rank-glow, rgba(147,197,253,0.4));
+      font-size: 0;
+    }
+
+    .streak {
+      position: absolute;
+      left: var(--left);
+      top: var(--top);
+      width: var(--length);
+      height: 3px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, transparent, white, var(--rank-color, #fff));
+      box-shadow: 0 0 20px var(--rank-glow, rgba(255,255,255,0.7));
+      transform: rotate(var(--angle)) translateX(-110vw);
+      animation: streakShoot var(--dur) ease-out forwards;
+      animation-delay: var(--delay);
+      opacity: 0;
+    }
+
+    .flash {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      background: radial-gradient(circle at 50% 45%, rgba(255,255,255,0.95), transparent 55%);
+      animation: flashPop 900ms ease-out forwards;
+    }
+
+    .result-card {
+      width: min(720px, 100%);
+      display: grid;
+      grid-template-columns: minmax(190px, 260px) 1fr;
+      gap: clamp(18px, 4vw, 28px);
+      align-items: center;
+      padding: clamp(18px, 3vw, 28px);
+      border-radius: 24px;
+      background: rgba(0,0,0,0.46);
+      border: 1px solid rgba(255,255,255,0.19);
+      box-shadow: 0 0 80px var(--rank-glow, rgba(56,189,248,0.35));
+      opacity: 0;
+      transform: translateY(16px) scale(0.98);
+      animation: revealCard 620ms cubic-bezier(.17,.84,.44,1) forwards;
+    }
+
+    .poster-wrap {
+      position: relative;
+      border-radius: 22px;
+      padding: 8px;
+      background: linear-gradient(145deg, rgba(255,255,255,0.32), rgba(255,255,255,0.06));
+      border: 1px solid rgba(255,255,255,0.22);
+      box-shadow: 0 0 46px var(--rank-glow, rgba(56,189,248,0.3));
+    }
+
+    .poster-wrap::before {
+      content: "";
+      position: absolute;
+      inset: -3px;
+      border-radius: 24px;
+      background: conic-gradient(from 0deg, transparent, var(--rank-color, #fff), transparent, var(--rank-color, #fff), transparent);
+      filter: blur(10px);
+      opacity: 0.42;
+      z-index: -1;
+      animation: rotateField 8s linear infinite;
+    }
+
+    .poster {
+      display: block;
+      width: 100%;
+      aspect-ratio: 3 / 4.25;
+      object-fit: cover;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.08);
+    }
+
+    .result-info { min-width: 0; }
+
+    .rarity-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--rank-color, #fff) 16%, rgba(255,255,255,0.08));
+      border: 1px solid color-mix(in srgb, var(--rank-color, #fff) 42%, rgba(255,255,255,0.18));
+      color: #fff;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-size: 0.84rem;
+    }
+
+    .result-info h2 {
+      margin: 0;
+      font-size: clamp(1.9rem, 4vw, 3.8rem);
+      line-height: 1;
+      letter-spacing: -0.06em;
+      overflow-wrap: anywhere;
+    }
+
+    .english-title {
+      margin-top: 10px;
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 1.02rem;
+    }
+
+    .score-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #f8fafc;
+      font-weight: 800;
+    }
+
+    .chip small {
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .source-query {
+      margin-top: 16px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .source-query code {
+      color: #e0f2fe;
+      background: rgba(56,189,248,0.12);
+      border: 1px solid rgba(56,189,248,0.18);
+      border-radius: 8px;
+      padding: 2px 6px;
+    }
+
+    .history-card { margin-top: 16px; }
+
+    .history-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
+
+    .history-empty {
+      color: var(--muted);
+      padding: 14px;
+      border-radius: 12px;
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+    }
+
+    .history-item {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 10px;
+      align-items: center;
+      padding: 9px;
+      border-radius: 12px;
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+    }
+
+    .history-item img {
+      width: 48px;
+      height: 64px;
+      object-fit: cover;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.08);
+    }
+
+    .history-item b {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .history-item span { color: var(--muted); font-size: 0.85rem; }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @keyframes rotateField {
+      to { transform: rotate(1turn); }
+    }
+
+    @keyframes legendaryPulse {
+      from { filter: saturate(1.05) brightness(1); }
+      to { filter: saturate(1.45) brightness(1.12); }
+    }
+
+    @keyframes floatOrb {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-12px); }
+    }
+
+    @keyframes summonTextIn {
+      to { transform: translateY(0) scale(1); }
+    }
+
+    @keyframes ringPulse {
+      0% { transform: translate(-50%, -50%) scale(0.15) rotate(0deg); opacity: 0; }
+      16% { opacity: 0.95; }
+      100% { transform: translate(-50%, -50%) scale(1.55) rotate(260deg); opacity: 0; }
+    }
+
+    @keyframes particleFly {
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(0.25) rotate(0deg); }
+      12% { opacity: 1; }
+      80% { opacity: 0.9; }
+      100% { opacity: 0; transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y))) scale(var(--scale)) rotate(var(--rot)); }
+    }
+
+    @keyframes streakShoot {
+      0% { opacity: 0; transform: rotate(var(--angle)) translateX(-110vw); }
+      18% { opacity: 1; }
+      100% { opacity: 0; transform: rotate(var(--angle)) translateX(110vw); }
+    }
+
+    @keyframes flashPop {
+      0% { opacity: 0; }
+      12% { opacity: 0.95; }
+      100% { opacity: 0; }
+    }
+
+    @keyframes revealCard {
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+      .controls-card { position: static; }
+      .summon-card { min-height: auto; }
+      .summon-stage,
+      .stage-content { min-height: 640px; }
+    }
+
+    @media (max-width: 650px) {
+      .app-shell { width: min(100% - 20px, 1160px); padding-top: 18px; }
+      .hero-card, .rules, .controls-card, .summon-card, .history-card { border-radius: 16px; }
+      .rules { padding: 16px; }
+      .button-row { grid-template-columns: 1fr; }
+      .result-card { grid-template-columns: 1fr; text-align: center; }
+      .poster-wrap { width: min(250px, 100%); margin: 0 auto; }
+      .score-row { justify-content: center; }
+      .summon-stage, .stage-content { min-height: 610px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 1ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 1ms !important;
+      }
+    }
+  
+    .home-btn {
+      display:inline-flex;
+      margin-bottom:16px;
+      padding:10px 14px;
+      border-radius:12px;
+      background: var(--panel-strong);
+      border:1px solid var(--line);
+      color: var(--text);
+      text-decoration:none;
+      font-weight:700;
+    }
+
+</style>
+</head>
+<body>
+  <main class="app-shell">
+    
+    <a class="home-btn" href="../">← Return to home</a>
+
+    <section class="hero" aria-labelledby="page-title">
+      <div class="hero-card">
+        <p class="eyebrow">Uniform random pulls · rank only changes visuals</p>
+        <h1 id="page-title">Anime Gacha System</h1>
+        <p class="subtitle">
+          Add one anime search query per row, fetch the matching anime from Jikan, then pull a completely random anime from the loaded pool. Rank controls only the summon animation and card appearance.
+        </p>
+      </div>
+
+      <aside class="rules" aria-label="Rank rules">
+        <h2>Score rank rules</h2>
+        <div class="rule-grid">
+          <div class="rule"><b>★★★★★</b><span>score ≥ 8.5</span></div>
+          <div class="rule"><b>★★★★☆</b><span>score ≥ 8.0</span></div>
+          <div class="rule"><b>★★★☆☆</b><span>score ≥ 7.5</span></div>
+          <div class="rule"><b>★★☆☆☆</b><span>score ≥ 7.0</span></div>
+          <div class="rule"><b>★☆☆☆☆</b><span>below 7.0 / unknown</span></div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="layout">
+      <aside class="controls-card" aria-label="Anime query controls">
+        <div class="input-header">
+          <h2>Anime query list</h2>
+          <span class="line-count" id="lineCount">0 rows</span>
+        </div>
+
+        <label class="sr-only" for="queryInput">One anime query per row</label>
+        <textarea id="queryInput" spellcheck="false" placeholder="One anime query per row"></textarea>
+
+        <div class="button-row">
+          <button class="btn btn-primary" id="fetchButton" type="button">Fetch / refresh</button>
+          <button class="btn btn-gacha" id="pullButton" type="button">Pull anime</button>
+        </div>
+        <div class="button-row single">
+          <button class="btn btn-ghost" id="exampleButton" type="button">Restore example list</button>
+        </div>
+
+        <div class="status-box" role="status" aria-live="polite">
+          <div class="status-header">
+            <strong id="statusTitle">Ready</strong>
+            <span id="poolCount">0 loaded</span>
+          </div>
+          <div id="statusText">Edit the list, fetch it, then pull. Your list is saved in this browser.</div>
+          <div class="progress" aria-hidden="true"><div id="progressBar"></div></div>
+        </div>
+
+        <div class="pool-list" id="poolList" aria-label="Loaded anime pool"></div>
+      </aside>
+
+      <section>
+        <div class="summon-card">
+          <div class="summon-stage rank-1" id="summonStage">
+            <div class="ring-layer" id="ringLayer"></div>
+            <div class="effects-layer" id="effectsLayer"></div>
+            <div class="flash-layer" id="flashLayer"></div>
+            <div class="summon-overlay" id="summonOverlay" aria-hidden="true">
+              <div class="summon-text">
+                <h2 id="summonHeadline">Summoning…</h2>
+                <p id="summonSubline">Stars align</p>
+              </div>
+            </div>
+            <div class="stage-content" id="stageContent">
+              <div class="idle-state">
+                <div class="idle-orb" aria-hidden="true"></div>
+                <h2>Ready to summon</h2>
+                <p>Load the anime pool and press <b>Pull anime</b>. The animation is generated first; the anime image and full name appear after the effects.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="history-card">
+          <div class="history-header">
+            <h2>Pull history</h2>
+            <button class="btn btn-ghost" id="clearHistoryButton" type="button">Clear history</button>
+          </div>
+          <div class="history-list" id="historyList">
+            <div class="history-empty">No pulls yet.</div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const API_URL = "https://api.jikan.moe/v4/anime";
+    const REQUEST_DELAY_MS = 100;
+    const STORAGE_KEY = "anime-gacha-query-list-v1";
+
+    const EXAMPLE_QUERIES = `Frieren Beyond Journey's End
+Fullmetal Alchemist Brotherhood
+Steins Gate
+Attack on Titan Final Season
+Hunter x Hunter 2011
+Cowboy Bebop
+Your Name
+Demon Slayer
+Jujutsu Kaisen
+One Piece
+Mob Psycho 100
+Violet Evergarden`;
+
+    const RANKS = {
+      1: { label: "Common", particles: 28, rings: 2, duration: 1300, symbols: ["✦", "•", "✧"] },
+      2: { label: "Uncommon", particles: 42, rings: 3, duration: 1550, symbols: ["✦", "✧", "◆", "•"] },
+      3: { label: "Rare", particles: 64, rings: 4, duration: 1850, symbols: ["✦", "✧", "★", "◆", "◇"] },
+      4: { label: "Epic", particles: 92, rings: 5, duration: 2250, symbols: ["✦", "✧", "★", "✺", "◆", "◇"] },
+      5: { label: "Legendary", particles: 140, rings: 7, duration: 2900, symbols: ["✦", "✧", "★", "✺", "✹", "◆", "◇", "✶"] }
+    };
+
+    const queryInput = document.getElementById("queryInput");
+    const fetchButton = document.getElementById("fetchButton");
+    const pullButton = document.getElementById("pullButton");
+    const exampleButton = document.getElementById("exampleButton");
+    const clearHistoryButton = document.getElementById("clearHistoryButton");
+    const lineCount = document.getElementById("lineCount");
+    const statusTitle = document.getElementById("statusTitle");
+    const statusText = document.getElementById("statusText");
+    const poolCount = document.getElementById("poolCount");
+    const progressBar = document.getElementById("progressBar");
+    const poolList = document.getElementById("poolList");
+    const summonStage = document.getElementById("summonStage");
+    const stageContent = document.getElementById("stageContent");
+    const effectsLayer = document.getElementById("effectsLayer");
+    const ringLayer = document.getElementById("ringLayer");
+    const flashLayer = document.getElementById("flashLayer");
+    const summonOverlay = document.getElementById("summonOverlay");
+    const summonHeadline = document.getElementById("summonHeadline");
+    const summonSubline = document.getElementById("summonSubline");
+    const historyList = document.getElementById("historyList");
+
+    let animePool = [];
+    let pullHistory = [];
+    let isFetching = false;
+    let isPulling = false;
+
+    init();
+
+    function init() {
+      queryInput.value = localStorage.getItem(STORAGE_KEY) || EXAMPLE_QUERIES;
+      updateLineCount();
+      renderPool();
+      renderHistory();
+
+      queryInput.addEventListener("input", () => {
+        localStorage.setItem(STORAGE_KEY, queryInput.value);
+        updateLineCount();
+      });
+
+      fetchButton.addEventListener("click", fetchAnimePool);
+      pullButton.addEventListener("click", pullAnime);
+      exampleButton.addEventListener("click", () => {
+        queryInput.value = EXAMPLE_QUERIES;
+        localStorage.setItem(STORAGE_KEY, queryInput.value);
+        updateLineCount();
+        setStatus("Example restored", "Press Fetch / refresh to reload the pool.");
+      });
+      clearHistoryButton.addEventListener("click", () => {
+        pullHistory = [];
+        renderHistory();
+      });
+    }
+
+    function getQueries() {
+      return queryInput.value
+        .split("\n")
+        .map(row => row.trim())
+        .filter(Boolean);
+    }
+
+    function updateLineCount() {
+      const count = getQueries().length;
+      lineCount.textContent = `${count} ${count === 1 ? "row" : "rows"}`;
+    }
+
+    function setStatus(title, text, progress = null) {
+      statusTitle.textContent = title;
+      statusText.textContent = text;
+      if (progress !== null) progressBar.style.width = `${Math.max(0, Math.min(100, progress))}%`;
+      poolCount.textContent = `${animePool.length} loaded`;
+    }
+
+    function setBusy(fetching, pulling = isPulling) {
+      isFetching = fetching;
+      isPulling = pulling;
+      fetchButton.disabled = isFetching || isPulling;
+      pullButton.disabled = isFetching || isPulling;
+      exampleButton.disabled = isFetching || isPulling;
+    }
+
+    async function fetchAnimePool() {
+      const queries = getQueries();
+      if (!queries.length) {
+        setStatus("No queries", "Add at least one anime query row first.", 0);
+        return;
+      }
+
+      setBusy(true, false);
+      animePool = [];
+      renderPool();
+      setStatus("Fetching anime", `0 / ${queries.length} rows fetched.`, 0);
+
+      const failures = [];
+      for (let i = 0; i < queries.length; i++) {
+        const query = queries[i];
+        try {
+          const anime = await fetchAnimeForQuery(query);
+          animePool.push(anime);
+          setStatus("Fetching anime", `${i + 1} / ${queries.length} rows fetched. Latest: ${anime.displayTitle}`, ((i + 1) / queries.length) * 100);
+        } catch (error) {
+          failures.push(`${query}: ${error.message}`);
+          setStatus("Fetching anime", `${i + 1} / ${queries.length} rows checked. Could not load: ${query}`, ((i + 1) / queries.length) * 100);
+        }
+        renderPool();
+        if (i < queries.length - 1) await sleep(REQUEST_DELAY_MS);
+      }
+
+      const message = failures.length
+        ? `${animePool.length} anime loaded. ${failures.length} row(s) failed: ${failures.slice(0, 3).join(" | ")}${failures.length > 3 ? " …" : ""}`
+        : `${animePool.length} anime loaded. Pulls are uniform random from this pool.`;
+
+      setStatus(animePool.length ? "Pool ready" : "Nothing loaded", message, 100);
+      setBusy(false, false);
+    }
+
+    async function fetchAnimeForQuery(query, attempt = 0) {
+      const params = new URLSearchParams({ q: query, limit: "1", sfw: "true" });
+      const response = await fetch(`${API_URL}?${params.toString()}`);
+
+      if (response.status === 429 && attempt < 2) {
+        await sleep(1700 + attempt * 1000);
+        return fetchAnimeForQuery(query, attempt + 1);
+      }
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const json = await response.json();
+      const raw = json?.data?.[0];
+      if (!raw) throw new Error("No matching anime found");
+      return normalizeAnime(raw, query);
+    }
+
+    function normalizeAnime(raw, query) {
+      const score = Number(raw.score);
+      const title = cleanText(raw.title || raw.title_english || raw.title_japanese || "Unknown anime");
+      const englishTitle = cleanText(raw.title_english || "");
+      const displayTitle = title;
+      const altTitle = englishTitle && englishTitle.toLowerCase() !== title.toLowerCase() ? englishTitle : "";
+      const imageUrl = raw.images?.webp?.large_image_url || raw.images?.jpg?.large_image_url || raw.images?.jpg?.image_url || "";
+
+      return {
+        id: raw.mal_id,
+        query,
+        displayTitle,
+        altTitle,
+        imageUrl,
+        score: Number.isFinite(score) ? score : null,
+        rank: getRank(score),
+        url: raw.url || ""
+      };
+    }
+
+    function cleanText(value) {
+      const div = document.createElement("div");
+      div.innerHTML = String(value || "");
+      return div.textContent.trim();
+    }
+
+    function getRank(score) {
+      if (!Number.isFinite(score)) return 1;
+      if (score >= 8.5) return 5;
+      if (score >= 8.0) return 4;
+      if (score >= 7.5) return 3;
+      if (score >= 7.0) return 2;
+      return 1;
+    }
+
+    async function pullAnime() {
+      if (isFetching || isPulling) return;
+
+      if (!animePool.length) {
+        await fetchAnimePool();
+        if (!animePool.length) return;
+      }
+
+      const anime = animePool[Math.floor(Math.random() * animePool.length)];
+      setBusy(false, true);
+      await playSummon(anime);
+      addToHistory(anime);
+      setBusy(false, false);
+    }
+
+    async function playSummon(anime) {
+      const rankData = RANKS[anime.rank];
+      summonStage.className = `summon-stage rank-${anime.rank}`;
+      stageContent.innerHTML = "";
+      effectsLayer.innerHTML = "";
+      ringLayer.innerHTML = "";
+      flashLayer.innerHTML = "";
+      summonHeadline.textContent = anime.rank >= 5 ? "LEGENDARY!" : anime.rank >= 4 ? "EPIC PULL!" : "Summoning…";
+      summonSubline.textContent = `${stars(anime.rank)} · ${rankData.label}`;
+      summonOverlay.classList.add("is-active");
+
+      createRings(anime.rank);
+      createParticles(anime.rank);
+      if (anime.rank >= 4) createStreaks(anime.rank);
+      if (anime.rank >= 5) createFlash();
+
+      await sleep(rankData.duration);
+      summonOverlay.classList.remove("is-active");
+      revealAnime(anime);
+      await sleep(300);
+      effectsLayer.innerHTML = "";
+      ringLayer.innerHTML = "";
+      flashLayer.innerHTML = "";
+    }
+
+    function createRings(rank) {
+      const { rings, duration } = RANKS[rank];
+      for (let i = 0; i < rings; i++) {
+        const ring = document.createElement("div");
+        ring.className = "ring";
+        ring.style.setProperty("--size", `${170 + i * 78 + rank * 18}px`);
+        ring.style.setProperty("--dur", `${duration + i * 160}ms`);
+        ring.style.setProperty("--delay", `${i * 110}ms`);
+        ringLayer.appendChild(ring);
+      }
+    }
+
+    function createParticles(rank) {
+      const { particles, duration, symbols } = RANKS[rank];
+      const maxDistance = 150 + rank * 68;
+      const minDistance = 52 + rank * 20;
+
+      for (let i = 0; i < particles; i++) {
+        const particle = document.createElement("span");
+        const useDot = Math.random() < 0.22;
+        particle.className = `particle${useDot ? " dot" : ""}`;
+        if (!useDot) particle.textContent = symbols[Math.floor(Math.random() * symbols.length)];
+
+        const angle = Math.random() * Math.PI * 2;
+        const distance = random(minDistance, maxDistance) * (Math.random() < 0.15 ? 1.28 : 1);
+        const x = Math.cos(angle) * distance;
+        const y = Math.sin(angle) * distance * random(0.62, 1.08);
+        const size = useDot ? random(4, 7 + rank * 2) : random(13, 20 + rank * 5);
+        const dur = random(duration * 0.72, duration * 1.18);
+        const delay = random(0, duration * 0.33);
+
+        particle.style.setProperty("--x", `${x}px`);
+        particle.style.setProperty("--y", `${y}px`);
+        particle.style.setProperty("--size", `${size}px`);
+        particle.style.setProperty("--dur", `${dur}ms`);
+        particle.style.setProperty("--delay", `${delay}ms`);
+        particle.style.setProperty("--rot", `${random(-540, 540)}deg`);
+        particle.style.setProperty("--scale", random(0.58, rank >= 5 ? 1.8 : 1.35).toFixed(2));
+        effectsLayer.appendChild(particle);
+      }
+    }
+
+    function createStreaks(rank) {
+      const count = rank >= 5 ? 18 : 8;
+      for (let i = 0; i < count; i++) {
+        const streak = document.createElement("span");
+        streak.className = "streak";
+        streak.style.setProperty("--left", `${random(-6, 102)}%`);
+        streak.style.setProperty("--top", `${random(4, 92)}%`);
+        streak.style.setProperty("--length", `${random(90, rank >= 5 ? 220 : 150)}px`);
+        streak.style.setProperty("--angle", `${random(-28, 28)}deg`);
+        streak.style.setProperty("--dur", `${random(750, 1300)}ms`);
+        streak.style.setProperty("--delay", `${random(0, 900)}ms`);
+        effectsLayer.appendChild(streak);
+      }
+    }
+
+    function createFlash() {
+      const flash = document.createElement("div");
+      flash.className = "flash";
+      flashLayer.appendChild(flash);
+    }
+
+    function revealAnime(anime) {
+      const scoreText = anime.score === null ? "N/A" : anime.score.toFixed(2);
+      stageContent.innerHTML = `
+        <article class="result-card" aria-label="Pulled anime result">
+          <div class="poster-wrap">
+            <img class="poster" src="${escapeAttribute(anime.imageUrl)}" alt="${escapeAttribute(anime.displayTitle)} poster" loading="eager" />
+          </div>
+          <div class="result-info">
+            <div class="rarity-pill">${stars(anime.rank)} ${RANKS[anime.rank].label}</div>
+            <h2>${escapeHtml(anime.displayTitle)}</h2>
+            ${anime.altTitle ? `<div class="english-title">${escapeHtml(anime.altTitle)}</div>` : ""}
+            <div class="score-row">
+              <div class="chip"><small>Score</small> ${scoreText}</div>
+              <div class="chip"><small>Rank</small> ${anime.rank}★</div>
+              <div class="chip"><small>Chance</small> Uniform</div>
+            </div>
+            <p class="source-query">Fetched from query: <code>${escapeHtml(anime.query)}</code></p>
+          </div>
+        </article>`;
+    }
+
+    function renderPool() {
+      poolCount.textContent = `${animePool.length} loaded`;
+      if (!animePool.length) {
+        poolList.innerHTML = "";
+        return;
+      }
+
+      poolList.innerHTML = animePool.map(anime => `
+        <div class="pool-item" title="${escapeAttribute(anime.displayTitle)}">
+          <img src="${escapeAttribute(anime.imageUrl)}" alt="" loading="lazy" />
+          <div>
+            <div class="pool-title">${escapeHtml(anime.displayTitle)}</div>
+            <div class="pool-meta">Score ${anime.score === null ? "N/A" : anime.score.toFixed(2)} · ${escapeHtml(anime.query)}</div>
+          </div>
+          <span class="mini-stars" aria-label="${anime.rank} stars">${stars(anime.rank)}</span>
+        </div>
+      `).join("");
+    }
+
+    function addToHistory(anime) {
+      pullHistory.unshift({ ...anime, pulledAt: new Date().toLocaleTimeString() });
+      pullHistory = pullHistory.slice(0, 8);
+      renderHistory();
+    }
+
+    function renderHistory() {
+      if (!pullHistory.length) {
+        historyList.innerHTML = `<div class="history-empty">No pulls yet.</div>`;
+        return;
+      }
+
+      historyList.innerHTML = pullHistory.map(anime => `
+        <div class="history-item">
+          <img src="${escapeAttribute(anime.imageUrl)}" alt="" loading="lazy" />
+          <div>
+            <b>${escapeHtml(anime.displayTitle)}</b>
+            <span>${stars(anime.rank)} · Score ${anime.score === null ? "N/A" : anime.score.toFixed(2)} · ${escapeHtml(anime.pulledAt)}</span>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function stars(rank) {
+      return "★".repeat(rank) + "☆".repeat(5 - rank);
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function random(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function escapeAttribute(value) {
+      return escapeHtml(value).replaceAll("`", "&#096;");
+    }
+  </script>
+</body>
+</html>
