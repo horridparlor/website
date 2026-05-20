@@ -28,6 +28,7 @@ function getEvents(Database $database): string
         JOIN calendar_color color
             ON eventType.colorId = color.id
         WHERE event.userId = :userId
+        AND event.date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
     SQL;
     $replacements = array(
         'userId' => ['value' => $user->getId(), 'type' => PDO::PARAM_INT],

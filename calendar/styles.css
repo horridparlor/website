@@ -59,6 +59,14 @@ h1 {
     border: 1px solid rgba(0,255,204,0.25);
 }
 .button.subtle:hover { background: rgba(0,255,204,0.2); }
+.button.danger {
+    background: linear-gradient(135deg, #ff6b8f, #ff3f72);
+    color: #fff;
+    box-shadow: 0 10px 24px rgba(255, 63, 114, 0.28);
+}
+.button.danger:hover {
+    background: linear-gradient(135deg, #ff7a9a, #ff4e7d);
+}
 
 .hidden { display: none !important; }
 .muted { color: #9adfd0; }
@@ -250,6 +258,54 @@ input:focus, select:focus { border-color: #00ffcc; box-shadow: 0 0 0 2px rgba(0,
 .event-item .meta .name { font-weight: 700; }
 .event-item .meta .sub { color: #9adfd0; font-size: .9rem; }
 .event-item .times { font-variant-numeric: tabular-nums; color: #bffcf0; }
+.event-item-side {
+    display: inline-flex;
+    align-items: center;
+    gap: .8rem;
+}
+.event-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+}
+.event-action-btn {
+    border: 1px solid rgba(255,255,255,0.18);
+    background: linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0.06));
+    color: #ebfffa;
+    border-radius: 999px;
+    padding: .38rem .78rem;
+    min-height: 30px;
+    font-size: .76rem;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 8px 20px rgba(0,0,0,.2);
+    backdrop-filter: blur(8px);
+    transition: background .2s ease, border-color .2s ease, transform .15s ease, box-shadow .2s ease;
+}
+.event-action-btn:hover {
+    background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.08));
+    border-color: rgba(255,255,255,0.34);
+    transform: translateY(-1px);
+    box-shadow: 0 12px 24px rgba(0,0,0,.28);
+}
+.event-action-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0,255,204,.3), 0 12px 24px rgba(0,0,0,.28);
+}
+.event-action-btn.edit {
+    color: #d7fff3;
+}
+.event-action-btn.delete {
+    color: #ffe0e7;
+    border-color: rgba(255, 99, 141, 0.5);
+    background: linear-gradient(180deg, rgba(255, 105, 150, 0.38), rgba(255, 65, 120, 0.22));
+}
+.event-action-btn.delete:hover {
+    background: linear-gradient(180deg, rgba(255, 122, 162, 0.48), rgba(255, 75, 126, 0.28));
+    border-color: rgba(255, 140, 172, 0.75);
+}
 
 /* Modal */
 .modal {
@@ -265,6 +321,12 @@ input:focus, select:focus { border-color: #00ffcc; box-shadow: 0 0 0 2px rgba(0,
 }
 .modal-header {
     display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem;
+}
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: .65rem;
+    margin-top: 1rem;
 }
 .icon-btn {
     background: transparent; border: none; color: #bffcf0; cursor: pointer; font-size: 1.1rem;
@@ -326,3 +388,53 @@ footer { text-align: center; font-size: 0.9rem; color: #aaa; padding: 1rem; marg
     /* ensure the Color label is readable even if .label is overridden elsewhere */
     color: #bffcf0;
 }
+
+.confirm-card {
+    width: min(460px, 92vw);
+    padding: 1.15rem;
+    box-shadow: 0 18px 48px rgba(0,0,0,.45);
+}
+.confirm-card p {
+    margin: .35rem 0 .25rem;
+    line-height: 1.5;
+}
+.confirm-footer {
+    justify-content: space-between;
+}
+
+.toast-stack {
+    position: fixed !important;
+    left: 1rem;
+    bottom: 1rem;
+    z-index: 9999;
+    display: flex;
+    align-items: flex-start;
+    width: min(360px, calc(100vw - 2rem));
+    max-width: calc(100vw - 2rem);
+    pointer-events: none;
+}
+.toast {
+    opacity: 0;
+    transform: translateY(12px) scale(.97);
+    transition: opacity .22s ease, transform .22s ease;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(10, 16, 14, 0.95);
+    color: #f0fffb;
+    padding: .78rem .95rem;
+    box-shadow: 0 18px 40px rgba(0,0,0,.4);
+    font-weight: 600;
+    width: 100%;
+    backdrop-filter: blur(10px);
+}
+.toast.show {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+.toast.success {
+    border-left: 4px solid rgba(0,255,204,0.9);
+}
+.toast.error {
+    border-left: 4px solid rgba(255, 99, 141, 0.95);
+}
+

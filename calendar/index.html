@@ -126,11 +126,28 @@
             </div>
 
             <footer class="modal-footer">
+                <button type="button" id="modalDeleteBtn" class="button danger hidden">Delete</button>
                 <button type="submit" class="button">Save</button>
             </footer>
         </form>
     </dialog>
+
+    <dialog id="deleteConfirmModal" class="modal confirm-modal">
+        <div class="modal-card confirm-card">
+            <header class="modal-header">
+                <h3>Delete event</h3>
+            </header>
+            <p id="deleteConfirmText" class="muted">Are you sure, for sure?</p>
+            <footer class="modal-footer confirm-footer">
+                <button type="button" id="cancelDeleteBtn" class="button subtle">Cancel</button>
+                <button type="button" id="confirmDeleteBtn" class="button danger">Delete</button>
+            </footer>
+        </div>
+    </dialog>
+
 </main>
+
+<div id="toastStack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
 
 <footer>
     <small>&copy; <span id="year"></span></small>
@@ -143,19 +160,27 @@
     const $ = (sel, root=document) => root.querySelector(sel);
     const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
     const pad = n => String(n).padStart(2, '0');
-    const toHex = c => c?.startsWith('#') ? c : (c ? '#' + c : '#1e90ff'); // default blue
+    const toHex = c => c?.startsWith('#') ? c : (c ? '#' + c : '#1e90ff');
     const todayISO = () => new Date().toISOString().slice(0,10);
+
     const formatPrettyDate = (iso) => {
         const d = new Date(iso + 'T00:00:00');
-        return d.toLocaleDateString(undefined, { weekday:'long', year:'numeric', month:'short', day:'numeric' });
+        return d.toLocaleDateString(undefined, {
+            weekday:'long',
+            year:'numeric',
+            month:'short',
+            day:'numeric'
+        });
     };
+
     const minutesFromHHMM = (hhmm) => {
         const [h,m] = hhmm.split(':').map(Number);
         return h*60 + (m||0);
     };
-    const hhmmFromMinutes = (mins) => `${pad(Math.floor(mins/60))}:${pad(mins%60)}`;
 
-    // Local (non-UTC) YYYY-MM-DD
+    const hhmmFromMinutes = (mins) =>
+        `${pad(Math.floor(mins/60))}:${pad(mins%60)}`;
+
     const toLocalISODate = (d) => {
         const y = d.getFullYear();
         const m = pad(d.getMonth()+1);
@@ -163,7 +188,6 @@
         return `${y}-${m}-${day}`;
     };
 
-    // Add days safely based on local time
     const addDaysISO = (iso, days) => {
         const [y,m,d] = iso.split('-').map(Number);
         const dt = new Date(y, (m-1), d);
@@ -174,10 +198,18 @@
     // =========================
     // State
     // =========================
-    let AUTH = { token: localStorage.getItem('authToken') || null };
-    let ALL_EVENTS = []; // fetched then filtered client-side by date
-    let EVENT_TYPES = []; // {id, name, autofillEventName, eventColor?}
+    let AUTH = {
+        token: localStorage.getItem('authToken') || null,
+        username: localStorage.getItem('authUsername') || null,
+        password: localStorage.getItem('authPassword') || null
+    };
+
+    let ALL_EVENTS = [];
+    let EVENT_TYPES = [];
     let SELECTED_DATE = todayISO();
+    let EDITING_EVENT_ID = null;
+    let PENDING_DELETE_EVENT_ID = null;
+    let ACTIVE_TOAST_TIMER = null;
 
     // =========================
     // Elements
@@ -207,54 +239,131 @@
     const locationInput = $('#location');
     const colorPreview = $('#colorPreview');
     const closeModalBtn = $('#closeModal');
+    const modalTitle = $('#modalTitle');
+    const modalDeleteBtn = $('#modalDeleteBtn');
+    const deleteConfirmModal = $('#deleteConfirmModal');
+    const deleteConfirmText = $('#deleteConfirmText');
+    const cancelDeleteBtn = $('#cancelDeleteBtn');
+    const confirmDeleteBtn = $('#confirmDeleteBtn');
+    const toastStack = $('#toastStack');
 
-    // Footer year
     $('#year').textContent = new Date().getFullYear();
 
     // =========================
-    // API (relative paths as requested)
+    // Authentication Helpers
+    // =========================
+    async function authenticatedFetch(url, options = {}, retry = true) {
+        const headers = {
+            'Content-Type': 'application/json',
+            ...(options.headers || {})
+        };
+
+        if (AUTH.token) {
+            headers['Authorization'] = `Bearer ${AUTH.token}`;
+        }
+
+        const res = await fetch(url, {
+            ...options,
+            headers
+        });
+
+        let body = null;
+
+        try {
+            body = await res.clone().json();
+        } catch (_) {}
+
+        const authFailed =
+            res.status === 401 ||
+            body?.error === 'Please authenticate';
+
+        if (authFailed && retry) {
+            const refreshed = await tryReAuthenticate();
+
+            if (refreshed) {
+                return authenticatedFetch(url, options, false);
+            }
+
+            logout(true);
+            throw new Error('Session expired. Please sign in again.');
+        }
+
+        return res;
+    }
+
+    async function tryReAuthenticate() {
+        if (!AUTH.username || !AUTH.password) {
+            return false;
+        }
+
+        try {
+            const token = await apiAuthenticate(
+                AUTH.username,
+                AUTH.password
+            );
+
+            AUTH.token = token;
+
+            localStorage.setItem('authToken', token);
+
+            return true;
+
+        } catch (err) {
+            console.error('Re-authentication failed', err);
+            return false;
+        }
+    }
+
+    // =========================
+    // API
     // =========================
     async function apiAuthenticate(username, password) {
-        const res = await fetch('..\/api/user/authenticate', {
+        const res = await fetch('../api/user/authenticate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
         });
-        if (!res.ok) throw new Error('Authentication failed');
+
+        if (!res.ok) {
+            throw new Error('Authentication failed');
+        }
+
         const data = await res.json();
-        if (!data.authToken) throw new Error('No authToken in response');
+
+        if (!data.authToken) {
+            throw new Error('No authToken in response');
+        }
+
         return data.authToken;
     }
 
     async function apiGetEvents() {
-        const res = await fetch('../api/calendar/events', {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${AUTH.token}`
-            }
+        const res = await authenticatedFetch('../api/calendar/events', {
+            method: 'GET'
         });
-        if (!res.ok) throw new Error('Failed to load events');
+
+        if (!res.ok) {
+            throw new Error('Failed to load events');
+        }
+
         const data = await res.json();
         return data.events || [];
     }
 
     async function apiGetEventTypes() {
-        const res = await fetch('../api/calendar/eventTypes', {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${AUTH.token}`
-            }
+        const res = await authenticatedFetch('../api/calendar/eventTypes', {
+            method: 'GET'
         });
-        if (!res.ok) throw new Error('Failed to load event types');
+
+        if (!res.ok) {
+            throw new Error('Failed to load event types');
+        }
+
         const data = await res.json();
         return data.eventTypes || [];
     }
 
     async function apiCreateEvent(payload) {
-        // Backend contract says: (eventType, name, startTime, endTime, location)
-        // We'll include date as well if backend supports it; if not, it can ignore.
         const body = {
             eventType: payload.eventType,
             name: payload.name,
@@ -263,31 +372,79 @@
             location: payload.location,
             date: eventDate.value || SELECTED_DATE
         };
-        const res = await fetch('../api/calendar/event', {
+
+        const res = await authenticatedFetch('../api/calendar/event', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${AUTH.token}`
-            },
             body: JSON.stringify(body)
         });
-        if (!res.ok) throw new Error('Failed to create event');
+
+        if (!res.ok) {
+            throw new Error('Failed to create event');
+        }
+
+        return res.json();
+    }
+
+    async function apiUpdateEvent(payload) {
+        const body = {
+            eventId: payload.eventId,
+            eventTypeId: payload.eventType,
+            name: payload.name,
+            startTime: payload.startTime,
+            endTime: payload.endTime,
+            location: payload.location,
+            date: payload.date
+        };
+
+        const res = await authenticatedFetch('../api/calendar/event', {
+            method: 'PUT',
+            body: JSON.stringify(body)
+        });
+
+        if (!res.ok) {
+            throw new Error('Failed to update event');
+        }
+
+        return res.json();
+    }
+
+    async function apiDeleteEvent(eventId) {
+        const res = await authenticatedFetch('../api/calendar/event', {
+            method: 'DELETE',
+            body: JSON.stringify({ eventId })
+        });
+
+        if (!res.ok) {
+            throw new Error('Failed to delete event');
+        }
+
         return res.json();
     }
 
     // =========================
-    // Auth flow
+    // Auth Flow
     // =========================
     async function handleLogin(e) {
         e.preventDefault();
+
         loginError.classList.add('hidden');
+
         const username = $('#username').value.trim();
         const password = $('#password').value;
+
         try {
             const token = await apiAuthenticate(username, password);
+
             AUTH.token = token;
+            AUTH.username = username;
+            AUTH.password = password;
+
             localStorage.setItem('authToken', token);
+            localStorage.setItem('authUsername', username);
+            localStorage.setItem('authPassword', password);
+
             await postAuthInit();
+
         } catch (err) {
             loginError.textContent = err.message || 'Login failed';
             loginError.classList.remove('hidden');
@@ -295,118 +452,180 @@
     }
 
     async function postAuthInit() {
-        // Show one second loading sequence with "finding events" then "success"
         authGate.classList.add('hidden');
         logoutBtn.classList.remove('hidden');
         calendarUI.classList.add('hidden');
+
         loadingOverlay.classList.remove('hidden');
         loadingText.textContent = 'Finding events…';
 
         try {
-            // Load essentials in parallel
-            const [events, types] = await Promise.all([apiGetEvents(), apiGetEventTypes()]);
+            const [events, types] = await Promise.all([
+                apiGetEvents(),
+                apiGetEventTypes()
+            ]);
+
             ALL_EVENTS = events;
+
             EVENT_TYPES = types.map(t => ({
                 id: t.id,
                 name: t.name,
-                autofillEventName: t.autofillEventName ?? t.defaultName ?? t.name,
-                eventColor: toHex(t.eventColor || t.color || '41b7e2')
+                autofillEventName:
+                    t.autofillEventName ??
+                    t.defaultName ??
+                    t.name,
+                eventColor: toHex(
+                    t.eventColor ||
+                    t.color ||
+                    '41b7e2'
+                )
             }));
+
             buildLegend();
             populateEventTypeSelect();
-            // Simulate 1s loading then "Success!"
+
             await new Promise(r => setTimeout(r, 700));
+
             loadingText.textContent = 'Success!';
+
             await new Promise(r => setTimeout(r, 300));
+
         } catch (e) {
-            loadingText.textContent = 'Error loading data';
             console.error(e);
+
+            loadingText.textContent = 'Error loading data';
+
+            if (!AUTH.token) {
+                logout(true);
+                return;
+            }
         } finally {
             loadingOverlay.classList.add('hidden');
-            calendarUI.classList.remove('hidden');
-            setDate(SELECTED_DATE);
+
+            if (AUTH.token) {
+                calendarUI.classList.remove('hidden');
+                setDate(SELECTED_DATE);
+            }
         }
     }
 
-    function logout() {
-        AUTH.token = null;
+    function logout(sessionExpired = false) {
+        AUTH = {
+            token: null,
+            username: null,
+            password: null
+        };
+
         localStorage.removeItem('authToken');
+        localStorage.removeItem('authUsername');
+        localStorage.removeItem('authPassword');
+
+        ALL_EVENTS = [];
+        EVENT_TYPES = [];
+
         calendarUI.classList.add('hidden');
         logoutBtn.classList.add('hidden');
         authGate.classList.remove('hidden');
+
+        if (sessionExpired) {
+            loginError.textContent =
+                'Session expired. Please sign in again.';
+
+            loginError.classList.remove('hidden');
+        }
     }
 
     // =========================
-    // UI building
+    // UI Building
     // =========================
     function buildTimelineSkeleton() {
-        // Hour labels (left gutter) & clickable grid (right)
         timeline.innerHTML = '';
+
         const hoursCol = document.createElement('div');
         hoursCol.className = 'hours-col';
+
         for (let h=0; h<=24; h++) {
             const label = document.createElement('div');
             label.className = 'hour-label';
             label.textContent = `${pad(h)}:00`;
             hoursCol.appendChild(label);
         }
+
         const grid = document.createElement('div');
         grid.className = 'grid-col';
-        // 48 half-hour rows
+
         for (let i=0;i<48;i++) {
             const slot = document.createElement('div');
             slot.className = 'slot';
             grid.appendChild(slot);
         }
-        // Event layer
+
         const layer = document.createElement('div');
         layer.className = 'event-layer';
         layer.addEventListener('click', onGridClick);
+
         timeline.append(hoursCol, grid, layer);
     }
 
     function buildLegend() {
         legend.innerHTML = '';
+
         EVENT_TYPES.forEach(t => {
             const item = document.createElement('div');
             item.className = 'legend-item';
+
             const sw = document.createElement('span');
             sw.className = 'swatch';
             sw.style.background = t.eventColor || '#41b7e2';
+
             const name = document.createElement('span');
             name.textContent = t.name;
+
             item.append(sw, name);
+
             legend.appendChild(item);
         });
     }
 
     function populateEventTypeSelect() {
         eventTypeSel.innerHTML = '';
+
         EVENT_TYPES.forEach(t => {
             const opt = document.createElement('option');
+
             opt.value = t.id;
             opt.textContent = t.name;
             opt.dataset.color = t.eventColor || '#41b7e2';
             opt.dataset.autoname = t.autofillEventName || t.name;
+
             eventTypeSel.appendChild(opt);
         });
-        // Initialize name/color preview
+
         onEventTypeChange();
     }
 
     function onEventTypeChange() {
         const opt = eventTypeSel.selectedOptions[0];
+
         if (!opt) return;
-        // Autofill name
-        if (!eventName.value) eventName.value = opt.dataset.autoname || '';
-        // Update color preview
-        colorPreview.style.background = opt.dataset.color || '#1e90ff';
+
+        if (!eventName.value) {
+            eventName.value = opt.dataset.autoname || '';
+        }
+
+        colorPreview.style.background =
+            opt.dataset.color || '#1e90ff';
     }
 
     function setDate(iso) {
         SELECTED_DATE = iso;
-        if (datePicker.value !== iso) datePicker.value = iso;
+
+        if (datePicker.value !== iso) {
+            datePicker.value = iso;
+        }
+
         prettyDate.textContent = formatPrettyDate(iso);
+
         renderForDate(iso);
     }
 
@@ -416,54 +635,146 @@
 
     function renderForDate(iso) {
         buildTimelineSkeleton();
-        const events = filterByDate(iso).sort((a,b) => a.startTime.localeCompare(b.startTime));
+
+        const events = filterByDate(iso)
+            .sort((a,b) =>
+                a.startTime.localeCompare(b.startTime)
+            );
+
         eventList.innerHTML = '';
+
         if (!events.length) {
             emptyState.classList.remove('hidden');
         } else {
             emptyState.classList.add('hidden');
+
             for (const e of events) {
                 const li = document.createElement('li');
+
                 li.className = 'event-item';
-                const col = toHex(e.color || (EVENT_TYPES.find(t => t.id === e.eventTypeId)?.eventColor) || '41b7e2');
+
+                const col = toHex(
+                    e.color ||
+                    (EVENT_TYPES.find(
+                        t => t.id === e.eventTypeId
+                    )?.eventColor) ||
+                    '41b7e2'
+                );
+
                 li.innerHTML = `
-            <div class="dot" style="background:${col}"></div>
-            <div class="meta">
-              <div class="name">${e.name}</div>
-              <div class="sub">${e.location || ''}</div>
-            </div>
-            <div class="times">${e.startTime.slice(0,5)} – ${e.endTime.slice(0,5)}</div>
-          `;
+                    <div class="dot" style="background:${col}"></div>
+
+                    <div class="meta">
+                        <div class="name">${e.name}</div>
+                        <div class="sub">${e.location || ''}</div>
+                    </div>
+
+                    <div class="event-item-side">
+                        <div class="times">
+                            ${e.startTime.slice(0,5)}
+                            –
+                            ${e.endTime.slice(0,5)}
+                        </div>
+                        <div class="event-actions">
+                            <button
+                                type="button"
+                                class="button subtle event-action-btn edit"
+                                data-action="edit"
+                                data-event-id="${e.id}"
+                                title="Edit event"
+                                aria-label="Edit ${e.name}"
+                            >
+                                <span aria-hidden="true">✎</span>
+                                <span>Edit</span>
+                            </button>
+                            <button
+                                type="button"
+                                class="button danger event-action-btn delete"
+                                data-action="delete"
+                                data-event-id="${e.id}"
+                                title="Delete event"
+                                aria-label="Delete ${e.name}"
+                            >
+                                <span aria-hidden="true">🗑</span>
+                                <span>Delete</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+
                 eventList.appendChild(li);
             }
         }
-        // Render blocks on grid
+
         placeEventBlocks(events);
     }
 
     function placeEventBlocks(events) {
         const layer = timeline.querySelector('.event-layer');
-        const toRow = (hhmm) => Math.round(minutesFromHHMM(hhmm)/30) + 1; // grid-row 1-based
+
+        const toRowStart = (minutes) =>
+            Math.floor(minutes / 30) + 1;
+        const toRowEnd = (minutes) =>
+            Math.ceil(minutes / 30) + 1;
+
         events.forEach(ev => {
             const block = document.createElement('button');
+
             block.type = 'button';
             block.className = 'event-block';
-            const startRow = toRow(ev.startTime);
-            const endRow = toRow(ev.endTime);
-            block.style.gridRow = `${startRow} / ${Math.max(endRow,startRow+1)}`;
+
+            const startMinutes = minutesFromHHMM(ev.startTime);
+            const rawEndMinutes = minutesFromHHMM(ev.endTime);
+
+            // If event ends at midnight or crosses to next day, draw until end of this day.
+            const endMinutes =
+                (rawEndMinutes === 0 || rawEndMinutes < startMinutes)
+                    ? 24 * 60
+                    : rawEndMinutes;
+
+            const startRow = toRowStart(startMinutes);
+            const endRow = toRowEnd(endMinutes);
+
+            block.style.gridRow =
+                `${startRow} / ${Math.max(endRow,startRow+1)}`;
+
             block.style.gridColumn = '1 / -1';
-            const col = toHex(ev.color || (EVENT_TYPES.find(t => t.id === ev.eventTypeId)?.eventColor) || '41b7e2');
+
+            const col = toHex(
+                ev.color ||
+                (EVENT_TYPES.find(
+                    t => t.id === ev.eventTypeId
+                )?.eventColor) ||
+                '41b7e2'
+            );
+
             block.style.setProperty('--col', col);
+
             block.innerHTML = `
-              <span class="meta-dot" aria-hidden="true"></span>
-              <span>
-                <span class="event-block-name">${ev.name}</span>
-                <span class="event-block-location">${ev.location ? ' – ' + ev.location : ''}</span>
-                <br />
-                <span class="event-block-time">${ev.startTime.slice(0,5)}–${ev.endTime.slice(0,5)}</span>
-              </span>
+                <span class="meta-dot" aria-hidden="true"></span>
+
+                <span>
+                    <span class="event-block-name">
+                        ${ev.name}
+                    </span>
+
+                    <span class="event-block-location">
+                        ${ev.location ? ' – ' + ev.location : ''}
+                    </span>
+
+                    <br />
+
+                    <span class="event-block-time">
+                        ${ev.startTime.slice(0,5)}
+                        –
+                        ${ev.endTime.slice(0,5)}
+                    </span>
+                </span>
             `;
-            block.title = `${ev.name}\n${ev.location || ''}\n${ev.startTime}–${ev.endTime}`;
+
+            block.title =
+                `${ev.name}\n${ev.location || ''}\n${ev.startTime}–${ev.endTime}`;
+
             layer.appendChild(block);
         });
     }
@@ -472,100 +783,317 @@
     // Interactions
     // =========================
     async function onGridClick(ev) {
-        // Map click Y to nearest 30min slot
         const layer = ev.currentTarget;
+
         const rect = layer.getBoundingClientRect();
+
         const y = ev.clientY - rect.top;
+
         const slotHeight = rect.height / 48;
-        const slotIndex = Math.max(0, Math.min(47, Math.round(y/slotHeight)));
+
+        const slotIndex = Math.max(
+            0,
+            Math.min(47, Math.round(y/slotHeight))
+        );
+
         const startMin = slotIndex * 30;
+
         const endMin = Math.min(24*60, startMin + 60);
+
         eventDate.value = SELECTED_DATE || todayISO();
+
         startTime.value = hhmmFromMinutes(startMin);
+
         endTime.value = hhmmFromMinutes(endMin);
-        // Reset name (will auto-fill if empty)
+
         eventName.value = '';
+        EDITING_EVENT_ID = null;
+
         onEventTypeChange();
+
         openModal();
     }
 
     function openModal() {
-        $('#modalTitle').textContent = 'Add event';
+        modalTitle.textContent = EDITING_EVENT_ID ? 'Edit event' : 'Add event';
+        if (EDITING_EVENT_ID) {
+            modalDeleteBtn.classList.remove('hidden');
+        } else {
+            modalDeleteBtn.classList.add('hidden');
+        }
         eventModal.showModal();
     }
-    function closeModal() { eventModal.close(); }
+
+    function closeModal() {
+        EDITING_EVENT_ID = null;
+        eventModal.close();
+    }
+
+    function showToast(message, type = 'success') {
+        // Keep a single quick toast visible at a time.
+        toastStack.innerHTML = '';
+        if (ACTIVE_TOAST_TIMER) {
+            clearTimeout(ACTIVE_TOAST_TIMER);
+            ACTIVE_TOAST_TIMER = null;
+        }
+
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.setAttribute('role', 'status');
+        toast.textContent = message;
+        toastStack.appendChild(toast);
+
+        requestAnimationFrame(() => {
+            toast.classList.add('show');
+        });
+
+        ACTIVE_TOAST_TIMER = setTimeout(() => {
+            toast.classList.remove('show');
+            toast.addEventListener('transitionend', () => toast.remove(), { once: true });
+            ACTIVE_TOAST_TIMER = null;
+        }, 3000);
+    }
+
+    function setEventFormFromEvent(event) {
+        EDITING_EVENT_ID = event.id;
+        eventTypeSel.value = String(event.eventTypeId);
+        onEventTypeChange();
+        eventName.value = event.name || '';
+        eventDate.value = event.date || SELECTED_DATE;
+        startTime.value = event.startTime.slice(0, 5);
+        endTime.value = event.endTime.slice(0, 5);
+        locationInput.value = event.location || '';
+        openModal();
+    }
+
+    function openDeleteConfirm(event) {
+        PENDING_DELETE_EVENT_ID = event.id;
+        deleteConfirmText.textContent = `Are you sure, for sure, that you want to delete "${event.name}"?`;
+        deleteConfirmModal.showModal();
+    }
+
+    function closeDeleteConfirm() {
+        PENDING_DELETE_EVENT_ID = null;
+        deleteConfirmModal.close();
+    }
+
+    async function confirmDeleteEvent() {
+        if (!PENDING_DELETE_EVENT_ID) {
+            closeDeleteConfirm();
+            return;
+        }
+
+        const eventId = PENDING_DELETE_EVENT_ID;
+
+        try {
+            await apiDeleteEvent(eventId);
+            ALL_EVENTS = ALL_EVENTS.filter(e => e.id !== eventId);
+
+            if (EDITING_EVENT_ID === eventId) {
+                closeModal();
+            }
+
+            closeDeleteConfirm();
+            renderForDate(SELECTED_DATE);
+            showToast('Event deleted', 'success');
+        } catch (err) {
+            showToast('Could not delete event', 'error');
+        }
+    }
 
     async function submitEventForm(e) {
         e.preventDefault();
+
         const typeId = parseInt(eventTypeSel.value, 10);
-        const typeMeta = EVENT_TYPES.find(t => t.id === typeId);
+
+        const typeMeta = EVENT_TYPES.find(
+            t => t.id === typeId
+        );
+
         const payload = {
+            eventId: EDITING_EVENT_ID,
             eventType: typeId,
-            name: eventName.value.trim() || typeMeta?.autofillEventName || '',
+            name:
+                eventName.value.trim() ||
+                typeMeta?.autofillEventName ||
+                '',
             startTime: startTime.value,
             endTime: endTime.value,
             location: locationInput.value.trim(),
-            date: SELECTED_DATE
+            date: eventDate.value || SELECTED_DATE
         };
+
         try {
+            if (EDITING_EVENT_ID) {
+                await apiUpdateEvent(payload);
+
+                const index = ALL_EVENTS.findIndex(e => e.id === EDITING_EVENT_ID);
+                if (index >= 0) {
+                    ALL_EVENTS[index] = {
+                        ...ALL_EVENTS[index],
+                        eventTypeId: typeId,
+                        name: payload.name,
+                        location: payload.location,
+                        color: (typeMeta?.eventColor || '41b7e2').replace('#',''),
+                        date: payload.date,
+                        startTime: payload.startTime + (payload.startTime.length === 5 ? ':00' : ''),
+                        endTime: payload.endTime + (payload.endTime.length === 5 ? ':00' : '')
+                    };
+                }
+
+                closeModal();
+                renderForDate(SELECTED_DATE);
+                showToast('Event updated', 'success');
+                return;
+            }
+
             const res = await apiCreateEvent(payload);
-            // Optimistically add to client list if backend doesn't return the new event
+
             const newEvent = res?.event || {
                 id: (ALL_EVENTS.at(-1)?.id || 0) + 1,
                 eventTypeId: typeId,
                 name: payload.name,
                 location: payload.location,
-                color: (typeMeta?.eventColor || '41b7e2').replace('#',''),
+                color: (
+                    typeMeta?.eventColor ||
+                    '41b7e2'
+                ).replace('#',''),
                 date: SELECTED_DATE,
-                startTime: payload.startTime + (payload.startTime.length===5?':00':''),
-                endTime: payload.endTime + (payload.endTime.length===5?':00':'')
+                startTime:
+                    payload.startTime +
+                    (payload.startTime.length===5
+                        ? ':00'
+                        : ''),
+                endTime:
+                    payload.endTime +
+                    (payload.endTime.length===5
+                        ? ':00'
+                        : '')
             };
+
             ALL_EVENTS.push(newEvent);
+
             closeModal();
+
             renderForDate(SELECTED_DATE);
+
         } catch (err) {
-            alert('Could not create event: ' + (err.message || 'Unknown error'));
+            alert(
+                'Could not create event: ' +
+                (err.message || 'Unknown error')
+            );
         }
     }
 
     // =========================
-    // Wire up
+    // Event Listeners
     // =========================
     loginForm.addEventListener('submit', handleLogin);
-    logoutBtn.addEventListener('click', logout);
+
+    logoutBtn.addEventListener('click', () => logout(false));
+
     eventTypeSel.addEventListener('change', onEventTypeChange);
+
     eventForm.addEventListener('submit', submitEventForm);
+
     closeModalBtn.addEventListener('click', closeModal);
+
+    eventList.addEventListener('click', (ev) => {
+        const actionButton = ev.target.closest('button[data-action]');
+        if (!actionButton) {
+            return;
+        }
+
+        const eventId = Number(actionButton.dataset.eventId);
+        const event = ALL_EVENTS.find(e => Number(e.id) === eventId);
+        if (!event) {
+            return;
+        }
+
+        if (actionButton.dataset.action === 'edit') {
+            setEventFormFromEvent(event);
+            return;
+        }
+
+        openDeleteConfirm(event);
+    });
+
+    modalDeleteBtn.addEventListener('click', () => {
+        if (!EDITING_EVENT_ID) {
+            return;
+        }
+        const event = ALL_EVENTS.find(e => Number(e.id) === Number(EDITING_EVENT_ID));
+        if (!event) {
+            return;
+        }
+        openDeleteConfirm(event);
+    });
+
+    cancelDeleteBtn.addEventListener('click', closeDeleteConfirm);
+    confirmDeleteBtn.addEventListener('click', confirmDeleteEvent);
+
     openModalBtn.addEventListener('click', () => {
-        // default to the next full hour
         const now = new Date();
-        const start = now.getMinutes() > 0 ? (now.getHours()+1) * 60 : now.getHours() * 60;
+
+        const start =
+            now.getMinutes() > 0
+                ? (now.getHours()+1) * 60
+                : now.getHours() * 60;
+
         eventDate.value = SELECTED_DATE || todayISO();
+
         startTime.value = hhmmFromMinutes(start);
-        endTime.value = hhmmFromMinutes(Math.min(start + 60, 24*60));
+
+        endTime.value = hhmmFromMinutes(
+            Math.min(start + 60, 24*60)
+        );
+
         eventName.value = '';
+        EDITING_EVENT_ID = null;
+
         onEventTypeChange();
+
         openModal();
     });
 
-    // Date controls
-    datePicker.addEventListener('change', () => setDate(datePicker.value || todayISO()));
-    $('#todayBtn').addEventListener('click', () => setDate(toLocalISODate(new Date())));
-    $('#yesterdayBtn').addEventListener('click', () => { setDate(addDaysISO(SELECTED_DATE, -1)); });
-    $('#tomorrowBtn').addEventListener('click', () => { setDate(addDaysISO(SELECTED_DATE, 1)); });
+    datePicker.addEventListener('change', () => {
+        setDate(datePicker.value || todayISO());
+    });
 
+    $('#todayBtn').addEventListener('click', () => {
+        setDate(toLocalISODate(new Date()));
+    });
+
+    $('#yesterdayBtn').addEventListener('click', () => {
+        setDate(addDaysISO(SELECTED_DATE, -1));
+    });
+
+    $('#tomorrowBtn').addEventListener('click', () => {
+        setDate(addDaysISO(SELECTED_DATE, 1));
+    });
+
+    // =========================
     // Init
+    // =========================
     (async function init() {
         if (AUTH.token) {
             await postAuthInit();
         } else {
             authGate.classList.remove('hidden');
         }
+
         setDate(SELECTED_DATE);
     })();
 
-    // Accessibility: close modal with Esc clicks outside handled by <dialog>
-    eventModal.addEventListener('cancel', e => e.preventDefault() || closeModal());
+    eventModal.addEventListener('cancel', e => {
+        e.preventDefault();
+        closeModal();
+    });
+
+    deleteConfirmModal.addEventListener('cancel', e => {
+        e.preventDefault();
+        closeDeleteConfirm();
+    });
 </script>
 </body>
 </html>
