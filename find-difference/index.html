@@ -252,12 +252,12 @@
   <header>
     <div class="header-text">
       <h1>Find Difference</h1>
-      <div class="subtitle">Compare two JSONs with neon‑powered precision.</div>
+      <div class="subtitle">Compare JSON or raw text with automatic fallback.</div>
     </div>
   </header>
 
   <main>
-    <p class="description dim">Paste your JSON on the left and right. Hit <strong>Compare</strong> to see all differences. Arrays are compared by index.</p>
+    <p class="description dim">Paste JSON or raw text. If JSON parsing fails, comparison switches to line-by-line mode. Hit <strong>Compare</strong> to see all differences. Arrays are compared by index.</p>
 
     <div class="grid" aria-label="JSON inputs">
       <div class="card">
@@ -354,6 +354,29 @@
     try { return { ok: true, value: JSON.parse(raw) }; }
     catch (e) { return { ok: false, error: e.message }; }
   }
+
+  
+  function parseInput(raw) {
+    try {
+      return { ok:true, mode:'json', value: JSON.parse(raw) };
+    } catch {
+      const lines = raw.split(/\r?\n/).map(x=>x.trim());
+      return { ok:true, mode:'text', value: lines };
+    }
+  }
+
+  function diffTextLines(a,b){
+    const out=[];
+    const max=Math.max(a.length,b.length);
+    for(let i=0;i<max;i++){
+      const path='line['+i+']';
+      if(i>=a.length) out.push({kind:'added',path,b:b[i]});
+      else if(i>=b.length) out.push({kind:'removed',path,a:a[i]});
+      else if(a[i]!==b[i]) out.push({kind:'changed',path,a:a[i],b:b[i]});
+    }
+    return out;
+  }
+
 
   function pathJoin(base, key) {
     if (base === '') return Array.isArray(key) ? `[${key}]` : String(key);
@@ -507,12 +530,19 @@
       const R = right.value.trim();
       if (!L || !R) { showToast('Please paste JSON into both fields', true); renderDiffs([]); return; }
 
-      const a = parseJSON(L);
-      if (!a.ok) { showToast('Left JSON error: ' + a.error, true); renderDiffs([{kind:'changed', path:'(left)', a:'Invalid JSON', b:a.error }]); return; }
-      const b = parseJSON(R);
-      if (!b.ok) { showToast('Right JSON error: ' + b.error, true); renderDiffs([{kind:'changed', path:'(right)', a:'Invalid JSON', b:b.error }]); return; }
-
-      const diffs = diff(a.value, b.value, '');
+      const a = parseInput(L);
+      const b = parseInput(R);
+      let diffs=[];
+      if(a.mode==='json' && b.mode==='json'){
+        diffs = diff(a.value,b.value,'');
+        showToast('JSON mode compare');
+      } else {
+        diffs = diffTextLines(
+          a.mode==='json' ? JSON.stringify(a.value,null,2).split('\n') : a.value,
+          b.mode==='json' ? JSON.stringify(b.value,null,2).split('\n') : b.value
+        );
+        showToast('Fallback text mode compare');
+      }
       renderDiffs(diffs);
       showToast(diffs.length ? 'Found ' + diffs.length + ' difference' + (diffs.length===1?'':'s') : 'Perfect match! 💥');
       location.hash = '#report';
