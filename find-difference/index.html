@@ -272,6 +272,7 @@
 
     <div class="actions">
       <button id="compare" class="button">Compare</button>
+      <button id="format" class="button secondary">Format</button>
       <button id="reset" class="button secondary">Reset</button>
       <a href="/" class="button home">← Return Home</a>
     </div>
@@ -557,6 +558,34 @@
     renderDiffs([]);
     showToast('Reset!');
   });
+
+  function normalizeText(txt){
+    let lines = txt.split(/\r?\n/).map(l =>
+      l.trim().replace(/\s{2,}/g,' ')
+    );
+    // collapse multiple empty lines
+    let out=[], empty=false
+    for(let line of lines){
+      if(line===''){
+        if(!empty){ out.push(''); empty=true; }
+      } else {
+        out.push(line); empty=false;
+      }
+    }
+    while(out.length && out[out.length-1]==='') out.pop();
+    return out.join('\n');
+  }
+
+  document.getElementById('format').addEventListener('click', ()=>{
+    left.value = normalizeText(left.value);
+    right.value = normalizeText(right.value);
+    try {
+      localStorage.setItem(LEFT_KEY,left.value);
+      localStorage.setItem(RIGHT_KEY,right.value);
+    } catch(e){}
+    showToast('Formatted both fields');
+  });
+
 </script>
 </body>
 </html>
