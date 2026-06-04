@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rakuel Is Back – Card Gallery</title>
+  <link rel="stylesheet" href="../../styles.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<header class="topbar">
+  <a class="home-link button home-btn" href="/">Home</a>
+  <div class="header-text">
+    <h1>Rakuel Is Back – Card Gallery</h1>
+  </div>
+</header>
+
+<!-- Filters -->
+<section class="filters">
+  <div class="filters-wrap" id="filters">
+    <div>
+      <label for="f-name">Name</label>
+      <input id="f-name" type="text" placeholder="Search name" />
+    </div>
+    <div>
+      <label for="f-keywords">Keywords</label>
+      <input id="f-keywords" type="text" placeholder="e.g. greed, wizard" />
+    </div>
+    <div>
+      <label for="f-type">Type</label>
+      <select id="f-type">
+        <option value="">Any</option>
+        <option>Rock</option>
+        <option>Paper</option>
+        <option>Scissors</option>
+      </select>
+    </div>
+    <div>
+      <label for="f-releaseYear">Release Year</label>
+      <select id="f-releaseYear">
+        <option value="">Any</option>
+        <option>2026</option>
+        <option>2027</option>
+      </select>
+    </div>
+    <div>
+      <label for="f-orderBy">Order By</label>
+      <select id="f-orderBy">
+        <option value="newest">Newest</option>
+        <option value="oldest">Oldest</option>
+        <option value="name">Name</option>
+        <option value="type">Type</option>
+        <option value="power">Power</option>
+      </select>
+    </div>
+    <div>
+      <label for="f-direction">Direction</label>
+      <select id="f-direction">
+        <option value="asc">Ascending</option>
+        <option value="desc">Descending</option>
+      </select>
+    </div>
+    <div>
+      <label>&nbsp;</label>
+      <button id="clear-filters" class="button clear-btn" type="button">Clear</button>
+    </div>
+  </div>
+</section>
+
+<!-- View toggle -->
+<div class="view-toggle">
+  <button id="btn-gallery" class="toggle-btn active" type="button" title="Card Gallery">
+    🖼️ <span>Card Gallery</span>
+  </button>
+  <button id="btn-cards" class="toggle-btn" type="button" title="Cards">
+    🃏 <span>Cards</span>
+  </button>
+  <button id="btn-table" class="toggle-btn" type="button" title="Data Form">
+    📇 <span>Data Form</span>
+  </button>
+  <button id="btn-keywords" class="toggle-btn" type="button" title="Keywords">
+    🔑 <span>Keywords</span>
+  </button>
+</div>
+
+<!-- Bulk download bar (visible when cards checked in gallery view) -->
+<div id="bulk-bar" class="bulk-bar" style="display:none;">
+  <span id="checked-count"></span>
+  <button id="bulk-download-btn" type="button" class="button bulk-dl-btn">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="1" x2="7" y2="9.5"/><polyline points="4,7 7,10 10,7"/><line x1="2" y1="13" x2="12" y2="13"/></svg>
+    Download Selected
+  </button>
+  <button id="clear-checks-btn" type="button" class="button clear-btn">Clear Selection</button>
+</div>
+
+<!-- Results -->
+<section class="results">
+  <div id="empty" class="empty" style="display:none;">No cards found</div>
+
+  <div id="gallery" class="grid" aria-live="polite"></div>
+
+  <div id="cards-view" class="cards-grid" style="display:none;" aria-live="polite"></div>
+
+  <div id="table-view" class="table-wrap" style="display:none;">
+    <table>
+      <thead>
+      <tr>
+        <th>Id</th>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Power</th>
+        <th>Keywords</th>
+        <th>Release Year</th>
+        <th><button id="export-btn" class="export-btn">Export Cards</button></th>
+      </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </div>
+
+  <div id="keywords-view" class="table-wrap" style="display:none;">
+    <table>
+      <thead>
+      <tr>
+        <th>Id</th>
+        <th>Name</th>
+        <th class="description">Description</th>
+        <th>Cards With</th>
+        <th>Types</th>
+        <th><button id="keywords-export-btn" class="export-btn">Export Keywords</button></th>
+      </tr>
+      </thead>
+      <tbody id="keywords-body"></tbody>
+    </table>
+  </div>
+</section>
+
+<div id="toast" class="toast">Failed to load cards. Please try refreshing.</div>
+
+<script>
+  (() => {
+    const API_URL      = '../../api/is-back/';
+    const CARDS_URL    = API_URL + 'cards';
+    const KEYWORDS_URL = API_URL + 'keywords';
+    const qs = new URLSearchParams(location.search);
+
+    const el = {
+      name:           document.getElementById('f-name'),
+      keywords:       document.getElementById('f-keywords'),
+      type:           document.getElementById('f-type'),
+      releaseYear:    document.getElementById('f-releaseYear'),
+      orderBy:        document.getElementById('f-orderBy'),
+      direction:      document.getElementById('f-direction'),
+      clear:          document.getElementById('clear-filters'),
+      galleryBtn:     document.getElementById('btn-gallery'),
+      cardsBtn:       document.getElementById('btn-cards'),
+      tableBtn:       document.getElementById('btn-table'),
+      keywordsBtn:    document.getElementById('btn-keywords'),
+      gallery:        document.getElementById('gallery'),
+      cardsWrap:      document.getElementById('cards-view'),
+      tableWrap:      document.getElementById('table-view'),
+      tableBody:      document.getElementById('table-body'),
+      keywordsWrap:   document.getElementById('keywords-view'),
+      keywordsBody:   document.getElementById('keywords-body'),
+      bulkBar:        document.getElementById('bulk-bar'),
+      checkedCount:   document.getElementById('checked-count'),
+      bulkDownload:   document.getElementById('bulk-download-btn'),
+      clearChecks:    document.getElementById('clear-checks-btn'),
+      toast:          document.getElementById('toast'),
+      empty:          document.getElementById('empty'),
+    };
+
+    const CARDS_ORDER_OPTIONS = [
+      { value: 'newest', label: 'Newest' },
+      { value: 'oldest', label: 'Oldest' },
+      { value: 'name',   label: 'Name'   },
+      { value: 'type',   label: 'Type'   },
+      { value: 'power',  label: 'Power'  },
+    ];
+    const KEYWORDS_ORDER_OPTIONS = [
+      { value: 'newest',       label: 'Newest'       },
+      { value: 'oldest',       label: 'Oldest'       },
+      { value: 'name',         label: 'Name'         },
+      { value: 'most-common',  label: 'Most Common'  },
+      { value: 'least-common', label: 'Least Common' },
+    ];
+
+    let allCards    = [];
+    let allKeywords = [];
+    let view        = qs.get('view') || 'gallery';
+    const checkedIds = new Set();
+
+    // ── Helpers ──────────────────────────────────────────────────────────
+
+    const showToast = (msg) => {
+      el.toast.textContent = msg || el.toast.textContent;
+      el.toast.style.display = 'block';
+      setTimeout(() => { el.toast.style.display = 'none'; }, 4000);
+    };
+
+    const setQueryParam = (key, value) => {
+      const url = new URL(location.href);
+      if (value === undefined || value === null || value === '') {
+        url.searchParams.delete(key);
+      } else {
+        url.searchParams.set(key, value);
+      }
+      history.replaceState({}, '', url);
+    };
+
+    const applyURLToControls = () => {
+      el.name.value        = qs.get('name')        || '';
+      el.keywords.value    = qs.get('keywords')    || '';
+      el.type.value        = qs.get('type')        || '';
+      el.releaseYear.value = qs.get('releaseYear') || '';
+      el.orderBy.value     = qs.get('orderBy')     || 'newest';
+      el.direction.value   = qs.get('direction')   || 'asc';
+    };
+
+    const controlsToURL = () => {
+      setQueryParam('name',        el.name.value.trim());
+      setQueryParam('keywords',    el.keywords.value.trim());
+      setQueryParam('type',        el.type.value);
+      setQueryParam('releaseYear', el.releaseYear.value);
+      setQueryParam('orderBy',     el.orderBy.value);
+      setQueryParam('direction',   el.direction.value);
+      setQueryParam('view',        view);
+    };
+
+    const normalize  = (s) => (s || '').toString().toLowerCase();
+    const capitalize = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+
+    const escapeHtml = (s) =>
+      String(s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+    const matchKeywords = (cardKeywords, input) => {
+      if (!input) return true;
+      const tokens = input.split(',').join(' ').split(/\s+/).map(t => t.trim()).filter(Boolean);
+      const hay = normalize(Array.isArray(cardKeywords) ? cardKeywords.join(' ') : String(cardKeywords));
+      return tokens.every(t => hay.includes(normalize(t)));
+    };
+
+    const getTypeOrder = (type) => ({ Rock: 1, Paper: 2, Scissors: 3 }[type] || 0);
+
+    const cardImgName   = (c) => `${c.id} - ${c.name}`;
+    const cardArtPath   = (c) => `../card-art/${encodeURIComponent(cardImgName(c))}.png`;
+    const cardFinalPath = (c) => `../card-images/${encodeURIComponent(cardImgName(c))}.png`;
+
+    const DL_ICON = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="1" x2="7" y2="9.5"/><polyline points="4,7 7,10 10,7"/><line x1="2" y1="13" x2="12" y2="13"/></svg>`;
+
+    // ── Bulk bar ─────────────────────────────────────────────────────────
+
+    const updateBulkBar = () => {
+      const n = checkedIds.size;
+      el.bulkBar.style.display = (view === 'gallery' && n > 0) ? 'flex' : 'none';
+      el.checkedCount.textContent = `${n} card${n !== 1 ? 's' : ''} selected`;
+    };
+
+    const triggerDownload = (url, filename) => {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    };
+
+    el.bulkDownload.addEventListener('click', () => {
+      const cards = allCards.filter(c => checkedIds.has(c.id));
+      cards.forEach((c, i) => {
+        setTimeout(() => triggerDownload(cardFinalPath(c), `${cardImgName(c)}.png`), i * 300);
+      });
+    });
+
+    el.clearChecks.addEventListener('click', () => {
+      checkedIds.clear();
+      updateBulkBar();
+      filterCards();
+    });
+
+    // ── Order By options ─────────────────────────────────────────────────
+
+    const updateOrderByOptions = () => {
+      const options = view === 'keywords' ? KEYWORDS_ORDER_OPTIONS : CARDS_ORDER_OPTIONS;
+      const current = el.orderBy.value;
+      el.orderBy.innerHTML = options.map(o =>
+        `<option value="${o.value}">${o.label}</option>`
+      ).join('');
+      if (options.find(o => o.value === current)) el.orderBy.value = current;
+    };
+
+    // ── View buttons ──────────────────────────────────────────────────────
+
+    const ensureViewButtons = () => {
+      el.galleryBtn.classList.toggle('active',  view === 'gallery');
+      el.cardsBtn.classList.toggle('active',    view === 'cards');
+      el.tableBtn.classList.toggle('active',    view === 'table');
+      el.keywordsBtn.classList.toggle('active', view === 'keywords');
+      el.gallery.style.display      = (view === 'gallery')  ? 'grid'  : 'none';
+      el.cardsWrap.style.display    = (view === 'cards')    ? 'grid'  : 'none';
+      el.tableWrap.style.display    = (view === 'table')    ? 'block' : 'none';
+      el.keywordsWrap.style.display = (view === 'keywords') ? 'block' : 'none';
+      updateOrderByOptions();
+      updateBulkBar();
+    };
+
+    // ── Filter & sort ─────────────────────────────────────────────────────
+
+    const filterCards = () => {
+      const name        = normalize(el.name.value);
+      const kw          = normalize(el.keywords.value);
+      const type        = normalize(el.type.value);
+      const releaseYear = el.releaseYear.value;
+      const orderBy     = el.orderBy.value;
+      const dir         = el.direction.value;
+
+      let filteredKeywords;
+      let out; // cards matching the current filter
+
+      if (view === 'keywords') {
+        out = allCards;
+        filteredKeywords = allKeywords.filter(k => {
+          const nameOk = !name || normalize(k.displayName).includes(name) || normalize(k.name).includes(name);
+          const descOk = !kw   || normalize(k.description).includes(kw);
+          const typeOk = !type || matchKeywords(k.types, type);
+          return nameOk && descOk && typeOk;
+        });
+      } else {
+        out = allCards.filter(c => {
+          const nameOk = !name        || normalize(c.name).includes(name);
+          const kwOk   = matchKeywords(c.keywords, kw);
+          const typeOk = !type        || normalize(c.type) === type;
+          const yearOk = !releaseYear || String(c.releaseYear) === releaseYear;
+          return nameOk && kwOk && typeOk && yearOk;
+        });
+        filteredKeywords = allKeywords;
+      }
+
+      // Sort cards
+      let orderedCards = [...out];
+      switch (orderBy) {
+        case 'newest': orderedCards.sort((a, b) => b.id - a.id); break;
+        case 'oldest': orderedCards.sort((a, b) => a.id - b.id); break;
+        case 'name':
+          orderedCards.sort((a, b) => a.name.localeCompare(b.name));
+          if (dir === 'desc') orderedCards.reverse();
+          break;
+        case 'type':
+          orderedCards.sort((a, b) => getTypeOrder(capitalize(a.type)) - getTypeOrder(capitalize(b.type)));
+          if (dir === 'desc') orderedCards.reverse();
+          break;
+        case 'power':
+          orderedCards.sort((a, b) => dir === 'desc' ? b.power - a.power : a.power - b.power);
+          break;
+      }
+
+      // Checked cards that don't match the filter — pin them at the top
+      const filteredIds = new Set(out.map(c => c.id));
+      const pinnedOnly  = allCards.filter(c => checkedIds.has(c.id) && !filteredIds.has(c.id));
+      const allDisplay  = [...pinnedOnly, ...orderedCards];
+
+      // Sort keywords
+      let orderedKeywords = [...filteredKeywords];
+      switch (orderBy) {
+        case 'newest':       orderedKeywords.sort((a, b) => b.id - a.id); break;
+        case 'oldest':       orderedKeywords.sort((a, b) => a.id - b.id); break;
+        case 'most-common':  orderedKeywords.sort((a, b) => b.cardsWith - a.cardsWith); break;
+        case 'least-common': orderedKeywords.sort((a, b) => a.cardsWith - b.cardsWith); break;
+        case 'name':
+          orderedKeywords.sort((a, b) => a.displayName.localeCompare(b.displayName));
+          if (dir === 'desc') orderedKeywords.reverse();
+          break;
+      }
+
+      render(allDisplay, filteredIds, orderedKeywords);
+    };
+
+    // ── Render ────────────────────────────────────────────────────────────
+
+    const render = (cards, filteredIds, keywords) => {
+      if (!cards.length && view !== 'keywords') {
+        el.empty.style.display    = 'block';
+        el.gallery.innerHTML      = '';
+        el.cardsWrap.innerHTML    = '';
+        el.tableBody.innerHTML    = '';
+        return;
+      }
+      el.empty.style.display = 'none';
+
+      if (view === 'gallery') {
+        el.gallery.innerHTML = cards.map(c => {
+          const kws = Array.isArray(c.keywords)
+            ? c.keywords.filter(k => k != null && k !== '')
+            : (c.keywords ? [c.keywords] : []);
+
+          const keywordsHtml = kws.map(kw => {
+            const kwData      = allKeywords.find(k => k.name === kw);
+            const displayName = escapeHtml(kwData ? kwData.displayName : kw);
+            const description = escapeHtml(kwData ? kwData.description : '');
+            return `<span title="${displayName} – ${description}">${displayName}</span>`;
+          }).join(', ');
+
+          const isChecked = checkedIds.has(c.id);
+          const isPinned  = isChecked && !filteredIds.has(c.id);
+
+          return `
+      <article class="card${isPinned ? ' pinned' : ''}" aria-label="Card ${escapeHtml(c.name)}">
+        <img alt="${escapeHtml(c.name)}" src="${cardArtPath(c)}" onerror="this.src=''; this.style.height='0';" />
+        <div class="meta">
+          <div><strong>#${c.id}</strong> — ${escapeHtml(c.name)}</div>
+          <div class="kv">type: ${escapeHtml(capitalize(c.type))} • power: ${escapeHtml(String(c.power))}</div>
+          <div class="kv">keywords: ${keywordsHtml || '—'}</div>
+          <div class="kv">releaseYear: ${c.releaseYear ?? '-'}</div>
+          <div class="dl-row">
+            <label class="card-check" title="${isChecked ? 'Uncheck' : 'Check for bulk download'}">
+              <input type="checkbox" data-id="${c.id}" ${isChecked ? 'checked' : ''} />
+            </label>
+            <a class="dl-btn" href="${cardFinalPath(c)}" download="${escapeHtml(cardImgName(c))}.png" title="Download card image">${DL_ICON}</a>
+          </div>
+        </div>
+      </article>
+    `;
+        }).join('');
+
+      } else if (view === 'cards') {
+        el.cardsWrap.innerHTML = cards.map(c => `
+      <div class="card-img-item" data-url="${cardFinalPath(c)}" data-name="${escapeHtml(cardImgName(c))}.png" title="Double-click to download — ${escapeHtml(c.name)}">
+        <img alt="${escapeHtml(c.name)}" src="${cardFinalPath(c)}" onerror="this.style.display='none';" draggable="false" />
+        <div class="card-img-hint">Double-click to download</div>
+      </div>
+    `).join('');
+
+      } else if (view === 'table') {
+        el.tableBody.innerHTML = cards.map(c => {
+          const kws = Array.isArray(c.keywords) ? c.keywords : (c.keywords ? [c.keywords] : []);
+          const displayNames = kws.map(kw => {
+            const kwData = allKeywords.find(k => k.name === kw);
+            return kwData ? kwData.displayName : kw;
+          });
+          return `
+          <tr>
+            <td>${c.id}</td>
+            <td>${escapeHtml(c.name)}</td>
+            <td>${escapeHtml(capitalize(c.type))}</td>
+            <td>${c.power}</td>
+            <td>${displayNames.map(escapeHtml).join(', ')}</td>
+            <td>${c.releaseYear ?? '-'}</td>
+          </tr>
+        `;
+        }).join('');
+
+      } else if (view === 'keywords') {
+        el.keywordsBody.innerHTML = keywords.map(k => `
+          <tr>
+            <td>${k.id}</td>
+            <td>${escapeHtml(k.displayName)}</td>
+            <td>${escapeHtml(k.description)}</td>
+            <td>${k.cardsWith}</td>
+            <td>${escapeHtml(k.types)}</td>
+          </tr>
+        `).join('');
+      }
+    };
+
+    // ── Checkbox delegation ───────────────────────────────────────────────
+
+    el.gallery.addEventListener('change', (e) => {
+      const cb = e.target.closest('input[type="checkbox"][data-id]');
+      if (!cb) return;
+      const id = Number(cb.dataset.id);
+      if (cb.checked) { checkedIds.add(id); } else { checkedIds.delete(id); }
+      // Update pinned state without full re-render: re-run filter to fix order
+      updateBulkBar();
+      filterCards();
+    });
+
+    // ── Cards tab double-click ────────────────────────────────────────────
+
+    el.cardsWrap.addEventListener('dblclick', (e) => {
+      const item = e.target.closest('.card-img-item');
+      if (!item) return;
+      triggerDownload(item.dataset.url, item.dataset.name);
+    });
+
+    // ── Filter controls ───────────────────────────────────────────────────
+
+    ['input', 'change'].forEach(evt => {
+      [el.name, el.keywords, el.type, el.releaseYear, el.orderBy, el.direction].forEach(ctrl => {
+        ctrl.addEventListener(evt, () => { controlsToURL(); filterCards(); });
+      });
+    });
+
+    el.clear.addEventListener('click', () => {
+      el.name.value        = '';
+      el.keywords.value    = '';
+      el.type.value        = '';
+      el.releaseYear.value = '';
+      el.orderBy.value     = 'newest';
+      el.direction.value   = 'asc';
+      controlsToURL();
+      filterCards();
+    });
+
+    el.galleryBtn.addEventListener('click',  () => { view = 'gallery';  ensureViewButtons(); controlsToURL(); filterCards(); });
+    el.cardsBtn.addEventListener('click',    () => { view = 'cards';    ensureViewButtons(); controlsToURL(); filterCards(); });
+    el.tableBtn.addEventListener('click',    () => { view = 'table';    ensureViewButtons(); controlsToURL(); filterCards(); });
+    el.keywordsBtn.addEventListener('click', () => { view = 'keywords'; ensureViewButtons(); controlsToURL(); filterCards(); });
+
+    // ── Initial load ──────────────────────────────────────────────────────
+
+    (async function init() {
+      applyURLToControls();
+      ensureViewButtons();
+      try {
+        const res = await fetch(CARDS_URL, { method: 'GET' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        allCards = Array.isArray(data) ? data : (data.cards || []);
+      } catch (err) {
+        showToast('Failed to load cards. Please try refreshing.');
+        allCards = [];
+      }
+      try {
+        const res = await fetch(KEYWORDS_URL, { method: 'GET' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const rawKeywords = Array.isArray(data) ? data : (data.keywords || []);
+        allKeywords = rawKeywords.map(keyword => {
+          const cardsWith = allCards.filter(card => card.keywords.includes(keyword.name));
+          const types = cardsWith.reduce((acc, card) => {
+            const t = capitalize(card.type);
+            if (!acc.includes(t)) acc.push(t);
+            return acc;
+          }, []);
+          return {
+            ...keyword,
+            cardsWith: cardsWith.length,
+            types: types.sort((a, b) => getTypeOrder(a) - getTypeOrder(b)).join(', '),
+          };
+        });
+      } catch (err) {
+        showToast('Failed to load keywords. Please try refreshing.');
+        allKeywords = [];
+      }
+      controlsToURL();
+      filterCards();
+    })();
+  })();
+
+  const addTableExport = (id, fileName) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      const table = btn.closest('table');
+      if (!table) return;
+      const rows = Array.from(table.rows);
+      const csvLines = rows.map((row, i) => {
+        const cells = i === 0 ? Array.from(row.cells).slice(0, -1) : Array.from(row.cells);
+        return cells.map(cell => `"${cell.innerText.replace(/"/g, '""')}"`).join(',');
+      });
+      const blob = new Blob([csvLines.join('\n')], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = fileName; a.click();
+      URL.revokeObjectURL(url);
+    });
+  };
+  addTableExport('export-btn', 'is-back-cards.csv');
+  addTableExport('keywords-export-btn', 'is-back-keywords.csv');
+</script>
+</body>
+</html>

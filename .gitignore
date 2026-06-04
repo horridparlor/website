@@ -2,6 +2,8 @@ images/
 /.htaccess
 .idea
 *.env
-hardest/card-art
+hardest/card-images
 hardest/backups
 *error_log
+is-back/card-images
+is-back/card-art
