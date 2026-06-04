@@ -46,6 +46,7 @@
     <div>
       <label for="f-orderBy">Order By</label>
       <select id="f-orderBy">
+        <option value="oldest">Oldest</option>
         <option value="newest">Newest</option>
         <option value="oldest">Oldest</option>
         <option value="name">Name</option>
@@ -80,6 +81,9 @@
   </button>
   <button id="btn-keywords" class="toggle-btn" type="button" title="Keywords">
     🔑 <span>Keywords</span>
+  </button>
+  <button id="btn-macros" class="toggle-btn" type="button" title="Macros">
+    🌍 <span>Macros</span>
   </button>
 </div>
 
@@ -133,6 +137,26 @@
       <tbody id="keywords-body"></tbody>
     </table>
   </div>
+
+  <div id="macros-view" class="table-wrap" style="display:none;">
+    <table>
+      <thead>
+      <tr>
+        <th>Name</th>
+        <th>Total</th>
+        <th>(%)</th>
+        <th>Rock</th>
+        <th>(%)</th>
+        <th>Paper</th>
+        <th>(%)</th>
+        <th>Scissors</th>
+        <th>(%)</th>
+        <th><button id="macros-export-btn" class="export-btn">Export Macros</button></th>
+      </tr>
+      </thead>
+      <tbody id="macros-body"></tbody>
+    </table>
+  </div>
 </section>
 
 <div id="toast" class="toast">Failed to load cards. Please try refreshing.</div>
@@ -156,12 +180,15 @@
       cardsBtn:       document.getElementById('btn-cards'),
       tableBtn:       document.getElementById('btn-table'),
       keywordsBtn:    document.getElementById('btn-keywords'),
+      macrosBtn:      document.getElementById('btn-macros'),
       gallery:        document.getElementById('gallery'),
       cardsWrap:      document.getElementById('cards-view'),
       tableWrap:      document.getElementById('table-view'),
       tableBody:      document.getElementById('table-body'),
       keywordsWrap:   document.getElementById('keywords-view'),
       keywordsBody:   document.getElementById('keywords-body'),
+      macrosWrap:     document.getElementById('macros-view'),
+      macrosBody:     document.getElementById('macros-body'),
       bulkBar:        document.getElementById('bulk-bar'),
       checkedCount:   document.getElementById('checked-count'),
       bulkDownload:   document.getElementById('bulk-download-btn'),
@@ -187,6 +214,7 @@
 
     let allCards    = [];
     let allKeywords = [];
+    let macros      = [];
     let view        = qs.get('view') || 'gallery';
     const checkedIds = new Set();
 
@@ -213,7 +241,7 @@
       el.keywords.value    = qs.get('keywords')    || '';
       el.type.value        = qs.get('type')        || '';
       el.releaseYear.value = qs.get('releaseYear') || '';
-      el.orderBy.value     = qs.get('orderBy')     || 'newest';
+      el.orderBy.value     = qs.get('orderBy')     || 'oldest';
       el.direction.value   = qs.get('direction')   || 'asc';
     };
 
@@ -244,6 +272,106 @@
 
     const getTypeOrder = (type) => ({ Rock: 1, Paper: 2, Scissors: 3 }[type] || 0);
 
+    const toPercentage = (float) => {
+      const value = float * 100;
+      return `${Number.isInteger(value) ? value : value.toFixed(2)}%`;
+    };
+
+    const formatPower = (p) => String(Number(p)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+
+    const mean   = (arr) => arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null;
+    const median = (arr) => {
+      if (!arr.length) return null;
+      const s = [...arr].sort((a, b) => a - b);
+      const m = Math.floor(s.length / 2);
+      return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+    };
+    const toDiff = (val, ref) => {
+      if (val === null || ref === null || ref === 0) return '--';
+      const pct = ((val - ref) / ref) * 100;
+      const sign = pct > 0 ? '+' : '';
+      return `${sign}${Math.abs(pct) < 0.05 ? '0' : (Number.isInteger(pct) ? pct : pct.toFixed(1))}%`;
+    };
+
+    const calculateMacros = () => {
+      const rocks    = allCards.filter(c => normalize(c.type) === 'rock');
+      const papers   = allCards.filter(c => normalize(c.type) === 'paper');
+      const scissors = allCards.filter(c => normalize(c.type) === 'scissors');
+
+      const buildAMacro = (name, filter) => {
+        const fAll      = allCards.filter(filter);
+        const fRocks    = rocks.filter(filter);
+        const fPapers   = papers.filter(filter);
+        const fScissors = scissors.filter(filter);
+        return {
+          name,
+          total:              fAll.length,
+          totalPercentage:    allCards.length ? toPercentage(fAll.length / allCards.length) : '–',
+          rock:               fRocks.length,
+          rockPercentage:     rocks.length    ? toPercentage(fRocks.length    / rocks.length)    : '–',
+          paper:              fPapers.length,
+          paperPercentage:    papers.length   ? toPercentage(fPapers.length   / papers.length)   : '–',
+          scissors:           fScissors.length,
+          scissorsPercentage: scissors.length ? toPercentage(fScissors.length / scissors.length) : '–',
+        };
+      };
+
+      const sep = {};
+      const powerValues = [0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 13000];
+
+      // Average and median stat rows
+      const totalAvg = mean(allCards.map(c => c.power));
+      const totalMed = median(allCards.map(c => c.power));
+      const rockAvg  = mean(rocks.map(c => c.power));
+      const paperAvg = mean(papers.map(c => c.power));
+      const scissAvg = mean(scissors.map(c => c.power));
+      const rockMed  = median(rocks.map(c => c.power));
+      const paperMed = median(papers.map(c => c.power));
+      const scissMed = median(scissors.map(c => c.power));
+      const fmt = (v) => v !== null ? formatPower(Math.round(v)) : '--';
+
+      const avgRow = {
+        name: 'Average Power',
+        total:              fmt(totalAvg),
+        totalPercentage:    toDiff(totalAvg, totalMed),  // avg vs median: skew indicator
+        rock:               fmt(rockAvg),
+        rockPercentage:     toDiff(rockAvg,  totalAvg),  // rock avg vs total avg
+        paper:              fmt(paperAvg),
+        paperPercentage:    toDiff(paperAvg, totalAvg),
+        scissors:           fmt(scissAvg),
+        scissorsPercentage: toDiff(scissAvg, totalAvg),
+      };
+      const medRow = {
+        name: 'Median Power',
+        total:              fmt(totalMed),
+        totalPercentage:    toDiff(totalMed, totalAvg),  // median vs avg
+        rock:               fmt(rockMed),
+        rockPercentage:     toDiff(rockMed,  totalMed),  // rock median vs total median
+        paper:              fmt(paperMed),
+        paperPercentage:    toDiff(paperMed, totalMed),
+        scissors:           fmt(scissMed),
+        scissorsPercentage: toDiff(scissMed, totalMed),
+      };
+
+      macros = [
+        buildAMacro('Rock',     c => normalize(c.type) === 'rock'),
+        buildAMacro('Paper',    c => normalize(c.type) === 'paper'),
+        buildAMacro('Scissors', c => normalize(c.type) === 'scissors'),
+        sep,
+        ...powerValues.map(p => buildAMacro(formatPower(p), c => c.power === p)),
+        sep,
+        avgRow,
+        medRow,
+        sep,
+        buildAMacro('Vanilla',    c => c.keywords.length === 0),
+        buildAMacro('1 Keyword',  c => c.keywords.length === 1),
+        buildAMacro('2 Keywords', c => c.keywords.length === 2),
+        buildAMacro('3 Keywords', c => c.keywords.length === 3),
+        sep,
+        buildAMacro('All', () => true),
+      ];
+    };
+
     const cardImgName   = (c) => `${c.id} - ${c.name}`;
     const cardArtPath   = (c) => `../card-art/${encodeURIComponent(cardImgName(c))}.png`;
     const cardFinalPath = (c) => `../card-images/${encodeURIComponent(cardImgName(c))}.png`;
@@ -254,7 +382,7 @@
 
     const updateBulkBar = () => {
       const n = checkedIds.size;
-      el.bulkBar.style.display = (view === 'gallery' && n > 0) ? 'flex' : 'none';
+      el.bulkBar.style.display = ((view === 'gallery' || view === 'cards') && n > 0) ? 'flex' : 'none';
       el.checkedCount.textContent = `${n} card${n !== 1 ? 's' : ''} selected`;
     };
 
@@ -298,10 +426,12 @@
       el.cardsBtn.classList.toggle('active',    view === 'cards');
       el.tableBtn.classList.toggle('active',    view === 'table');
       el.keywordsBtn.classList.toggle('active', view === 'keywords');
+      el.macrosBtn.classList.toggle('active',   view === 'macros');
       el.gallery.style.display      = (view === 'gallery')  ? 'grid'  : 'none';
       el.cardsWrap.style.display    = (view === 'cards')    ? 'grid'  : 'none';
       el.tableWrap.style.display    = (view === 'table')    ? 'block' : 'none';
       el.keywordsWrap.style.display = (view === 'keywords') ? 'block' : 'none';
+      el.macrosWrap.style.display   = (view === 'macros')   ? 'block' : 'none';
       updateOrderByOptions();
       updateBulkBar();
     };
@@ -374,13 +504,13 @@
           break;
       }
 
-      render(allDisplay, filteredIds, orderedKeywords);
+      render(allDisplay, filteredIds, orderedKeywords, macros);
     };
 
     // ── Render ────────────────────────────────────────────────────────────
 
-    const render = (cards, filteredIds, keywords) => {
-      if (!cards.length && view !== 'keywords') {
+    const render = (cards, filteredIds, keywords, macros) => {
+      if (!cards.length && view !== 'keywords' && view !== 'macros') {
         el.empty.style.display    = 'block';
         el.gallery.innerHTML      = '';
         el.cardsWrap.innerHTML    = '';
@@ -406,31 +536,27 @@
           const isPinned  = isChecked && !filteredIds.has(c.id);
 
           return `
-      <article class="card${isPinned ? ' pinned' : ''}" aria-label="Card ${escapeHtml(c.name)}">
+      <article class="card${isChecked ? ' selected' : ''}${isPinned ? ' pinned' : ''}" data-id="${c.id}" aria-label="Card ${escapeHtml(c.name)}">
         <img alt="${escapeHtml(c.name)}" src="${cardArtPath(c)}" onerror="this.src=''; this.style.height='0';" />
         <div class="meta">
           <div><strong>#${c.id}</strong> — ${escapeHtml(c.name)}</div>
-          <div class="kv">type: ${escapeHtml(capitalize(c.type))} • power: ${escapeHtml(String(c.power))}</div>
+          <div class="kv">type: ${escapeHtml(capitalize(c.type))} • power: ${formatPower(c.power)}</div>
           <div class="kv">keywords: ${keywordsHtml || '—'}</div>
           <div class="kv">releaseYear: ${c.releaseYear ?? '-'}</div>
-          <div class="dl-row">
-            <label class="card-check" title="${isChecked ? 'Uncheck' : 'Check for bulk download'}">
-              <input type="checkbox" data-id="${c.id}" ${isChecked ? 'checked' : ''} />
-            </label>
-            <a class="dl-btn" href="${cardFinalPath(c)}" download="${escapeHtml(cardImgName(c))}.png" title="Download card image">${DL_ICON}</a>
-          </div>
         </div>
       </article>
     `;
         }).join('');
 
       } else if (view === 'cards') {
-        el.cardsWrap.innerHTML = cards.map(c => `
-      <div class="card-img-item" data-url="${cardFinalPath(c)}" data-name="${escapeHtml(cardImgName(c))}.png" title="Double-click to download — ${escapeHtml(c.name)}">
+        el.cardsWrap.innerHTML = cards.map(c => {
+          const isSelected = checkedIds.has(c.id);
+          return `
+      <div class="card-img-item${isSelected ? ' selected' : ''}" data-id="${c.id}" title="${escapeHtml(c.name)}">
         <img alt="${escapeHtml(c.name)}" src="${cardFinalPath(c)}" onerror="this.style.display='none';" draggable="false" />
-        <div class="card-img-hint">Double-click to download</div>
       </div>
-    `).join('');
+    `;
+        }).join('');
 
       } else if (view === 'table') {
         el.tableBody.innerHTML = cards.map(c => {
@@ -444,7 +570,7 @@
             <td>${c.id}</td>
             <td>${escapeHtml(c.name)}</td>
             <td>${escapeHtml(capitalize(c.type))}</td>
-            <td>${c.power}</td>
+            <td>${formatPower(c.power)}</td>
             <td>${displayNames.map(escapeHtml).join(', ')}</td>
             <td>${c.releaseYear ?? '-'}</td>
           </tr>
@@ -461,27 +587,49 @@
             <td>${escapeHtml(k.types)}</td>
           </tr>
         `).join('');
+      } else if (view === 'macros') {
+        el.macrosBody.innerHTML = macros.map(m => {
+          if (!m.name) {
+            return `<tr><td colspan="9"><hr></td></tr>`;
+          }
+          return `
+          <tr>
+            <td>${m.name}</td>
+            <td>${m.total}</td>
+            <td>${m.totalPercentage}</td>
+            <td>${m.rock}</td>
+            <td>${m.rockPercentage}</td>
+            <td>${m.paper}</td>
+            <td>${m.paperPercentage}</td>
+            <td>${m.scissors}</td>
+            <td>${m.scissorsPercentage}</td>
+          </tr>
+        `;
+        }).join('');
       }
     };
 
-    // ── Checkbox delegation ───────────────────────────────────────────────
+    // ── Gallery click on image → toggle selected ──────────────────────────
 
-    el.gallery.addEventListener('change', (e) => {
-      const cb = e.target.closest('input[type="checkbox"][data-id]');
-      if (!cb) return;
-      const id = Number(cb.dataset.id);
-      if (cb.checked) { checkedIds.add(id); } else { checkedIds.delete(id); }
-      // Update pinned state without full re-render: re-run filter to fix order
+    el.gallery.addEventListener('click', (e) => {
+      if (e.target.tagName !== 'IMG') return;
+      const article = e.target.closest('article.card[data-id]');
+      if (!article) return;
+      const id = Number(article.dataset.id);
+      if (checkedIds.has(id)) { checkedIds.delete(id); } else { checkedIds.add(id); }
       updateBulkBar();
       filterCards();
     });
 
-    // ── Cards tab double-click ────────────────────────────────────────────
+    // ── Cards tab click → toggle selected ────────────────────────────────
 
-    el.cardsWrap.addEventListener('dblclick', (e) => {
-      const item = e.target.closest('.card-img-item');
+    el.cardsWrap.addEventListener('click', (e) => {
+      const item = e.target.closest('.card-img-item[data-id]');
       if (!item) return;
-      triggerDownload(item.dataset.url, item.dataset.name);
+      const id = Number(item.dataset.id);
+      if (checkedIds.has(id)) { checkedIds.delete(id); } else { checkedIds.add(id); }
+      updateBulkBar();
+      filterCards();
     });
 
     // ── Filter controls ───────────────────────────────────────────────────
@@ -497,7 +645,7 @@
       el.keywords.value    = '';
       el.type.value        = '';
       el.releaseYear.value = '';
-      el.orderBy.value     = 'newest';
+      el.orderBy.value     = 'oldest';
       el.direction.value   = 'asc';
       controlsToURL();
       filterCards();
@@ -507,6 +655,7 @@
     el.cardsBtn.addEventListener('click',    () => { view = 'cards';    ensureViewButtons(); controlsToURL(); filterCards(); });
     el.tableBtn.addEventListener('click',    () => { view = 'table';    ensureViewButtons(); controlsToURL(); filterCards(); });
     el.keywordsBtn.addEventListener('click', () => { view = 'keywords'; ensureViewButtons(); controlsToURL(); filterCards(); });
+    el.macrosBtn.addEventListener('click',   () => { view = 'macros';   ensureViewButtons(); controlsToURL(); filterCards(); });
 
     // ── Initial load ──────────────────────────────────────────────────────
 
@@ -518,6 +667,7 @@
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
         allCards = Array.isArray(data) ? data : (data.cards || []);
+        calculateMacros();
       } catch (err) {
         showToast('Failed to load cards. Please try refreshing.');
         allCards = [];
@@ -570,6 +720,7 @@
   };
   addTableExport('export-btn', 'is-back-cards.csv');
   addTableExport('keywords-export-btn', 'is-back-keywords.csv');
+  addTableExport('macros-export-btn', 'is-back-macros.csv');
 </script>
 </body>
 </html>
