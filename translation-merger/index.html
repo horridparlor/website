@@ -135,6 +135,35 @@ button:disabled{
     color:#fff;
 }
 
+.mode-btn{
+    background:#333;
+    color:#aaa;
+    border:2px solid transparent;
+    border-radius:10px;
+    padding:8px 16px;
+    font-weight:bold;
+    cursor:pointer;
+    transition:all .18s ease;
+}
+
+.mode-btn.active{
+    background:linear-gradient(90deg,var(--accent),var(--accent2));
+    color:#000;
+    border-color:transparent;
+}
+
+.file-row{
+    display:flex;
+    gap:12px;
+    align-items:center;
+    flex-wrap:wrap;
+}
+
+.file-label{
+    font-size:13px;
+    color:#aaa;
+}
+
 .danger{
     background:#ff3366;
     color:#fff;
@@ -247,6 +276,62 @@ button:disabled{
     font-size:12px;
     margin-bottom:4px;
 }
+
+.step-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:10px;
+}
+
+.eye-btn{
+    background:transparent;
+    border:none;
+    padding:4px 6px;
+    color:var(--accent);
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    filter:drop-shadow(0 0 5px var(--accent));
+    transition:all .18s ease;
+    font-weight:normal;
+    border-radius:6px;
+}
+
+.eye-btn:hover{
+    transform:scale(1.15);
+    filter:drop-shadow(0 0 10px var(--accent));
+    box-shadow:none;
+}
+
+.eye-btn .eye-closed{
+    display:none;
+}
+
+.eye-btn.active .eye-open{
+    display:none;
+}
+
+.eye-btn.active .eye-closed{
+    display:block;
+}
+
+.json-preview{
+    margin-top:12px;
+    border-top:1px solid #333;
+    padding-top:10px;
+}
+
+.json-preview textarea{
+    height:200px;
+    margin-bottom:8px;
+}
+
+.json-preview-actions{
+    display:flex;
+    gap:8px;
+    margin-bottom:8px;
+}
 </style>
 </head>
 
@@ -261,9 +346,27 @@ button:disabled{
 </div>
 
 <div class="buttons">
-    <input type="file" id="fileInput" />
-    <button id="processBtn">Process</button>
-    <button id="resetBtn" class="secondary">Reset</button>
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <button class="mode-btn active" id="modeConflict" onclick="setMode('conflict')">Conflict File</button>
+        <button class="mode-btn" id="modeTwo" onclick="setMode('two')">Two Files</button>
+    </div>
+
+    <div id="inputConflict" class="file-row">
+        <span class="file-label">Conflict file:</span>
+        <input type="file" id="fileInput" />
+    </div>
+
+    <div id="inputTwo" class="file-row" style="display:none;">
+        <span class="file-label">Current:</span>
+        <input type="file" id="fileA" />
+        <span class="file-label">Merged:</span>
+        <input type="file" id="fileB" />
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:10px;">
+        <button id="processBtn">Process</button>
+        <button id="resetBtn" class="secondary">Reset</button>
+    </div>
 </div>
 
 <div class="loading" id="loading">
@@ -319,21 +422,53 @@ button:disabled{
 </div>
 
 <div class="card" style="margin-top:20px;">
-    <h3 id="phase1Title">Step 1: Changed values</h3>
+    <div class="step-header">
+        <h3 id="phase1Title" style="margin:0;">Step 1: Changed values</h3>
+        <button class="eye-btn" id="eyeBtn1" onclick="toggleJsonView(1)" title="View in json">
+            <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            <svg class="eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+        </button>
+    </div>
     <div class="controls">
         <button id="selAll1" onclick="toggleAll(true)">Select All</button>
         <button id="unselAll1" onclick="toggleAll(false)">Unselect All</button>
     </div>
     <div id="changes" class="list"></div>
+    <div id="jsonView1" class="json-preview" style="display:none;">
+        <div class="json-preview-actions">
+            <button onclick="downloadSelectionJson(1)">Download</button>
+            <button class="copy-btn" onclick="copySelectionJson(1, this)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                <span>Copy</span>
+            </button>
+        </div>
+        <textarea id="selectionJson1" readonly></textarea>
+    </div>
 </div>
 
 <div class="card" style="margin-top:20px;">
-    <h3 id="phase2Title">Step 2: New fields</h3>
+    <div class="step-header">
+        <h3 id="phase2Title" style="margin:0;">Step 2: New fields</h3>
+        <button class="eye-btn" id="eyeBtn2" onclick="toggleJsonView(2)" title="View in json">
+            <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            <svg class="eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+        </button>
+    </div>
     <div class="controls">
         <button id="selAll2" onclick="toggleAllNew(true)">Select All</button>
         <button id="unselAll2" onclick="toggleAllNew(false)">Unselect All</button>
     </div>
     <div id="newFields" class="list"></div>
+    <div id="jsonView2" class="json-preview" style="display:none;">
+        <div class="json-preview-actions">
+            <button onclick="downloadSelectionJson(2)">Download</button>
+            <button class="copy-btn" onclick="copySelectionJson(2, this)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                <span>Copy</span>
+            </button>
+        </div>
+        <textarea id="selectionJson2" readonly></textarea>
+    </div>
 </div>
 
 <div class="card ready-panel" id="readyPanel">
@@ -517,7 +652,10 @@ function apply(){
 
     updateChangeLog(applied);
 
-    document.getElementById("readyPanel").style.display = applied.length ? "block" : "none";
+    document.getElementById("readyPanel").style.display = Object.keys(current).length ? "block" : "none";
+
+    updateSelectionJson(1);
+    updateSelectionJson(2);
 
     LS.save("state",{current,merged,result});
 }
@@ -623,31 +761,58 @@ function animate(cb){
     },150);
 }
 
-document.getElementById("processBtn").onclick=()=>{
-    const file=document.getElementById("fileInput").files[0];
+let currentMode="conflict";
 
-    if(!file) return alert("Upload file");
+function setMode(mode){
+    currentMode=mode;
+    document.getElementById("modeConflict").classList.toggle("active",mode==="conflict");
+    document.getElementById("modeTwo").classList.toggle("active",mode==="two");
+    document.getElementById("inputConflict").style.display=mode==="conflict"?"flex":"none";
+    document.getElementById("inputTwo").style.display=mode==="two"?"flex":"none";
+}
 
-    const reader=new FileReader();
+function readFile(file){
+    return new Promise((resolve,reject)=>{
+        const r=new FileReader();
+        r.onload=()=>resolve(r.result);
+        r.onerror=reject;
+        r.readAsText(file);
+    });
+}
 
-    reader.onload=()=>{
+function loadData(cur,mer){
+    current=sortObj(cur);
+    merged=sortObj(mer);
+    result=JSON.parse(JSON.stringify(current));
+
+    document.getElementById("current").value=JSON.stringify(current,null,2);
+    document.getElementById("merged").value=JSON.stringify(merged,null,2);
+    document.getElementById("result").value=JSON.stringify(result,null,2);
+
+    build();
+    apply();
+}
+
+document.getElementById("processBtn").onclick=async()=>{
+    if(currentMode==="conflict"){
+        const file=document.getElementById("fileInput").files[0];
+        if(!file) return alert("Upload a conflict file");
+
+        const text=await readFile(file);
         animate(()=>{
-            const parsed=parseConflict(reader.result);
-
-            current=sortObj(parsed.current);
-            merged=sortObj(parsed.merged);
-            result=JSON.parse(JSON.stringify(current));
-
-            document.getElementById("current").value=JSON.stringify(current,null,2);
-            document.getElementById("merged").value=JSON.stringify(merged,null,2);
-            document.getElementById("result").value=JSON.stringify(result,null,2);
-
-            build();
-            apply();
+            const parsed=parseConflict(text);
+            loadData(parsed.current,parsed.merged);
         });
-    };
+    } else {
+        const fileA=document.getElementById("fileA").files[0];
+        const fileB=document.getElementById("fileB").files[0];
+        if(!fileA||!fileB) return alert("Upload both files");
 
-    reader.readAsText(file);
+        const [textA,textB]=await Promise.all([readFile(fileA),readFile(fileB)]);
+        animate(()=>{
+            loadData(JSON.parse(textA),JSON.parse(textB));
+        });
+    }
 };
 
 document.addEventListener("change",e=>{
@@ -660,6 +825,67 @@ document.getElementById("resetBtn").onclick=()=>{
     localStorage.clear();
     location.reload();
 };
+
+function buildSelectionJson(step){
+    const obj={};
+    if(step===1){
+        document.querySelectorAll("#changes [data-k]:checked").forEach(el=>{
+            set(obj,el.dataset.k,get(merged,el.dataset.k));
+        });
+    } else {
+        document.querySelectorAll("#newFields [data-new]:checked").forEach(el=>{
+            set(obj,el.dataset.new,get(merged,el.dataset.new));
+        });
+    }
+    return JSON.stringify(sortObj(obj),null,2);
+}
+
+function updateSelectionJson(step){
+    const view=document.getElementById(`jsonView${step}`);
+    if(!view||view.style.display==="none") return;
+    document.getElementById(`selectionJson${step}`).value=buildSelectionJson(step);
+}
+
+function toggleJsonView(step){
+    const btn=document.getElementById(`eyeBtn${step}`);
+    const view=document.getElementById(`jsonView${step}`);
+    const isOpen=btn.classList.contains("active");
+    if(isOpen){
+        btn.classList.remove("active");
+        btn.title="View in json";
+        view.style.display="none";
+    } else {
+        btn.classList.add("active");
+        btn.title="Hide json view";
+        view.style.display="block";
+        document.getElementById(`selectionJson${step}`).value=buildSelectionJson(step);
+    }
+}
+
+function downloadSelectionJson(step){
+    const text=buildSelectionJson(step);
+    const blob=new Blob([text]);
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=`step${step}-selection.json`;
+    a.click();
+}
+
+async function copySelectionJson(step,btn){
+    const text=buildSelectionJson(step);
+    try{
+        await navigator.clipboard.writeText(text);
+        const label=btn.querySelector("span");
+        btn.classList.add("copied");
+        label.innerText="Copied";
+        setTimeout(()=>{
+            btn.classList.remove("copied");
+            label.innerText="Copy";
+        },1500);
+    } catch(err){
+        alert("Clipboard copy failed");
+    }
+}
 
 window.onload=()=>{
     const s=LS.load("state");
