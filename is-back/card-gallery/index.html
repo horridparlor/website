@@ -372,7 +372,8 @@
       ];
     };
 
-    const cardImgName   = (c) => { const n = c.name.startsWith('The ') ? c.name.slice(4) : c.name; return `${c.id} - ${n}`; };
+    const removeBbcodeTags = (s) => s.replace(/\[[^\]]*\]/g, '');
+    const cardImgName   = (c) => { const cleaned = removeBbcodeTags(c.name); const n = cleaned.startsWith('The ') ? cleaned.slice(4) : cleaned; return `${c.id} - ${n}`; };
     const cardArtPath   = (c) => `../card-art/${encodeURIComponent(cardImgName(c))}.png`;
     const cardFinalPath = (c) => `../card-images/${encodeURIComponent(cardImgName(c))}.png`;
 
