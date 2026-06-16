@@ -34,6 +34,8 @@
     padding: 1rem 2rem 0 2rem;
 }
 .filters-wrap label { font-size: .9rem; color: #aaa; }
+.filters-wrap > div:last-child { padding-top: .4rem; }
+.filter-count { font-size: .85rem; color: #ccc; display: inline; margin-right: .5rem; }
 .filters-wrap input, .filters-wrap select {
     width: 100%;
     background: #1a1a1a;
@@ -95,6 +97,23 @@
     transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 .bulk-dl-btn:hover { transform: scale(1.04); box-shadow: 0 0 18px #00ffcc; }
+
+.select-all-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: linear-gradient(90deg, #00ccff, #ffcc00);
+    color: #000;
+    box-shadow: 0 0 10px #00ccff;
+    border: none;
+    padding: 0.45rem 0.9rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.select-all-btn:hover { transform: scale(1.04); box-shadow: 0 0 18px #00ccff; }
 
 .results { padding: 1rem 2rem 3rem 2rem; }
 

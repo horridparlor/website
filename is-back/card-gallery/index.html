@@ -36,6 +36,36 @@
       </select>
     </div>
     <div>
+      <label for="f-power">Power</label>
+      <select id="f-power">
+        <option value="">Any</option>
+        <option value="0">0 000</option>
+        <option value="1000">1 000</option>
+        <option value="2000">2 000</option>
+        <option value="3000">3 000</option>
+        <option value="4000">4 000</option>
+        <option value="5000">5 000</option>
+        <option value="6000">6 000</option>
+        <option value="7000">7 000</option>
+        <option value="8000">8 000</option>
+        <option value="9000">9 000</option>
+        <option value="10000">10 000</option>
+        <option value="11000">11 000</option>
+        <option value="12000">12 000</option>
+        <option value="13000">13 000</option>
+      </select>
+    </div>
+    <div>
+      <label for="f-kwCount">Keyword Count</label>
+      <select id="f-kwCount">
+        <option value="">Any</option>
+        <option value="0">Vanilla</option>
+        <option value="1">1 Keyword</option>
+        <option value="2">2 Keywords</option>
+        <option value="3">3 Keywords</option>
+      </select>
+    </div>
+    <div>
       <label for="f-releaseYear">Release Year</label>
       <select id="f-releaseYear">
         <option value="">Any</option>
@@ -63,6 +93,7 @@
     </div>
     <div>
       <label>&nbsp;</label>
+      <span id="filter-count" class="filter-count"></span>
       <button id="clear-filters" class="button clear-btn" type="button">Clear</button>
     </div>
   </div>
@@ -70,11 +101,11 @@
 
 <!-- View toggle -->
 <div class="view-toggle">
-  <button id="btn-gallery" class="toggle-btn active" type="button" title="Card Gallery">
-    🖼️ <span>Card Gallery</span>
-  </button>
-  <button id="btn-cards" class="toggle-btn" type="button" title="Cards">
+  <button id="btn-cards" class="toggle-btn active" type="button" title="Cards">
     🃏 <span>Cards</span>
+  </button>
+  <button id="btn-gallery" class="toggle-btn" type="button" title="Card Gallery">
+    🖼️ <span>Card Gallery</span>
   </button>
   <button id="btn-table" class="toggle-btn" type="button" title="Data Form">
     📇 <span>Data Form</span>
@@ -94,6 +125,7 @@
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="1" x2="7" y2="9.5"/><polyline points="4,7 7,10 10,7"/><line x1="2" y1="13" x2="12" y2="13"/></svg>
     Download Selected
   </button>
+  <button id="select-all-btn" type="button" class="button select-all-btn">Select All</button>
   <button id="clear-checks-btn" type="button" class="button clear-btn">Clear Selection</button>
 </div>
 
@@ -172,6 +204,8 @@
       name:           document.getElementById('f-name'),
       keywords:       document.getElementById('f-keywords'),
       type:           document.getElementById('f-type'),
+      power:          document.getElementById('f-power'),
+      kwCount:        document.getElementById('f-kwCount'),
       releaseYear:    document.getElementById('f-releaseYear'),
       orderBy:        document.getElementById('f-orderBy'),
       direction:      document.getElementById('f-direction'),
@@ -192,9 +226,11 @@
       bulkBar:        document.getElementById('bulk-bar'),
       checkedCount:   document.getElementById('checked-count'),
       bulkDownload:   document.getElementById('bulk-download-btn'),
+      selectAll:      document.getElementById('select-all-btn'),
       clearChecks:    document.getElementById('clear-checks-btn'),
       toast:          document.getElementById('toast'),
       empty:          document.getElementById('empty'),
+      filterCount:    document.getElementById('filter-count'),
     };
 
     const CARDS_ORDER_OPTIONS = [
@@ -212,11 +248,12 @@
       { value: 'least-common', label: 'Least Common' },
     ];
 
-    let allCards    = [];
-    let allKeywords = [];
-    let macros      = [];
-    let view        = qs.get('view') || 'gallery';
-    const checkedIds = new Set();
+    let allCards      = [];
+    let allKeywords   = [];
+    let macros        = [];
+    let view          = qs.get('view') || 'cards';
+    const checkedIds  = new Set();
+    let visibleCardIds = [];
 
     // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -240,6 +277,8 @@
       el.name.value        = qs.get('name')        || '';
       el.keywords.value    = qs.get('keywords')    || '';
       el.type.value        = qs.get('type')        || '';
+      el.power.value       = qs.get('power')       || '';
+      el.kwCount.value     = qs.get('kwCount')     || '';
       el.releaseYear.value = qs.get('releaseYear') || '';
       el.orderBy.value     = qs.get('orderBy')     || 'oldest';
       el.direction.value   = qs.get('direction')   || 'asc';
@@ -249,6 +288,8 @@
       setQueryParam('name',        el.name.value.trim());
       setQueryParam('keywords',    el.keywords.value.trim());
       setQueryParam('type',        el.type.value);
+      setQueryParam('power',       el.power.value);
+      setQueryParam('kwCount',     el.kwCount.value);
       setQueryParam('releaseYear', el.releaseYear.value);
       setQueryParam('orderBy',     el.orderBy.value);
       setQueryParam('direction',   el.direction.value);
@@ -379,6 +420,8 @@
 
     const DL_ICON = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="1" x2="7" y2="9.5"/><polyline points="4,7 7,10 10,7"/><line x1="2" y1="13" x2="12" y2="13"/></svg>`;
 
+    const CARD_BACK = { id: 0, name: 'Card Back', type: '', power: 0, keywords: [], releaseYear: null };
+
     // ── Bulk bar ─────────────────────────────────────────────────────────
 
     const updateBulkBar = () => {
@@ -397,10 +440,16 @@
     };
 
     el.bulkDownload.addEventListener('click', () => {
-      const cards = allCards.filter(c => checkedIds.has(c.id));
+      const cards = [CARD_BACK, ...allCards].filter(c => checkedIds.has(c.id));
       cards.forEach((c, i) => {
         setTimeout(() => triggerDownload(cardFinalPath(c), `${cardImgName(c)}.png`), i * 300);
       });
+    });
+
+    el.selectAll.addEventListener('click', () => {
+      visibleCardIds.forEach(id => checkedIds.add(id));
+      updateBulkBar();
+      filterCards();
     });
 
     el.clearChecks.addEventListener('click', () => {
@@ -443,6 +492,8 @@
       const name        = normalize(el.name.value);
       const kw          = normalize(el.keywords.value);
       const type        = normalize(el.type.value);
+      const power       = el.power.value   !== '' ? Number(el.power.value)   : null;
+      const kwCount     = el.kwCount.value !== '' ? Number(el.kwCount.value) : null;
       const releaseYear = el.releaseYear.value;
       const orderBy     = el.orderBy.value;
       const dir         = el.direction.value;
@@ -460,11 +511,14 @@
         });
       } else {
         out = allCards.filter(c => {
-          const nameOk = !name        || normalize(c.name).includes(name);
-          const kwOk   = matchKeywords(c.keywords, kw);
-          const typeOk = !type        || normalize(c.type) === type;
-          const yearOk = !releaseYear || String(c.releaseYear) === releaseYear;
-          return nameOk && kwOk && typeOk && yearOk;
+          const nameOk  = !name        || normalize(c.name).includes(name);
+          const kwOk    = matchKeywords(c.keywords, kw);
+          const typeOk  = !type        || normalize(c.type) === type;
+          const powerOk   = power   === null || c.power === power;
+          const effectiveKws = Array.isArray(c.keywords) ? c.keywords.filter(k => k != null && k !== '') : (c.keywords ? [c.keywords] : []);
+          const kwCountOk = kwCount === null || effectiveKws.length === kwCount;
+          const yearOk    = !releaseYear || String(c.releaseYear) === releaseYear;
+          return nameOk && kwOk && typeOk && powerOk && kwCountOk && yearOk;
         });
         filteredKeywords = allKeywords;
       }
@@ -488,7 +542,8 @@
       }
 
       // Checked cards that don't match the filter — pin them at the top
-      const filteredIds = new Set(out.map(c => c.id));
+      visibleCardIds = out.map(c => c.id);
+      const filteredIds = new Set(visibleCardIds);
       const pinnedOnly  = allCards.filter(c => checkedIds.has(c.id) && !filteredIds.has(c.id));
       const allDisplay  = [...pinnedOnly, ...orderedCards];
 
@@ -505,13 +560,23 @@
           break;
       }
 
+      const n = view === 'keywords' ? orderedKeywords.length : out.length;
+      const word = view === 'keywords' ? 'keyword' : 'card';
+      el.filterCount.textContent = `(${n} ${word}${n !== 1 ? 's' : ''})`;
+
       render(allDisplay, filteredIds, orderedKeywords, macros);
     };
 
     // ── Render ────────────────────────────────────────────────────────────
 
     const render = (cards, filteredIds, keywords, macros) => {
-      if (!cards.length && view !== 'keywords' && view !== 'macros') {
+      const nameFilter = normalize(el.name.value);
+      const showCardBack = view === 'cards' && (
+        checkedIds.has(CARD_BACK.id) ||
+        (nameFilter && (nameFilter === 'back' || nameFilter === 'card back' || nameFilter === 'cardback'))
+      );
+
+      if (!cards.length && !showCardBack && view !== 'keywords' && view !== 'macros') {
         el.empty.style.display    = 'block';
         el.gallery.innerHTML      = '';
         el.cardsWrap.innerHTML    = '';
@@ -538,7 +603,7 @@
 
           return `
       <article class="card${isChecked ? ' selected' : ''}${isPinned ? ' pinned' : ''}" data-id="${c.id}" aria-label="Card ${escapeHtml(c.name)}">
-        <img alt="${escapeHtml(c.name)}" src="${cardArtPath(c)}" onerror="this.src=''; this.style.height='0';" />
+        <img alt="${escapeHtml(c.name)}" src="${cardArtPath(c)}" loading="lazy" onerror="this.src=''; this.style.height='0';" />
         <div class="meta">
           <div><strong>#${c.id}</strong> — ${escapeHtml(c.name)}</div>
           <div class="kv">type: ${escapeHtml(capitalize(c.type))} • power: ${formatPower(c.power)}</div>
@@ -550,11 +615,12 @@
         }).join('');
 
       } else if (view === 'cards') {
-        el.cardsWrap.innerHTML = cards.map(c => {
+        const displayCards = showCardBack ? [CARD_BACK, ...cards] : cards;
+        el.cardsWrap.innerHTML = displayCards.map(c => {
           const isSelected = checkedIds.has(c.id);
           return `
       <div class="card-img-item${isSelected ? ' selected' : ''}" data-id="${c.id}" title="${escapeHtml(c.name)}">
-        <img alt="${escapeHtml(c.name)}" src="${cardFinalPath(c)}" onerror="this.style.display='none';" draggable="false" />
+        <img alt="${escapeHtml(c.name)}" src="${cardFinalPath(c)}" loading="lazy" onerror="this.style.display='none';" draggable="false" />
       </div>
     `;
         }).join('');
@@ -635,16 +701,19 @@
 
     // ── Filter controls ───────────────────────────────────────────────────
 
-    ['input', 'change'].forEach(evt => {
-      [el.name, el.keywords, el.type, el.releaseYear, el.orderBy, el.direction].forEach(ctrl => {
-        ctrl.addEventListener(evt, () => { controlsToURL(); filterCards(); });
-      });
+    [el.name, el.keywords].forEach(ctrl => {
+      ctrl.addEventListener('input', () => { controlsToURL(); filterCards(); });
+    });
+    [el.type, el.power, el.kwCount, el.releaseYear, el.orderBy, el.direction].forEach(ctrl => {
+      ctrl.addEventListener('change', () => { controlsToURL(); filterCards(); });
     });
 
     el.clear.addEventListener('click', () => {
       el.name.value        = '';
       el.keywords.value    = '';
       el.type.value        = '';
+      el.power.value       = '';
+      el.kwCount.value     = '';
       el.releaseYear.value = '';
       el.orderBy.value     = 'oldest';
       el.direction.value   = 'asc';
