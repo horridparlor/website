@@ -66,6 +66,12 @@
       </select>
     </div>
     <div>
+      <label for="f-keyword">Keyword</label>
+      <select id="f-keyword">
+        <option value="">Any</option>
+      </select>
+    </div>
+    <div>
       <label for="f-releaseYear">Release Year</label>
       <select id="f-releaseYear">
         <option value="">Any</option>
@@ -102,10 +108,10 @@
 <!-- View toggle -->
 <div class="view-toggle">
   <button id="btn-cards" class="toggle-btn active" type="button" title="Cards">
-    🃏 <span>Cards</span>
+    🖼️ <span>Card Gallery</span>
   </button>
   <button id="btn-gallery" class="toggle-btn" type="button" title="Card Gallery">
-    🖼️ <span>Card Gallery</span>
+    🃏 <span>Card Art</span>
   </button>
   <button id="btn-table" class="toggle-btn" type="button" title="Data Form">
     📇 <span>Data Form</span>
@@ -206,6 +212,7 @@
       type:           document.getElementById('f-type'),
       power:          document.getElementById('f-power'),
       kwCount:        document.getElementById('f-kwCount'),
+      keyword:        document.getElementById('f-keyword'),
       releaseYear:    document.getElementById('f-releaseYear'),
       orderBy:        document.getElementById('f-orderBy'),
       direction:      document.getElementById('f-direction'),
@@ -279,6 +286,7 @@
       el.type.value        = qs.get('type')        || '';
       el.power.value       = qs.get('power')       || '';
       el.kwCount.value     = qs.get('kwCount')     || '';
+      el.keyword.value     = qs.get('keyword')     || '';
       el.releaseYear.value = qs.get('releaseYear') || '';
       el.orderBy.value     = qs.get('orderBy')     || 'oldest';
       el.direction.value   = qs.get('direction')   || 'asc';
@@ -290,6 +298,7 @@
       setQueryParam('type',        el.type.value);
       setQueryParam('power',       el.power.value);
       setQueryParam('kwCount',     el.kwCount.value);
+      setQueryParam('keyword',     el.keyword.value);
       setQueryParam('releaseYear', el.releaseYear.value);
       setQueryParam('orderBy',     el.orderBy.value);
       setQueryParam('direction',   el.direction.value);
@@ -494,6 +503,7 @@
       const type        = normalize(el.type.value);
       const power       = el.power.value   !== '' ? Number(el.power.value)   : null;
       const kwCount     = el.kwCount.value !== '' ? Number(el.kwCount.value) : null;
+      const kwSpecific  = el.keyword.value;
       const releaseYear = el.releaseYear.value;
       const orderBy     = el.orderBy.value;
       const dir         = el.direction.value;
@@ -516,9 +526,10 @@
           const typeOk  = !type        || normalize(c.type) === type;
           const powerOk   = power   === null || c.power === power;
           const effectiveKws = Array.isArray(c.keywords) ? c.keywords.filter(k => k != null && k !== '') : (c.keywords ? [c.keywords] : []);
-          const kwCountOk = kwCount === null || effectiveKws.length === kwCount;
-          const yearOk    = !releaseYear || String(c.releaseYear) === releaseYear;
-          return nameOk && kwOk && typeOk && powerOk && kwCountOk && yearOk;
+          const kwCountOk   = kwCount === null || effectiveKws.length === kwCount;
+          const kwSpecificOk = !kwSpecific || effectiveKws.includes(kwSpecific);
+          const yearOk      = !releaseYear || String(c.releaseYear) === releaseYear;
+          return nameOk && kwOk && typeOk && powerOk && kwCountOk && kwSpecificOk && yearOk;
         });
         filteredKeywords = allKeywords;
       }
@@ -704,7 +715,7 @@
     [el.name, el.keywords].forEach(ctrl => {
       ctrl.addEventListener('input', () => { controlsToURL(); filterCards(); });
     });
-    [el.type, el.power, el.kwCount, el.releaseYear, el.orderBy, el.direction].forEach(ctrl => {
+    [el.type, el.power, el.kwCount, el.keyword, el.releaseYear, el.orderBy, el.direction].forEach(ctrl => {
       ctrl.addEventListener('change', () => { controlsToURL(); filterCards(); });
     });
 
@@ -714,6 +725,7 @@
       el.type.value        = '';
       el.power.value       = '';
       el.kwCount.value     = '';
+      el.keyword.value     = '';
       el.releaseYear.value = '';
       el.orderBy.value     = 'oldest';
       el.direction.value   = 'asc';
@@ -760,6 +772,11 @@
             types: types.sort((a, b) => getTypeOrder(a) - getTypeOrder(b)).join(', '),
           };
         });
+        const sorted = [...allKeywords].sort((a, b) => a.displayName.localeCompare(b.displayName));
+        const current = el.keyword.value;
+        el.keyword.innerHTML = '<option value="">Any</option>' +
+          sorted.map(k => `<option value="${escapeHtml(k.name)}">${escapeHtml(k.displayName)}</option>`).join('');
+        if (current) el.keyword.value = current;
       } catch (err) {
         showToast('Failed to load keywords. Please try refreshing.');
         allKeywords = [];
