@@ -122,6 +122,9 @@
   <button id="btn-macros" class="toggle-btn" type="button" title="Macros">
     🌍 <span>Macros</span>
   </button>
+  <button id="btn-rules" class="toggle-btn" type="button" title="Rules">
+    📖 <span>Rules</span>
+  </button>
 </div>
 
 <!-- Bulk download bar (visible when cards checked in gallery view) -->
@@ -195,10 +198,13 @@
       <tbody id="macros-body"></tbody>
     </table>
   </div>
+
+  <div id="rules-view" style="display:none;"></div>
 </section>
 
 <div id="toast" class="toast">Failed to load cards. Please try refreshing.</div>
 
+<script src="rules.js"></script>
 <script>
   (() => {
     const API_URL      = '../../api/is-back/';
@@ -222,6 +228,7 @@
       tableBtn:       document.getElementById('btn-table'),
       keywordsBtn:    document.getElementById('btn-keywords'),
       macrosBtn:      document.getElementById('btn-macros'),
+      rulesBtn:       document.getElementById('btn-rules'),
       gallery:        document.getElementById('gallery'),
       cardsWrap:      document.getElementById('cards-view'),
       tableWrap:      document.getElementById('table-view'),
@@ -230,6 +237,7 @@
       keywordsBody:   document.getElementById('keywords-body'),
       macrosWrap:     document.getElementById('macros-view'),
       macrosBody:     document.getElementById('macros-body'),
+      rulesWrap:      document.getElementById('rules-view'),
       bulkBar:        document.getElementById('bulk-bar'),
       checkedCount:   document.getElementById('checked-count'),
       bulkDownload:   document.getElementById('bulk-download-btn'),
@@ -486,11 +494,13 @@
       el.tableBtn.classList.toggle('active',    view === 'table');
       el.keywordsBtn.classList.toggle('active', view === 'keywords');
       el.macrosBtn.classList.toggle('active',   view === 'macros');
+      el.rulesBtn.classList.toggle('active',    view === 'rules');
       el.gallery.style.display      = (view === 'gallery')  ? 'grid'  : 'none';
       el.cardsWrap.style.display    = (view === 'cards')    ? 'grid'  : 'none';
       el.tableWrap.style.display    = (view === 'table')    ? 'block' : 'none';
       el.keywordsWrap.style.display = (view === 'keywords') ? 'block' : 'none';
       el.macrosWrap.style.display   = (view === 'macros')   ? 'block' : 'none';
+      el.rulesWrap.style.display    = (view === 'rules')    ? 'block' : 'none';
       updateOrderByOptions();
       updateBulkBar();
     };
@@ -498,6 +508,7 @@
     // ── Filter & sort ─────────────────────────────────────────────────────
 
     const filterCards = () => {
+      if (view === 'rules') { el.filterCount.textContent = ''; return; }
       const name        = normalize(el.name.value);
       const kw          = normalize(el.keywords.value);
       const type        = normalize(el.type.value);
@@ -738,12 +749,14 @@
     el.tableBtn.addEventListener('click',    () => { view = 'table';    ensureViewButtons(); controlsToURL(); filterCards(); });
     el.keywordsBtn.addEventListener('click', () => { view = 'keywords'; ensureViewButtons(); controlsToURL(); filterCards(); });
     el.macrosBtn.addEventListener('click',   () => { view = 'macros';   ensureViewButtons(); controlsToURL(); filterCards(); });
+    el.rulesBtn.addEventListener('click',    () => { view = 'rules';    ensureViewButtons(); controlsToURL(); filterCards(); });
 
     // ── Initial load ──────────────────────────────────────────────────────
 
     (async function init() {
       applyURLToControls();
       ensureViewButtons();
+      RulesModule.init(el.rulesWrap);
       try {
         const res = await fetch(CARDS_URL, { method: 'GET' });
         if (!res.ok) throw new Error('HTTP ' + res.status);

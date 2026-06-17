@@ -310,3 +310,181 @@ a:hover { transform: scale(1.05); box-shadow: 0 0 20px #00ffcc; }
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 .clear-btn:hover { transform: scale(1.05); box-shadow: 0 0 20px #ff6699; }
+
+/* ── Rules view ──────────────────────────────────────────────────────── */
+.rules-wrap {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
+}
+
+.rules-toc {
+    flex: 0 0 220px;
+    position: sticky;
+    top: 4rem;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    max-height: calc(100vh - 6rem);
+    overflow-y: auto;
+}
+.rules-toc-heading {
+    font-size: .8rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #888;
+    margin-bottom: .75rem;
+    padding-bottom: .5rem;
+    border-bottom: 1px solid #333;
+}
+.rules-toc-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: .2rem;
+}
+.rules-toc-link {
+    display: block;
+    background: none;
+    box-shadow: none;
+    color: #ccc;
+    text-decoration: none;
+    font-size: .875rem;
+    padding: .3rem .5rem;
+    border-radius: 6px;
+    transition: color 0.15s, background 0.15s;
+}
+.rules-toc-link:hover {
+    color: #00ffcc;
+    background: rgba(0,255,204,0.07);
+    transform: none;
+    box-shadow: none;
+}
+.rules-toc-sub {
+    list-style: none;
+    padding: .2rem 0 .2rem .8rem;
+    margin: .1rem 0 0 .4rem;
+    display: flex;
+    flex-direction: column;
+    gap: .1rem;
+    border-left: 2px solid #2a2a2a;
+}
+.rules-toc-sub-link {
+    display: block;
+    background: none;
+    box-shadow: none;
+    color: #777;
+    text-decoration: none;
+    font-size: .8rem;
+    padding: .2rem .4rem;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+}
+.rules-toc-sub-link:hover {
+    color: #00ffcc;
+    background: rgba(0,255,204,0.07);
+    transform: none;
+    box-shadow: none;
+}
+
+.rules-main { flex: 1 1 auto; min-width: 0; }
+
+.rules-section {
+    padding-bottom: 2.5rem;
+    border-bottom: 1px solid #222;
+    margin-bottom: 2.5rem;
+    scroll-margin-top: 5rem;
+}
+.rules-section:last-child { border-bottom: none; margin-bottom: 0; }
+
+.rules-section-title {
+    font-size: 1.5rem;
+    color: #00ffcc;
+    margin: 0 0 1rem;
+}
+.rules-num { opacity: .55; margin-right: .25rem; }
+
+.rules-body, .rules-subcontent {
+    color: #ccc;
+    line-height: 1.75;
+}
+.rules-body p, .rules-subcontent p { margin: 0 0 1em; }
+.rules-body ul, .rules-body ol,
+.rules-subcontent ul, .rules-subcontent ol { margin: 0 0 1em 1.5rem; }
+.rules-body li, .rules-subcontent li { margin-bottom: .35em; }
+
+.rules-subsection {
+    margin-top: 1.5rem;
+    scroll-margin-top: 5rem;
+}
+.rules-subtitle {
+    font-size: 1.1rem;
+    color: #00ccff;
+    margin: 0 0 .6rem;
+}
+
+.rules-back-to-top {
+    display: inline-block;
+    margin-top: 1.5rem;
+    font-size: .8rem;
+    background: none;
+    box-shadow: none;
+    color: #555;
+    text-decoration: none;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    padding: .3rem .7rem;
+    transition: color 0.15s, border-color 0.15s;
+}
+.rules-back-to-top:hover {
+    color: #00ffcc;
+    border-color: #00ffcc;
+    transform: none;
+    box-shadow: none;
+}
+
+@media (max-width: 767px) {
+    .rules-wrap { flex-direction: column; }
+    .rules-toc { position: static; width: 100%; max-height: none; flex: none; }
+    .rules-section { scroll-margin-top: 1rem; }
+    .rules-subsection { scroll-margin-top: 1rem; }
+}
+
+/* Glossary */
+.rules-glossary {
+    display: grid;
+    grid-template-columns: minmax(140px, 200px) 1fr;
+    gap: .6rem 2rem;
+    margin: 0;
+    align-items: baseline;
+}
+.rules-glossary dt {
+    color: #fff;
+    font-weight: 700;
+    font-size: .95rem;
+    letter-spacing: .01em;
+    padding: .5rem .75rem;
+    background: rgba(0,255,204,0.06);
+    border-left: 3px solid #00ffcc;
+    border-radius: 0 6px 6px 0;
+    align-self: start;
+}
+.rules-glossary dd {
+    margin: 0;
+    color: #ccc;
+    line-height: 1.75;
+    padding: .5rem 0;
+    border-bottom: 1px solid #1a1a1a;
+    align-self: start;
+}
+
+@media (max-width: 600px) {
+    .rules-glossary {
+        grid-template-columns: 1fr;
+        gap: .15rem;
+    }
+    .rules-glossary dd { border-bottom: none; padding-bottom: 1rem; }
+}
