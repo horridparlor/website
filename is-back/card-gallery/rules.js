@@ -222,8 +222,26 @@ const RULES_SECTIONS = [
 </ul>`,
       },
       {
+        id: 'sahkotalo-retrigger',
+        title: '8.2 Sähkötalo — What Counts as a Retriggerable Effect',
+        content: `<p>Sähkötalo's keyword reads: <em>[When played] You may discard up to 2 cards. If you do, retrigger the effects of up to that many cards supporting this card.</em></p>
+<p>Retriggering replays the <strong>play-time</strong> keywords of the chosen supporting cards — specifically those that trigger when a card enters the field:</p>
+<ul>
+  <li><strong>[When played]</strong> — triggers when a card is played face-up onto the field.</li>
+  <li><strong>[When evolves]</strong> — triggers when a card evolves.</li>
+  <li><strong>[When supporting]</strong> — triggers when a card is played as a supporting card.</li>
+</ul>
+<p>The following keyword tags are <strong>not</strong> retriggered, as they are not play-time effects:</p>
+<ul>
+  <li><strong>[Static]</strong> — a passive effect active while the card is face-up; it is already in effect and does not need to trigger again.</li>
+  <li><strong>[Opponent passes]</strong> — a response keyword; it only fires when the opponent passes, not when a card is played.</li>
+  <li><strong>[Start of round]</strong> — fires at the start of a round from hand; it cannot be retriggered from the field.</li>
+</ul>
+<p>Additionally, retriggering does not bypass a keyword's own conditions. If a supporting card's keyword has a requirement — for example, <em>[When supporting] a card with 5 000 or less power</em> — and the current primary card does not meet that condition, the effect does not resolve even when retriggered by Sähkötalo.</p>`,
+      },
+      {
         id: 'facism-stacks',
-        title: '8.2 Facism and Stack Destruction',
+        title: '8.3 Facism and Stack Destruction',
         content: `<p>Facism is an <strong>[Opponent passes]</strong> keyword. Its effect reads: <em>if the opponent passes with the weak type at 5 000 or less power, destroy all of that type.</em></p>
 <p>When resolving Facism, it checks the <strong>top card of every stack</strong> on the opponent's field — both the primary stack and each supporting stack.</p>
 <ul>
@@ -232,6 +250,15 @@ const RULES_SECTIONS = [
   <li><strong>Cascade</strong>: when Facism destroys the top card of a stack, the card beneath it is exposed and immediately checked. If it also matches the weak type, it is destroyed too. This repeats down the stack until the newly exposed card does not match or the stack is empty.</li>
 </ul>
 <p>Example: Anne-Lotte has Facism (weak type: Rock). The opponent passes with a 3 000 Rock as their primary. Facism triggers. Their supporting stack also has a Rock on top — it is destroyed. The card beneath that Rock is also a Rock — cascade destroys it too. The next card under that is a Paper — cascade stops.</p>`,
+      },
+      {
+        id: 'herwood-devolve',
+        title: '8.4 Herwood — Failed Devolve and Hidden Information',
+        content: `<p>Herwood's keyword reads: <em>[Opponent passes] Look at the top 3 cards of your deck, and devolve this into 1 of them. If you do, add the other 2 to your hand.</em></p>
+<ul>
+  <li><strong>If you cannot or do not devolve</strong>: all 3 cards are returned to the top of your deck in the same order they were in. Neither card goes to hand.</li>
+  <li><strong>Choosing to fail</strong>: the top 3 cards of your deck are hidden information — your opponent cannot see them. You are therefore permitted to look at the cards and declare that none of them can be devolved into, returning them in order, even if one of them actually could be used. Your opponent has no way to verify this.</li>
+</ul>`,
       },
     ],
   },
@@ -283,6 +310,15 @@ const RULES_SECTIONS = [
 
   <dt>Prize cards</dt>
   <dd>Five cards dealt face-down from your deck at the start of the game. You draw one each time you win a round. If you have none left to draw when you would win a round, you win the game instead.</dd>
+
+  <dt>Purge</dt>
+  <dd>To permanently remove a card from the game entirely. A purged card does not go to the graveyard and cannot be retrieved by any effect. More permanent than discarding.</dd>
+
+  <dt>Reshuffle</dt>
+  <dd>To take cards from the graveyard and shuffle them back into the deck.</dd>
+
+  <dt>Retrigger</dt>
+  <dd>To replay the effect of a keyword as if the card had just been played. Only play-time keywords can be retriggered — specifically <strong>[When played]</strong>, <strong>[When evolves]</strong>, and <strong>[When supporting]</strong>. Keywords with other tags (<strong>[Static]</strong>, <strong>[Opponent passes]</strong>, <strong>[Start of round]</strong>) cannot be retriggered. A keyword's own conditions still apply when it is retriggered — if the condition is not met, the effect does not resolve.</dd>
 
   <dt>Round</dt>
   <dd>One full cycle of play, from Start of Round through End of Round.</dd>
