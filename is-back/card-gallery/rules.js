@@ -6,7 +6,7 @@ const RULES_SECTIONS = [
   {
     id: 'win-condition',
     title: 'Win Condition',
-    content: `<p>Every card is either Rock, Paper, or Scissors. Rock beats Scissors, Scissors beats Paper, Paper beats Rock. If both cards share the same type, the card with higher power wins the round.</p>
+    content: `<p>Every card is either Rock, Paper, or Scissors. Rock beats Scissors, Scissors beats Paper, Paper beats Rock. If both cards share the same type, the card with higher power wins the round. If both cards share the same type <em>and</em> the same power, the passing player loses. A round can never end in a tie.</p>
 <p>At the start of the game, each player receives 5 prize cards placed face-down. Every time you win a round, you draw one of your prize cards. If you win a round while you have no prize cards remaining, you win the game.</p>`,
     subtitles: [
       {
@@ -128,6 +128,7 @@ const RULES_SECTIONS = [
 <ul>
   <li>If your opponent has no primary card, the turn simply passes to them.</li>
   <li>If your opponent has a <strong>face-up</strong> primary card that beats yours, you immediately lose the round.</li>
+  <li>If both cards share the same type and the same power, you lose the round — ties are broken in favour of the non-passing player.</li>
   <li>If your card beats the opponent's face-up card, they receive a new main phase.</li>
   <li>If your opponent has a <strong>face-down primary card</strong>, skip directly to the end of round. Face-down primary cards are then revealed starting from the opponent's. If the opponent's revealed card has an <strong>[Opponent passes]</strong> keyword, they may trigger that effect — if it alters the game state such that the end of round no longer applies, the round continues instead.</li>
 </ul>
