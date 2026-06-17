@@ -221,6 +221,18 @@ const RULES_SECTIONS = [
   <li><strong>Both face-down, one player passes:</strong> The opponent reveals their face-down card first. If it has Divine, the passing player's face-down card is never revealed — Divine defeats it sight unseen and the passing player loses automatically.</li>
 </ul>`,
       },
+      {
+        id: 'facism-stacks',
+        title: '8.2 Facism and Stack Destruction',
+        content: `<p>Facism is an <strong>[Opponent passes]</strong> keyword. Its effect reads: <em>if the opponent passes with the weak type at 5 000 or less power, destroy all of that type.</em></p>
+<p>When resolving Facism, it checks the <strong>top card of every stack</strong> on the opponent's field — both the primary stack and each supporting stack.</p>
+<ul>
+  <li><strong>Trigger</strong>: the opponent's active primary card must be the weak type with 5 000 or less power. This is what causes Facism to trigger at all.</li>
+  <li><strong>Effect scope</strong>: once triggered, every stack on the opponent's field is checked independently. If the top card of a supporting stack is also the weak type, it is destroyed as well — even if it has more than 5 000 power. The "5 000 or less" condition only applies to the trigger, not to which cards get destroyed.</li>
+  <li><strong>Cascade</strong>: when Facism destroys the top card of a stack, the card beneath it is exposed and immediately checked. If it also matches the weak type, it is destroyed too. This repeats down the stack until the newly exposed card does not match or the stack is empty.</li>
+</ul>
+<p>Example: Anne-Lotte has Facism (weak type: Rock). The opponent passes with a 3 000 Rock as their primary. Facism triggers. Their supporting stack also has a Rock on top — it is destroyed. The card beneath that Rock is also a Rock — cascade destroys it too. The next card under that is a Paper — cascade stops.</p>`,
+      },
     ],
   },
   {
@@ -241,6 +253,9 @@ const RULES_SECTIONS = [
 
   <dt>Discard</dt>
   <dd>To send a card from the hand or field to the graveyard.</dd>
+
+  <dt>Devolve</dt>
+  <dd>To evolve with a card that has lower base power than the current active card. Normally not permitted, but certain keywords such as Autocracy allow it. Devolving still counts as evolving in all other respects.</dd>
 
   <dt>Evolve</dt>
   <dd>To play a new card on top of an existing card in a stack, replacing it as the active card. The new card must have higher base power than the one beneath it.</dd>
@@ -344,6 +359,11 @@ const RULES_SECTIONS = [
         id: 'faq-going-first',
         title: '10.10 Is there any disadvantage to going first?',
         content: `<p>No. There is no penalty or restriction on the player who goes first in any round. The starting player for the first round should be determined by a random method — both players rolling dice and the higher roll choosing is recommended.</p>`,
+      },
+      {
+        id: 'faq-devolve-evolve',
+        title: '10.11 Does devolving count as evolving?',
+        content: `<p>Yes. Devolving — playing a card with lower base power onto a stack — is still considered evolving in all respects. Any effect that triggers on, references, or restricts evolving applies equally to devolving.</p>`,
       },
     ],
   },
