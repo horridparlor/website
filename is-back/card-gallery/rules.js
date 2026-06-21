@@ -66,7 +66,8 @@ const RULES_SECTIONS = [
   {
     id: 'turn-order',
     title: 'Turn Order',
-    content: `<p>A round proceeds through four phases in order. Both players act within each phase before the next begins.</p>`,
+    content: `<p>A round proceeds through four phases in order. Both players act within each phase before the next begins.</p>
+<p>The player who lost the previous round always goes first in the next round. In the very first round, the starting player is determined during game preparation.</p>`,
     subtitles: [
       {
         id: 'turn-start-of-round',
@@ -86,7 +87,8 @@ const RULES_SECTIONS = [
       {
         id: 'turn-end-of-round',
         title: '4.4 End of Round',
-        content: `<p>The losing player concedes — either by passing with a losing card or by surrendering. If the winner still has prize cards, they draw one. If they have no prize cards left to draw, they win the game instead.</p>`,
+        content: `<p>The losing player concedes — either by passing with a losing card or by surrendering. If the winner still has prize cards, they draw one. If they have no prize cards left to draw, they win the game instead.</p>
+<p>The losing player goes first in the next round.</p>`,
       },
     ],
   },
@@ -145,7 +147,8 @@ const RULES_SECTIONS = [
 <ul>
   <li>If the winning player has no prize cards remaining, they win the game.</li>
   <li>If a keyword effect allows drawing multiple prize cards at once and fewer than that number remain, the overflow does not count — you do not win from an overflow. The only way to win the game is to have no prize cards left at the moment you would draw one (or more) for winning a round.</li>
-</ul>`,
+</ul>
+<p>The losing player goes first in the next round.</p>`,
       },
     ],
   },
