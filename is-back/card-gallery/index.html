@@ -55,6 +55,16 @@
         <option value="13000">13 000</option>
       </select>
     </div>
+    <div id="power-is-wrap" style="display:none;">
+      <label for="f-powerIs">Power Is</label>
+      <select id="f-powerIs">
+        <option value="eq">Equals</option>
+        <option value="gte">More Or Equal</option>
+        <option value="lte">Less Or Equal</option>
+        <option value="gt">More Than</option>
+        <option value="lt">Less Than</option>
+      </select>
+    </div>
     <div>
       <label for="f-kwCount">Keyword Count</label>
       <select id="f-kwCount">
@@ -68,6 +78,12 @@
     <div>
       <label for="f-keyword">Keyword</label>
       <select id="f-keyword">
+        <option value="">Any</option>
+      </select>
+    </div>
+    <div>
+      <label for="f-expansion">Expansion</label>
+      <select id="f-expansion">
         <option value="">Any</option>
       </select>
     </div>
@@ -207,9 +223,10 @@
 <script src="rules.js"></script>
 <script>
   (() => {
-    const API_URL      = '../../api/is-back/';
-    const CARDS_URL    = API_URL + 'cards';
-    const KEYWORDS_URL = API_URL + 'keywords';
+    const API_URL        = '../../api/is-back/';
+    const CARDS_URL      = API_URL + 'cards';
+    const KEYWORDS_URL   = API_URL + 'keywords';
+    const EXPANSIONS_URL = '.expansions';
     const qs = new URLSearchParams(location.search);
 
     const el = {
@@ -218,7 +235,9 @@
       type:           document.getElementById('f-type'),
       power:          document.getElementById('f-power'),
       kwCount:        document.getElementById('f-kwCount'),
+      powerIs:        document.getElementById('f-powerIs'),
       keyword:        document.getElementById('f-keyword'),
+      expansion:      document.getElementById('f-expansion'),
       releaseYear:    document.getElementById('f-releaseYear'),
       orderBy:        document.getElementById('f-orderBy'),
       direction:      document.getElementById('f-direction'),
@@ -263,12 +282,29 @@
       { value: 'least-common', label: 'Least Common' },
     ];
 
-    let allCards      = [];
-    let allKeywords   = [];
-    let macros        = [];
-    let view          = qs.get('view') || 'cards';
+    let allCards        = [];
+    let allKeywords     = [];
+    let macros          = [];
+    let expansionStatus = null; // null = file not found → treat all sets as released
+    let view            = qs.get('view') || 'cards';
     const checkedIds  = new Set();
     let visibleCardIds = [];
+
+    const syncPowerIsVisibility = () => {
+      document.getElementById('power-is-wrap').style.display = el.power.value !== '' ? '' : 'none';
+    };
+
+    // ── Expansion status ─────────────────────────────────────────────────
+    // released / 2 → show normally
+    // hidden   / 1 → show in filter list but exclude from default (unfiltered) view
+    // null     / 0 → completely invisible; default for sets not listed in file
+    const getExpansionStatus = (setNum) => {
+      if (expansionStatus === null) return 'released';
+      const s = expansionStatus[setNum];
+      if (!s || s === 'null' || s === '0') return 'null';
+      if (s === 'hidden' || s === '1') return 'hidden';
+      return 'released';
+    };
 
     // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -293,11 +329,14 @@
       el.keywords.value    = qs.get('keywords')    || '';
       el.type.value        = qs.get('type')        || '';
       el.power.value       = qs.get('power')       || '';
+      el.powerIs.value     = qs.get('powerIs')     || 'eq';
       el.kwCount.value     = qs.get('kwCount')     || '';
       el.keyword.value     = qs.get('keyword')     || '';
+      el.expansion.value   = qs.get('expansion')   || '';
       el.releaseYear.value = qs.get('releaseYear') || '';
       el.orderBy.value     = qs.get('orderBy')     || 'oldest';
       el.direction.value   = qs.get('direction')   || 'asc';
+      syncPowerIsVisibility();
     };
 
     const controlsToURL = () => {
@@ -305,8 +344,10 @@
       setQueryParam('keywords',    el.keywords.value.trim());
       setQueryParam('type',        el.type.value);
       setQueryParam('power',       el.power.value);
+      setQueryParam('powerIs',     el.power.value ? el.powerIs.value : '');
       setQueryParam('kwCount',     el.kwCount.value);
       setQueryParam('keyword',     el.keyword.value);
+      setQueryParam('expansion',   el.expansion.value);
       setQueryParam('releaseYear', el.releaseYear.value);
       setQueryParam('orderBy',     el.orderBy.value);
       setQueryParam('direction',   el.direction.value);
@@ -513,8 +554,10 @@
       const kw          = normalize(el.keywords.value);
       const type        = normalize(el.type.value);
       const power       = el.power.value   !== '' ? Number(el.power.value)   : null;
+      const powerIs     = el.powerIs.value || 'eq';
       const kwCount     = el.kwCount.value !== '' ? Number(el.kwCount.value) : null;
       const kwSpecific  = el.keyword.value;
+      const expansion   = el.expansion.value !== '' ? Number(el.expansion.value) : null;
       const releaseYear = el.releaseYear.value;
       const orderBy     = el.orderBy.value;
       const dir         = el.direction.value;
@@ -535,12 +578,21 @@
           const nameOk  = !name        || normalize(c.name).includes(name);
           const kwOk    = matchKeywords(c.keywords, kw);
           const typeOk  = !type        || normalize(c.type) === type;
-          const powerOk   = power   === null || c.power === power;
+          const powerOk   = power === null || (
+            powerIs === 'gt'  ? c.power >  power :
+            powerIs === 'lt'  ? c.power <  power :
+            powerIs === 'gte' ? c.power >= power :
+            powerIs === 'lte' ? c.power <= power :
+                                c.power === power
+          );
           const effectiveKws = Array.isArray(c.keywords) ? c.keywords.filter(k => k != null && k !== '') : (c.keywords ? [c.keywords] : []);
           const kwCountOk   = kwCount === null || effectiveKws.length === kwCount;
           const kwSpecificOk = !kwSpecific || effectiveKws.includes(kwSpecific);
+          const setNum       = Math.ceil(c.id / 60);
+          const setStatus    = getExpansionStatus(setNum);
+          const expansionOk  = setStatus !== 'null' && (expansion === null ? setStatus === 'released' : setNum === expansion);
           const yearOk      = !releaseYear || String(c.releaseYear) === releaseYear;
-          return nameOk && kwOk && typeOk && powerOk && kwCountOk && kwSpecificOk && yearOk;
+          return nameOk && kwOk && typeOk && powerOk && kwCountOk && kwSpecificOk && expansionOk && yearOk;
         });
         filteredKeywords = allKeywords;
       }
@@ -726,8 +778,8 @@
     [el.name, el.keywords].forEach(ctrl => {
       ctrl.addEventListener('input', () => { controlsToURL(); filterCards(); });
     });
-    [el.type, el.power, el.kwCount, el.keyword, el.releaseYear, el.orderBy, el.direction].forEach(ctrl => {
-      ctrl.addEventListener('change', () => { controlsToURL(); filterCards(); });
+    [el.type, el.power, el.powerIs, el.kwCount, el.keyword, el.expansion, el.releaseYear, el.orderBy, el.direction].forEach(ctrl => {
+      ctrl.addEventListener('change', () => { syncPowerIsVisibility(); controlsToURL(); filterCards(); });
     });
 
     el.clear.addEventListener('click', () => {
@@ -735,8 +787,11 @@
       el.keywords.value    = '';
       el.type.value        = '';
       el.power.value       = '';
+      el.powerIs.value     = 'eq';
+      syncPowerIsVisibility();
       el.kwCount.value     = '';
       el.keyword.value     = '';
+      el.expansion.value   = '';
       el.releaseYear.value = '';
       el.orderBy.value     = 'oldest';
       el.direction.value   = 'asc';
@@ -758,11 +813,37 @@
       ensureViewButtons();
       RulesModule.init(el.rulesWrap);
       try {
+        const res = await fetch(EXPANSIONS_URL);
+        if (res.ok) {
+          const text = await res.text();
+          expansionStatus = {};
+          text.split('\n').forEach(line => {
+            line = line.trim();
+            if (!line) return;
+            const eq = line.indexOf('=');
+            if (eq === -1) return;
+            const key = line.slice(0, eq).trim().toLowerCase();
+            const val = line.slice(eq + 1).trim().toLowerCase();
+            const num = parseInt(key.replace(/^set/, ''), 10);
+            if (!isNaN(num)) expansionStatus[num] = val;
+          });
+        }
+      } catch (_) { /* file not found → expansionStatus stays null → all sets released */ }
+      try {
         const res = await fetch(CARDS_URL, { method: 'GET' });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
         allCards = Array.isArray(data) ? data : (data.cards || []);
         calculateMacros();
+        const maxId = allCards.length ? Math.max(...allCards.map(c => c.id)) : 0;
+        const numExpansions = Math.ceil(maxId / 60);
+        const currentExpansion = qs.get('expansion') || '';
+        el.expansion.innerHTML = '<option value="">Any</option>' +
+          Array.from({ length: numExpansions }, (_, i) => i + 1)
+            .filter(n => getExpansionStatus(n) !== 'null')
+            .map(n => `<option value="${n}">Set ${n}</option>`)
+            .join('');
+        if (currentExpansion) el.expansion.value = currentExpansion;
       } catch (err) {
         showToast('Failed to load cards. Please try refreshing.');
         allCards = [];
@@ -786,7 +867,7 @@
           };
         });
         const sorted = [...allKeywords].sort((a, b) => a.displayName.localeCompare(b.displayName));
-        const current = el.keyword.value;
+        const current = qs.get('keyword') || '';
         el.keyword.innerHTML = '<option value="">Any</option>' +
           sorted.map(k => `<option value="${escapeHtml(k.name)}">${escapeHtml(k.displayName)}</option>`).join('');
         if (current) el.keyword.value = current;
