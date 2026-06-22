@@ -4,9 +4,6 @@
     <loc>https://rakuel.com/</loc>
   </url>
   <url>
-    <loc>https://rakuel.com/anime-gacha</loc>
-  </url>
-  <url>
     <loc>https://rakuel.com/calendar</loc>
   </url>
   <url>
@@ -29,6 +26,9 @@
   </url>
   <url>
     <loc>https://rakuel.com/hardest/card-gallery</loc>
+  </url>
+  <url>
+    <loc>https://rakuel.com/is-back/card-gallery</loc>
   </url>
   <url>
     <loc>https://rakuel.com/json-formatter</loc>
