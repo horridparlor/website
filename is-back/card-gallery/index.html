@@ -602,7 +602,18 @@
       } else {
         out = allCards.filter(c => {
           const nameOk  = !name        || normalize(c.name).includes(name);
-          const kwOk    = matchKeywords(c.keywords, kw);
+          const kwOk    = !kw || (() => {
+            const tokens = kw.split(',').join(' ').split(/\s+/).map(t => t.trim()).filter(Boolean);
+            const kws = Array.isArray(c.keywords) ? c.keywords.filter(k => k != null && k !== '') : [];
+            const hay = normalize([
+              ...kws,
+              ...kws.flatMap(name => {
+                const d = allKeywords.find(k => k.name === name);
+                return d ? [d.displayName, d.description] : [];
+              }),
+            ].join(' '));
+            return tokens.every(t => hay.includes(t));
+          })();
           const typeOk  = !type        || normalize(c.type) === type;
           const powerOk   = power === null || (
             powerIs === 'gt'  ? c.power >  power :
@@ -613,7 +624,7 @@
           );
           const effectiveKws = Array.isArray(c.keywords) ? c.keywords.filter(k => k != null && k !== '') : (c.keywords ? [c.keywords] : []);
           const kwCountOk   = kwCount === null || effectiveKws.length === kwCount;
-          const kwSpecificOk = !kwSpecific || effectiveKws.includes(kwSpecific);
+          const kwSpecificOk = !kwSpecific || (kwSpecific === 'vanilla' ? effectiveKws.length === 0 : effectiveKws.includes(kwSpecific));
           const setNum       = getSetNum(c.id);
           const setStatus    = getExpansionStatus(setNum);
           const expansionOk  = setStatus !== 'null' && (expansion === null ? setStatus === 'released' : setNum === expansion);
@@ -903,8 +914,10 @@
         });
         const sorted = [...allKeywords].sort((a, b) => a.displayName.localeCompare(b.displayName));
         const current = qs.get('keyword') || '';
+        const sortedWithVanilla = [...sorted, { name: 'vanilla', displayName: 'Vanilla' }]
+          .sort((a, b) => a.displayName.localeCompare(b.displayName));
         el.keyword.innerHTML = '<option value="">Any</option>' +
-          sorted.map(k => `<option value="${escapeHtml(k.name)}">${escapeHtml(k.displayName)}</option>`).join('');
+          sortedWithVanilla.map(k => `<option value="${escapeHtml(k.name)}">${escapeHtml(k.displayName)}</option>`).join('');
         if (current) el.keyword.value = current;
       } catch (err) {
         showToast('Failed to load keywords. Please try refreshing.');
