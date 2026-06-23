@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Format raw SQL queries and PHP Doctrine migration addSql() statements into clean, readable SQL with syntax highlighting." />
+  <title>SQL Formatter</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Roboto Mono', monospace;
+      background-color: #0f0f0f;
+      color: #fff;
+      padding: 2rem;
+      background-image: radial-gradient(#333 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+    h2 {
+      text-align: center;
+      font-size: 2rem;
+      color: #00ffcc;
+      margin-bottom: 2rem;
+    }
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+      align-items: flex-start;
+    }
+    textarea {
+      width: 100%;
+      max-width: 600px;
+      height: 300px;
+      font-family: 'Roboto Mono', monospace;
+      font-size: 14px;
+      padding: 15px;
+      box-sizing: border-box;
+      background-color: #1e1e1e;
+      color: #00ffcc;
+      border: 2px solid #00ffcc;
+      border-radius: 8px;
+      transition: all 0.3s ease;
+      resize: vertical;
+    }
+    .sql-output {
+      position: relative;
+      width: 100%;
+      max-width: 600px;
+      min-height: 300px;
+      box-sizing: border-box;
+      background-color: #1e1e1e;
+      border: 2px solid #00ffcc;
+      border-radius: 8px;
+      padding: 12px 14px;
+      overflow: auto;
+      font-size: 14px;
+      line-height: 1.6;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 1s ease;
+    }
+    .sql-output.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: 'Roboto Mono', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* SQL syntax highlighting */
+    .kw  { color: #00ffcc; font-weight: bold; }
+    .id  { color: #ffcc66; }
+    .str { color: #a6e22e; }
+    .num { color: #66d9ef; }
+    .cm  { color: #75715e; font-style: italic; }
+    .sc  { color: #888; }
+
+    .stmt-details {
+      border-top: 1px solid #2a2a2a;
+      padding-top: 10px;
+      margin-top: 10px;
+    }
+    .stmt-details:first-child {
+      border-top: none;
+      padding-top: 0;
+      margin-top: 0;
+    }
+    .stmt-details > summary {
+      cursor: pointer;
+      list-style: none;
+      position: relative;
+      padding: 3px 4px 3px 20px;
+      user-select: none;
+      color: #aaa;
+      font-size: 13px;
+      border-radius: 4px;
+      transition: background 0.15s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .stmt-details > summary::-webkit-details-marker { display: none; }
+    .stmt-details > summary:hover { background: rgba(0,255,204,0.06); color: #fff; }
+    .stmt-details > summary::before {
+      content: "▶";
+      position: absolute;
+      left: 4px;
+      top: 50%;
+      transform: translateY(-50%) rotate(0deg);
+      transition: transform .15s ease;
+      font-size: 9px;
+      color: #00ffcc;
+    }
+    .stmt-details[open] > summary::before {
+      transform: translateY(-50%) rotate(90deg);
+    }
+    .stmt-details > pre {
+      margin: 6px 0 4px 16px;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+      margin-top: 1rem;
+      flex-wrap: wrap;
+    }
+    button, .home-btn {
+      padding: 12px 24px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      text-decoration: none;
+      text-align: center;
+      display: inline-block;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    button {
+      background: linear-gradient(90deg, #00ffcc, #00ccff);
+      color: #000;
+      box-shadow: 0 0 10px #00ffcc;
+    }
+    button:hover { transform: scale(1.05); box-shadow: 0 0 20px #00ffcc; }
+    .home-btn {
+      background: linear-gradient(90deg, #ff0066, #ff6600);
+      color: #fff;
+      box-shadow: 0 0 10px #ff0066;
+    }
+    .home-btn:hover { transform: scale(1.05); box-shadow: 0 0 20px #ff0066; }
+
+    .toast {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background-color: #00cc88; color: white; padding: 12px 20px; border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3); font-size: 14px; opacity: 0; pointer-events: none;
+      transition: opacity 0.5s ease; z-index: 1000;
+    }
+    .toast.show { opacity: 1; }
+    .toast.error { background-color: #ff0033; }
+
+    .copy-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      background: linear-gradient(90deg, #00ffcc, #00ccff);
+      color: #002;
+      font-size: 18px;
+      border: none;
+      box-shadow: 0 6px 18px rgba(0,255,204,0.08), 0 2px 6px rgba(0,0,0,0.5);
+      transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+      z-index: 10;
+    }
+    .copy-btn:focus { outline: 2px solid #00ffcc; }
+    .copy-btn:hover { transform: translateY(-3px) scale(1.03); filter: brightness(1.07); box-shadow: 0 10px 30px rgba(0,204,255,0.18); }
+
+    .copy-btn .tooltip {
+      position: absolute;
+      top: -36px;
+      right: 0;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      background: #111;
+      color: #fff;
+      white-space: nowrap;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+      opacity: 0;
+      transform: translateY(6px);
+      pointer-events: none;
+      transition: opacity .12s ease, transform .12s ease;
+    }
+    .copy-btn:hover .tooltip,
+    .copy-btn:focus .tooltip { opacity: 1; transform: translateY(0); }
+    .copy-btn.copied { animation: pop .28s ease; }
+    @keyframes pop { 0%{ transform: scale(1);} 50%{ transform: scale(1.12);} 100%{ transform: scale(1);} }
+
+    @media (min-width: 768px) {
+      textarea { width: 45%; }
+      .sql-output { width: 45%; }
+    }
+  </style>
+</head>
+<body>
+
+<h2>SQL Formatter</h2>
+
+<div class="container">
+  <textarea id="input" placeholder="Paste raw SQL queries or PHP migration addSql() lines here..."></textarea>
+  <div id="output" class="sql-output" aria-live="polite" role="region"></div>
+</div>
+
+<div class="buttons">
+  <button id="formatBtn">Format SQL</button>
+  <a href="../" class="home-btn">← Back to Home</a>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+const STORAGE_KEY = 'sqlFormatter.input';
+const inputEl  = document.getElementById('input');
+const outputEl = document.getElementById('output');
+const formatBtn = document.getElementById('formatBtn');
+const toast    = document.getElementById('toast');
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+function showToast(msg, isError = false) {
+  toast.textContent = msg;
+  toast.className = 'toast' + (isError ? ' error' : '');
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// ── Animated output ────────────────────────────────────────────────────────
+function showAnimatedOutput(node) {
+  outputEl.classList.remove('visible');
+  outputEl.replaceChildren();
+  setTimeout(() => {
+    outputEl.appendChild(node);
+    outputEl.classList.add('visible');
+  }, 50);
+}
+
+// ── Debounce ───────────────────────────────────────────────────────────────
+function debounce(fn, wait = 250) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
+}
+
+// ── SQL keywords ───────────────────────────────────────────────────────────
+const KEYWORDS = new Set([
+  'SELECT','FROM','WHERE','AND','OR','NOT','IN','IS','AS','CASE','WHEN',
+  'THEN','ELSE','END','IF','EXISTS','DISTINCT','ALL','LIKE','BETWEEN',
+  'JOIN','LEFT','RIGHT','INNER','OUTER','CROSS','FULL','ON',
+  'INSERT','INTO','VALUES','UPDATE','SET','DELETE',
+  'CREATE','TABLE','TEMPORARY','ALTER','ADD','DROP','MODIFY','COLUMN','RENAME',
+  'CONSTRAINT','FOREIGN','KEY','REFERENCES','PRIMARY','UNIQUE','INDEX',
+  'DEFAULT','AUTO_INCREMENT','COLLATE','CHARACTER','CHARSET','ENGINE',
+  'INT','SMALLINT','BIGINT','TINYINT','MEDIUMINT','UNSIGNED','SIGNED','ZEROFILL',
+  'VARCHAR','CHAR','TEXT','TINYTEXT','MEDIUMTEXT','LONGTEXT','BLOB',
+  'DATETIME','DATE','TIME','TIMESTAMP','YEAR',
+  'BOOLEAN','BOOL','FLOAT','DOUBLE','DECIMAL','NUMERIC','REAL',
+  'GROUP','ORDER','BY','HAVING','LIMIT','OFFSET','UNION',
+  'NULL','TRUE','FALSE',
+  'AFTER','BEFORE','FIRST','LAST',
+]);
+
+// ── Tokenizer ──────────────────────────────────────────────────────────────
+function tokenize(sql) {
+  const tokens = [];
+  let i = 0;
+  while (i < sql.length) {
+    const ch = sql[i];
+
+    // Newline
+    if (ch === '\n') { tokens.push({ type: 'nl', text: '\n' }); i++; continue; }
+
+    // Whitespace
+    if (/[ \t\r]/.test(ch)) {
+      let j = i;
+      while (j < sql.length && /[ \t\r]/.test(sql[j])) j++;
+      tokens.push({ type: 'ws', text: sql.slice(i, j) });
+      i = j; continue;
+    }
+
+    // Backtick identifier
+    if (ch === '`') {
+      let j = i + 1;
+      while (j < sql.length && sql[j] !== '`') j++;
+      tokens.push({ type: 'id', text: sql.slice(i, j + 1) });
+      i = j + 1; continue;
+    }
+
+    // String literal (single quote)
+    if (ch === "'") {
+      let j = i + 1;
+      while (j < sql.length) {
+        if (sql[j] === '\\') { j += 2; continue; }
+        if (sql[j] === "'") break;
+        j++;
+      }
+      tokens.push({ type: 'str', text: sql.slice(i, j + 1) });
+      i = j + 1; continue;
+    }
+
+    // Line comment
+    if (ch === '-' && sql[i + 1] === '-') {
+      let j = i;
+      while (j < sql.length && sql[j] !== '\n') j++;
+      tokens.push({ type: 'cm', text: sql.slice(i, j) });
+      i = j; continue;
+    }
+
+    // Block comment
+    if (ch === '/' && sql[i + 1] === '*') {
+      let j = i + 2;
+      while (j < sql.length && !(sql[j] === '*' && sql[j + 1] === '/')) j++;
+      tokens.push({ type: 'cm', text: sql.slice(i, j + 2) });
+      i = j + 2; continue;
+    }
+
+    // Number
+    if (/\d/.test(ch)) {
+      let j = i;
+      while (j < sql.length && /[\d.]/.test(sql[j])) j++;
+      tokens.push({ type: 'num', text: sql.slice(i, j) });
+      i = j; continue;
+    }
+
+    // Word (keyword or identifier)
+    if (/[a-zA-Z_]/.test(ch)) {
+      let j = i;
+      while (j < sql.length && /[a-zA-Z0-9_]/.test(sql[j])) j++;
+      const word = sql.slice(i, j);
+      tokens.push({ type: KEYWORDS.has(word.toUpperCase()) ? 'kw' : 'plain', text: word });
+      i = j; continue;
+    }
+
+    // Semicolon
+    if (ch === ';') {
+      tokens.push({ type: 'sc', text: ';' });
+      i++; continue;
+    }
+
+    // Everything else
+    tokens.push({ type: 'plain', text: ch });
+    i++;
+  }
+  return tokens;
+}
+
+function renderTokens(tokens) {
+  return tokens.map(t => {
+    const esc = t.text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    if (t.type === 'nl') return '\n';
+    if (t.type === 'ws' || t.type === 'plain') return esc;
+    return `<span class="${t.type}">${esc}</span>`;
+  }).join('');
+}
+
+// ── SQL formatting helpers ─────────────────────────────────────────────────
+function splitAtDepthZero(str) {
+  const items = [];
+  let depth = 0, current = '', inStr = false, strChar = '';
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    if (inStr) {
+      current += ch;
+      if (ch === '\\') { current += str[++i] || ''; continue; }
+      if (ch === strChar) inStr = false;
+      continue;
+    }
+    if (ch === "'" || ch === '`') { inStr = true; strChar = ch; current += ch; continue; }
+    if (ch === '(') { depth++; current += ch; continue; }
+    if (ch === ')') { depth--; current += ch; continue; }
+    if (ch === ',' && depth === 0) { items.push(current.trim()); current = ''; continue; }
+    current += ch;
+  }
+  if (current.trim()) items.push(current.trim());
+  return items;
+}
+
+function findMatchingParen(sql, start) {
+  let depth = 0, inStr = false, strChar = '';
+  for (let i = start; i < sql.length; i++) {
+    const ch = sql[i];
+    if (inStr) {
+      if (ch === '\\') { i++; continue; }
+      if (ch === strChar) inStr = false;
+      continue;
+    }
+    if (ch === "'" || ch === '`') { inStr = true; strChar = ch; continue; }
+    if (ch === '(') depth++;
+    if (ch === ')') { depth--; if (depth === 0) return i; }
+  }
+  return -1;
+}
+
+function findFirstParen(sql) {
+  let inBt = false;
+  for (let i = 0; i < sql.length; i++) {
+    if (sql[i] === '`') { inBt = !inBt; continue; }
+    if (!inBt && sql[i] === '(') return i;
+  }
+  return -1;
+}
+
+// ── Statement formatters ───────────────────────────────────────────────────
+function formatCreateTable(sql) {
+  const parenIdx = findFirstParen(sql);
+  if (parenIdx === -1) return sql;
+  const header   = sql.slice(0, parenIdx).trimEnd();
+  const closeIdx = findMatchingParen(sql, parenIdx);
+  if (closeIdx === -1) return sql;
+  const body    = sql.slice(parenIdx + 1, closeIdx);
+  const trailer = sql.slice(closeIdx + 1).trim();
+  const items   = splitAtDepthZero(body);
+  let result = header + ' (\n';
+  result += items.map(item => '    ' + item).join(',\n');
+  result += '\n)';
+  if (trailer) result += '\n    ' + trailer;
+  return result;
+}
+
+function formatAlterTable(sql) {
+  return sql
+    .replace(/\s+ADD\s+CONSTRAINT\b/gi,   '\n    ADD CONSTRAINT')
+    .replace(/\s+REFERENCES\b/gi,          '\n    REFERENCES')
+    .replace(/\s+ADD\s+COLUMN\b/gi,        '\n    ADD COLUMN')
+    .replace(/\s+ADD\s+(?!CONSTRAINT\b|COLUMN\b)/gi, '\n    ADD ')
+    .replace(/\s+MODIFY\s+COLUMN\b/gi,     '\n    MODIFY COLUMN')
+    .replace(/\s+MODIFY\b(?!\s+COLUMN)/gi, '\n    MODIFY')
+    .replace(/\s+DROP\s+COLUMN\b/gi,       '\n    DROP COLUMN')
+    .replace(/\s+DROP\b(?!\s+COLUMN)/gi,   '\n    DROP')
+    .replace(/\s+RENAME\b/gi,              '\n    RENAME');
+}
+
+function formatSelect(sql) {
+  const reps = [
+    [/\bSELECT\s+/gi,                                              'SELECT\n    '],
+    [/\s+FROM\b/gi,                                                '\nFROM'],
+    [/\s+WHERE\b/gi,                                               '\nWHERE'],
+    [/\s+AND\b/gi,                                                 '\n    AND'],
+    [/\s+OR\b/gi,                                                  '\n    OR'],
+    [/\s+(LEFT\s+OUTER|RIGHT\s+OUTER|FULL\s+OUTER|LEFT|RIGHT|INNER|CROSS|OUTER)\s+JOIN\b/gi, '\n$1 JOIN'],
+    [/\s+JOIN\b/gi,                                                '\nJOIN'],
+    [/\s+ON\b/gi,                                                  '\n    ON'],
+    [/\s+GROUP\s+BY\b/gi,                                          '\nGROUP BY'],
+    [/\s+ORDER\s+BY\b/gi,                                          '\nORDER BY'],
+    [/\s+HAVING\b/gi,                                              '\nHAVING'],
+    [/\s+LIMIT\b/gi,                                               '\nLIMIT'],
+    [/\s+OFFSET\b/gi,                                              '\nOFFSET'],
+    [/\s+UNION\b/gi,                                               '\n\nUNION\n\n'],
+  ];
+  for (const [pat, rep] of reps) sql = sql.replace(pat, rep);
+  return sql;
+}
+
+function formatInsert(sql) {
+  return sql
+    .replace(/\bINSERT\s+INTO\s+/gi, 'INSERT INTO ')
+    .replace(/\s+VALUES\b/gi, '\nVALUES');
+}
+
+function formatUpdate(sql) {
+  return sql
+    .replace(/\bUPDATE\s+/gi, 'UPDATE ')
+    .replace(/\s+SET\b/gi,   '\nSET')
+    .replace(/\s+WHERE\b/gi, '\nWHERE')
+    .replace(/\s+AND\b/gi,   '\n    AND')
+    .replace(/\s+OR\b/gi,    '\n    OR');
+}
+
+function formatDelete(sql) {
+  return sql
+    .replace(/\bDELETE\s+FROM\b/gi, 'DELETE FROM')
+    .replace(/\s+WHERE\b/gi,        '\nWHERE')
+    .replace(/\s+AND\b/gi,          '\n    AND')
+    .replace(/\s+OR\b/gi,           '\n    OR');
+}
+
+function formatStatement(sql) {
+  sql = sql.trim().replace(/\s+/g, ' ');
+  const upper = sql.toUpperCase();
+  if (upper.startsWith('CREATE TABLE') || upper.startsWith('CREATE TEMPORARY TABLE'))
+    return formatCreateTable(sql);
+  if (upper.startsWith('ALTER TABLE'))
+    return formatAlterTable(sql);
+  if (upper.startsWith('SELECT'))
+    return formatSelect(sql);
+  if (upper.startsWith('INSERT'))
+    return formatInsert(sql);
+  if (upper.startsWith('UPDATE'))
+    return formatUpdate(sql);
+  if (upper.startsWith('DELETE'))
+    return formatDelete(sql);
+  return sql;
+}
+
+// ── Input parsing ──────────────────────────────────────────────────────────
+function extractFromMigration(input) {
+  const sqls = [];
+  const re = /->addSql\(\s*(?:'((?:[^'\\]|\\[\s\S])*)'|"((?:[^"\\]|\\[\s\S])*)")\s*\)/g;
+  let m;
+  while ((m = re.exec(input)) !== null) {
+    const sql = m[1] !== undefined
+      ? m[1].replace(/\\'/g, "'").replace(/\\\\/g, '\\')
+      : m[2].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+    if (sql.trim()) sqls.push(sql.trim());
+  }
+  return sqls;
+}
+
+function splitBySemicolon(input) {
+  const stmts = [];
+  let current = '', inStr = false, strChar = '';
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+    if (inStr) {
+      current += ch;
+      if (ch === '\\') { current += input[++i] || ''; continue; }
+      if (ch === strChar) inStr = false;
+      continue;
+    }
+    if (ch === "'" || ch === '"' || ch === '`') { inStr = true; strChar = ch; current += ch; continue; }
+    if (ch === ';') { if (current.trim()) stmts.push(current.trim()); current = ''; continue; }
+    current += ch;
+  }
+  if (current.trim()) stmts.push(current.trim());
+  return stmts;
+}
+
+function parseInput(input) {
+  const trimmed = input.trim();
+  if (trimmed.includes('->addSql(')) return extractFromMigration(trimmed);
+  return splitBySemicolon(trimmed);
+}
+
+// ── Summary label for collapsible header ──────────────────────────────────
+function getSummaryLabel(raw) {
+  const s = raw.trim().replace(/\s+/g, ' ');
+  const up = s.toUpperCase();
+  if (up.startsWith('CREATE TABLE') || up.startsWith('CREATE TEMPORARY TABLE')) {
+    const m = s.match(/CREATE\s+(?:TEMPORARY\s+)?TABLE\s+(\S+)/i);
+    return m ? 'CREATE TABLE ' + m[1] : 'CREATE TABLE';
+  }
+  if (up.startsWith('ALTER TABLE')) {
+    const m = s.match(/ALTER\s+TABLE\s+(\S+)\s+(ADD\s+CONSTRAINT\s+\S+|ADD\s+COLUMN\s+\S+|ADD\s+\S+|DROP\s+\S+|MODIFY\s+\S+|RENAME\s+\S+)?/i);
+    if (m) return 'ALTER TABLE ' + m[1] + (m[2] ? ' — ' + m[2].trim() : '');
+    return 'ALTER TABLE';
+  }
+  if (up.startsWith('INSERT INTO')) {
+    const m = s.match(/INSERT\s+INTO\s+(\S+)/i);
+    return m ? 'INSERT INTO ' + m[1] : 'INSERT';
+  }
+  if (up.startsWith('UPDATE')) {
+    const m = s.match(/UPDATE\s+(\S+)/i);
+    return m ? 'UPDATE ' + m[1] : 'UPDATE';
+  }
+  if (up.startsWith('DELETE FROM')) {
+    const m = s.match(/DELETE\s+FROM\s+(\S+)/i);
+    return m ? 'DELETE FROM ' + m[1] : 'DELETE';
+  }
+  // SELECT or fallback: first 70 chars
+  return s.length > 70 ? s.slice(0, 70) + '…' : s;
+}
+
+// ── Copy button ────────────────────────────────────────────────────────────
+function createCopyButton(text) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'copy-btn';
+  btn.setAttribute('aria-label', 'Copy to Clipboard');
+  btn.innerHTML = '📎<span class="tooltip">Copy to Clipboard</span>';
+
+  btn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      const tooltip = btn.querySelector('.tooltip');
+      if (tooltip) tooltip.textContent = 'Copied!';
+      btn.classList.add('copied');
+      showToast('SQL copied to clipboard!');
+      setTimeout(() => {
+        if (tooltip) tooltip.textContent = 'Copy to Clipboard';
+        btn.classList.remove('copied');
+      }, 1400);
+    } catch (err) {
+      showToast('Copy failed.', true);
+    }
+  });
+  return btn;
+}
+
+// ── Main format ────────────────────────────────────────────────────────────
+function formatAll() {
+  const raw = inputEl.value.trim();
+  if (!raw) { showToast('Paste some SQL first!', true); return; }
+
+  try {
+    const stmts = parseInput(raw);
+    if (stmts.length === 0) { showToast('No SQL statements found!', true); return; }
+
+    const formatted = stmts.map(s => formatStatement(s));
+    const plainText = formatted.map(f => f + ';').join('\n\n');
+
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'relative';
+
+    const copyBtn = createCopyButton(plainText);
+    wrapper.appendChild(copyBtn);
+
+    const content = document.createElement('div');
+    content.style.paddingTop = '46px';
+
+    formatted.forEach((f, idx) => {
+      const details = document.createElement('details');
+      details.className = 'stmt-details';
+      details.open = true;
+
+      const summary = document.createElement('summary');
+      summary.textContent = getSummaryLabel(stmts[idx]);
+      details.appendChild(summary);
+
+      const pre = document.createElement('pre');
+      pre.innerHTML = renderTokens(tokenize(f)) + '<span class="sc">;</span>';
+      details.appendChild(pre);
+
+      content.appendChild(details);
+    });
+
+    wrapper.appendChild(content);
+    showAnimatedOutput(wrapper);
+    showToast(stmts.length === 1 ? 'Formatted!' : `Formatted ${stmts.length} statements!`);
+  } catch (err) {
+    showToast('Error: ' + err.message, true);
+    console.error(err);
+  }
+}
+
+// ── Persistence ────────────────────────────────────────────────────────────
+const saveInput = debounce(() => {
+  try { localStorage.setItem(STORAGE_KEY, inputEl.value || ''); } catch (e) {}
+}, 200);
+
+inputEl.addEventListener('input', saveInput);
+
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) { inputEl.value = saved; formatAll(); }
+  } catch (e) {}
+});
+
+formatBtn.addEventListener('click', () => {
+  try { localStorage.setItem(STORAGE_KEY, inputEl.value || ''); } catch (e) {}
+  formatAll();
+});
+</script>
+
+</body>
+</html>
