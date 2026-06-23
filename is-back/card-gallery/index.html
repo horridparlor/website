@@ -286,6 +286,7 @@
     let allKeywords     = [];
     let macros          = [];
     let expansionStatus = null; // null = file not found → treat all sets as released
+    let setBoundaries   = null; // [{setNum, start, end}] sorted by setNum
     let view            = qs.get('view') || 'cards';
     const checkedIds  = new Set();
     let visibleCardIds = [];
@@ -301,9 +302,34 @@
     const getExpansionStatus = (setNum) => {
       if (expansionStatus === null) return 'released';
       const s = expansionStatus[setNum];
-      if (!s || s === 'null' || s === '0') return 'null';
-      if (s === 'hidden' || s === '1') return 'hidden';
+      if (!s) return 'null';
+      const status = typeof s === 'object' ? s.status : s;
+      if (!status || status === 'null' || status === '0') return 'null';
+      if (status === 'hidden' || status === '1') return 'hidden';
       return 'released';
+    };
+
+    const computeSetBoundaries = () => {
+      if (expansionStatus === null) { setBoundaries = null; return; }
+      const setNums = Object.keys(expansionStatus).map(Number).sort((a, b) => a - b);
+      const bounds = [];
+      let cursor = 1;
+      for (const num of setNums) {
+        const info = expansionStatus[num];
+        const maxId = typeof info === 'object' && info.maxId !== undefined ? info.maxId : cursor + 59;
+        bounds.push({ setNum: num, start: cursor, end: maxId });
+        cursor = maxId + 1;
+      }
+      setBoundaries = bounds;
+    };
+
+    const getSetNum = (cardId) => {
+      if (!setBoundaries || !setBoundaries.length) return Math.ceil(cardId / 60);
+      for (const b of setBoundaries) {
+        if (cardId >= b.start && cardId <= b.end) return b.setNum;
+      }
+      const last = setBoundaries[setBoundaries.length - 1];
+      return last.setNum + Math.ceil((cardId - last.end) / 60);
     };
 
     // ── Helpers ──────────────────────────────────────────────────────────
@@ -588,7 +614,7 @@
           const effectiveKws = Array.isArray(c.keywords) ? c.keywords.filter(k => k != null && k !== '') : (c.keywords ? [c.keywords] : []);
           const kwCountOk   = kwCount === null || effectiveKws.length === kwCount;
           const kwSpecificOk = !kwSpecific || effectiveKws.includes(kwSpecific);
-          const setNum       = Math.ceil(c.id / 60);
+          const setNum       = getSetNum(c.id);
           const setStatus    = getExpansionStatus(setNum);
           const expansionOk  = setStatus !== 'null' && (expansion === null ? setStatus === 'released' : setNum === expansion);
           const yearOk      = !releaseYear || String(c.releaseYear) === releaseYear;
@@ -823,10 +849,19 @@
             const eq = line.indexOf('=');
             if (eq === -1) return;
             const key = line.slice(0, eq).trim().toLowerCase();
-            const val = line.slice(eq + 1).trim().toLowerCase();
+            const val = line.slice(eq + 1).trim();
             const num = parseInt(key.replace(/^set/, ''), 10);
-            if (!isNaN(num)) expansionStatus[num] = val;
+            if (isNaN(num)) return;
+            const parts = val.split(',');
+            const status = parts[0].trim().toLowerCase();
+            let maxId;
+            for (let i = 1; i < parts.length; i++) {
+              const m = parts[i].trim().toLowerCase().match(/^maxid=(\d+)$/);
+              if (m) maxId = parseInt(m[1], 10);
+            }
+            expansionStatus[num] = maxId !== undefined ? { status, maxId } : { status };
           });
+          computeSetBoundaries();
         }
       } catch (_) { /* file not found → expansionStatus stays null → all sets released */ }
       try {
@@ -836,7 +871,7 @@
         allCards = Array.isArray(data) ? data : (data.cards || []);
         calculateMacros();
         const maxId = allCards.length ? Math.max(...allCards.map(c => c.id)) : 0;
-        const numExpansions = Math.ceil(maxId / 60);
+        const numExpansions = maxId ? getSetNum(maxId) : 0;
         const currentExpansion = qs.get('expansion') || '';
         el.expansion.innerHTML = '<option value="">Any</option>' +
           Array.from({ length: numExpansions }, (_, i) => i + 1)
