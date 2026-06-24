@@ -849,15 +849,20 @@ function onHandCardRightClick(e, cardId) {
 }
 
 function onSlotClick(slot) {
-  if (!gameState || gameState.phase !== 'main_phase' || gameState.turn !== myIndex) return;
-  if (!selectedHandCardId) return;
-  const result = GameEngine.canPlayCard(gameState, myIndex, selectedHandCardId, slot, false);
-  if (!result.canPlay) return;
-  const slotStack = gameState.players[myIndex].field[slot] || [];
-  const action = slotStack.length > 0 ? 'evolveCard' : 'playCard';
-  sendAction(action, { cardId: selectedHandCardId, slot, faceDown: result.mustFaceDown });
-  selectedHandCardId = null;
-  clearSlotHighlights();
+  const slotStack = gameState?.players[myIndex]?.field[slot] || [];
+  // If a card is selected and it's our turn in main phase, try to play it
+  if (gameState && gameState.phase === 'main_phase' && gameState.turn === myIndex && selectedHandCardId) {
+    const result = GameEngine.canPlayCard(gameState, myIndex, selectedHandCardId, slot, false);
+    if (result.canPlay) {
+      const action = slotStack.length > 0 ? 'evolveCard' : 'playCard';
+      sendAction(action, { cardId: selectedHandCardId, slot, faceDown: result.mustFaceDown });
+      selectedHandCardId = null;
+      clearSlotHighlights();
+      return;
+    }
+  }
+  // Otherwise show the stack if there are cards
+  if (slotStack.length > 0) showStack(myIndex, slot);
 }
 
 function clearSlotHighlights() {
@@ -922,16 +927,19 @@ function showStack(playerIndex, slot) {
   if (!p) return;
   const stack = p.field[slot] || [];
   if (!stack.length) return;
-  showStackPopup(`${slot} stack (${stack.length} card${stack.length>1?'s':''})`, stack);
+  const isMine = playerIndex === myIndex;
+  const label = isMine ? 'Your' : (p.username || 'Opponent\'s');
+  showStackPopup(`${label} ${slot} (${stack.length} card${stack.length>1?'s':''})`, stack, isMine);
 }
-function showStackPopup(title, stack) {
+function showStackPopup(title, stack, isMine = false) {
   document.getElementById('stack-title').textContent = title;
   document.getElementById('stack-cards').innerHTML = [...stack].reverse().map((entry, i) => {
     const card = allCards[entry.cardId];
     const isActive = i === 0;
+    const hidden = entry.faceDown && !isMine;
     return `<div class="sc-card">
-      <img src="${entry.faceDown||!card ? cardBack() : cardImg(card)}" alt="" />
-      <div class="sc-label">${isActive?'▶ Active':''} ${entry.faceDown?'(face-down)':card?stripBB(card.name):''}</div>
+      <img src="${hidden||!card ? cardBack() : cardImg(card)}" alt="" />
+      <div class="sc-label">${isActive?'▶ Active':''} ${hidden?'(face-down)':card?stripBB(card.name):''}</div>
     </div>`;
   }).join('');
   document.getElementById('stack-popup').classList.add('open');
