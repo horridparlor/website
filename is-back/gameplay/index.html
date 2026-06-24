@@ -1263,8 +1263,8 @@ function updateDice(state, mi) {
   diceArea.style.display = 'flex';
   document.getElementById('d1').textContent = me.diceRoll[0];
   document.getElementById('d2').textContent = me.diceRoll[1];
-  const total = me.diceRoll[0] + me.diceRoll[1] + (me.diceBonus || 0);
-  document.getElementById('dice-total').textContent = `= ${total}`;
+  const effective = Number(me.diceRoll.effective ?? (me.diceRoll[0] + me.diceRoll[1] + (me.diceBonus || 0)));
+  document.getElementById('dice-total').textContent = `= ${effective}`;
 }
 
 function runMagicPotionAnimationQueue() {
