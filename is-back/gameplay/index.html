@@ -706,6 +706,7 @@ function updateDice(state, mi) {
 // ── Action bar ────────────────────────────────────────────────────────────────
 function updateActionBar(state, mi) {
   const phase = state.phase;
+  const oppIndex = 1 - mi;
   const isMyTurn = state.turn === mi;
   const me = state.players[mi];
   const btns = document.getElementById('action-btns');
@@ -729,9 +730,13 @@ function updateActionBar(state, mi) {
   }
 
   if (phase === 'start_of_round') {
-    // Both players act independently — no turn gate
     const opp = state.players[oppIndex];
-    if (!me.diceRoll) {
+    if (!isMyTurn) {
+      const wait = document.createElement('span');
+      wait.style.cssText = 'font-size:13px;color:var(--muted);';
+      wait.textContent = 'Waiting for opponent…';
+      btns.appendChild(wait);
+    } else if (!me.diceRoll) {
       btns.appendChild(mkBtn('🎲 Roll Dice', 'action-btn btn-done', () => sendAction('rollDice')));
     } else if (!me.startOfRoundUsed) {
       btns.appendChild(mkBtn('Skip Start Effect', 'action-btn btn-done', () => sendAction('skipStartOfRound')));

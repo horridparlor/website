@@ -309,6 +309,7 @@ function handleReady(array &$state, int $playerIndex, array $params, GameEngine 
 function handleRollDice(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
 {
     if ($state['phase'] !== 'start_of_round') return 'Not in start-of-round phase';
+    if ($state['turn'] !== $playerIndex) return 'Not your turn';
     if ($state['players'][$playerIndex]['diceRoll'] !== null) return 'Already rolled';
 
     $d1 = rand(1, 6);
@@ -350,6 +351,12 @@ function handlePlayStartOfRound(array &$state, int $playerIndex, array $params, 
     $engine->discardFromHand($state, $playerIndex, $cardId);
     $state['players'][$playerIndex]['startOfRoundUsed'] = true;
 
+    // Pass turn to opponent if they haven't done their start-of-round yet
+    $oppIdx = 1 - $playerIndex;
+    if (!$state['players'][$oppIdx]['startOfRoundUsed']) {
+        $state['turn'] = $oppIdx;
+    }
+
     if (in_array('greed', $kwLower)) {
         $bonus = (int)($state['players'][$playerIndex]['diceBonus'] ?? 0) + 2;
         $state['players'][$playerIndex]['diceBonus'] = $bonus;
@@ -373,8 +380,14 @@ function handlePlayStartOfRound(array &$state, int $playerIndex, array $params, 
 function handleSkipStartOfRound(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
 {
     if ($state['phase'] !== 'start_of_round') return 'Not in start-of-round phase';
+    if ($state['turn'] !== $playerIndex) return 'Not your turn';
     if ($state['players'][$playerIndex]['diceRoll'] === null) return 'Must roll dice first';
     $state['players'][$playerIndex]['startOfRoundUsed'] = true;
+    // Pass turn to opponent if they haven't done their start-of-round yet
+    $oppIdx = 1 - $playerIndex;
+    if (!$state['players'][$oppIdx]['startOfRoundUsed']) {
+        $state['turn'] = $oppIdx;
+    }
     maybeStartMainPhase($state, $engine);
     return null;
 }

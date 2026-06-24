@@ -95,12 +95,18 @@ function getQueue(Database $database): string
     );
 
     if (!$row) {
-        // Check if recently matched
+        // Redirect to an active match if one exists
         $matched = $database->query(
-            'SELECT id, status, matchId FROM isBack_matchQueue WHERE userId = :userId ORDER BY createdAt DESC LIMIT 1',
+            <<<SQL
+                SELECT q.matchId
+                FROM isBack_matchQueue q
+                JOIN isBack_match m ON m.id = q.matchId
+                WHERE q.userId = :userId AND q.status = 'matched' AND m.status = 'active'
+                ORDER BY q.createdAt DESC LIMIT 1
+            SQL,
             ['userId' => ['value' => $user->getId(), 'type' => \PDO::PARAM_INT]]
         );
-        if ($matched && $matched[0]['status'] === 'matched') {
+        if ($matched) {
             return Database::responseSuccess(['status' => 'matched', 'matchId' => (int)$matched[0]['matchId']]);
         }
         return Database::responseSuccess(['status' => 'none']);
