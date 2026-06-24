@@ -556,11 +556,18 @@ let lastRpsResultKey = null;
 let prevHandIds  = new Set();
 let prevPhaseTurn = null;
 let lastNaturalSelectionTs = 0;
+let lastCommunismTs = 0;
 let phaseToastTimeout = null;
+let activePendingModalSig = null;
+let pendingActionInFlight = false;
 
 function authHeaders() { return { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }; }
 function fmt(p) { return String(Number(p)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
 function stripBB(s) { return (s||'').replace(/\[[^\]]*\]/g,''); }
+function acknowledgeNotification(kind, stamp) {
+  if (!stamp) return;
+  sendAction('acknowledgeNotification', { kind, stamp });
+}
 function resolveTypeTokens(desc, cardType) {
   if (!desc || !cardType) return desc || '';
   const info = {
@@ -693,6 +700,7 @@ function processState(state) {
   updateActionBar(state, myIndex);
   updatePrizePanel(state, myIndex, oppIndex);
   updateRoundResult(state);
+  processPendingEffects(state);
 
   // Phase transition banners
   const curPhaseTurn = state.phase + ':' + state.turn;
@@ -711,9 +719,21 @@ function processState(state) {
 
   // Natural Selection animation
   const nsTs = state.lastNaturalSelection ?? 0;
-  if (nsTs && nsTs !== lastNaturalSelectionTs) {
+  const nsAck = state.naturalSelectionAcks?.[myIndex] ?? 0;
+  if (nsTs && nsAck !== nsTs && nsTs !== lastNaturalSelectionTs) {
     lastNaturalSelectionTs = nsTs;
     showNaturalSelectionEffect();
+    acknowledgeNotification('natural_selection', nsTs);
+  }
+
+  const cTs = state.lastCommunismUsed ?? 0;
+  const cAck = state.communismAcks?.[myIndex] ?? 0;
+  if (cTs && cAck !== cTs && cTs !== lastCommunismTs) {
+    lastCommunismTs = cTs;
+    const userIdx = Number(state.lastCommunismUser ?? -1);
+    const who = userIdx === myIndex ? 'You' : (state.players?.[userIdx]?.username || 'Opponent');
+    showPhaseToast(`${who} used Communism — bottom prize revealed`, '#d29922');
+    acknowledgeNotification('communism', cTs);
   }
 
   // Win/complete
@@ -722,6 +742,309 @@ function processState(state) {
   }
 
   } catch(e) { console.error('[processState error]', e); }
+}
+
+function getPendingEffects(state) {
+  if (Array.isArray(state.pendingEffects)) return state.pendingEffects;
+  if (state.pendingEffect && typeof state.pendingEffect === 'object') return [state.pendingEffect];
+  return [];
+}
+
+function getCurrentPendingEffect(state) {
+  const queue = getPendingEffects(state);
+  return queue.length ? queue[0] : null;
+}
+
+function isPendingResponder(effect, mi) {
+  if (!effect || mi < 0) return false;
+  const owner = Number(effect.playerIndex);
+  switch ((effect.type || '').toLowerCase()) {
+    case 'rizz': return mi === (1 - owner);
+    case 'necromancy':
+    case 'makkarajarvi':
+    case 'sahkotalo':
+    case 'herwood':
+    case 'elder_slime_discard':
+    case 'mikontalo_discard':
+    case 'communism_draw':
+      return mi === owner;
+    default:
+      return false;
+  }
+}
+
+async function resolvePendingKeyword(params) {
+  pendingActionInFlight = true;
+  closeKwModal();
+  try {
+    await sendAction('useKeyword', params);
+  } finally {
+    pendingActionInFlight = false;
+  }
+}
+
+function processPendingEffects(state) {
+  const effect = getCurrentPendingEffect(state);
+  const modalOpen = document.getElementById('kw-modal').classList.contains('open');
+
+  if (!effect) {
+    activePendingModalSig = null;
+    pendingActionInFlight = false;
+    return;
+  }
+
+  if (!isPendingResponder(effect, myIndex)) {
+    if (modalOpen && activePendingModalSig) closeKwModal();
+    activePendingModalSig = null;
+    return;
+  }
+
+  if (pendingActionInFlight) return;
+
+  const sig = JSON.stringify(effect);
+  if (modalOpen && activePendingModalSig === sig) return;
+
+  activePendingModalSig = sig;
+  openPendingEffectModal(effect, state);
+}
+
+function openPendingEffectModal(effect, state) {
+  switch ((effect.type || '').toLowerCase()) {
+    case 'rizz':
+      openRizzResponseModal(state);
+      return;
+    case 'necromancy':
+      openNecromancyModal(effect, state);
+      return;
+    case 'makkarajarvi':
+      openMakkarajarviModal(state);
+      return;
+    case 'sahkotalo':
+      openSahkotaloFlow(state);
+      return;
+    case 'herwood':
+      openHerwoodModal(effect);
+      return;
+    case 'elder_slime_discard':
+      openElderSlimeDiscardModal(effect, state);
+      return;
+    case 'mikontalo_discard':
+      openMikontaloDiscardModal(state);
+      return;
+    case 'communism_draw':
+      openCommunismDrawModal(state);
+      return;
+    default:
+      resolvePendingKeyword({ keyword: `${effect.type || 'unknown'}_respond` });
+  }
+}
+
+function getTopFaceDownSlots(player) {
+  return ['primary', 'left', 'right'].filter(slot => {
+    const stack = player?.field?.[slot] || [];
+    return stack.length && stack[stack.length - 1].faceDown;
+  });
+}
+
+function chooseRizzRevealSlotAndRespond(state) {
+  const me = state.players[myIndex];
+  const slots = getTopFaceDownSlots(me);
+  if (!slots.length) {
+    resolvePendingKeyword({ keyword: 'rizz_respond', negate: false });
+    return;
+  }
+  if (slots.length === 1) {
+    resolvePendingKeyword({ keyword: 'rizz_respond', negate: false, revealSlot: slots[0] });
+    return;
+  }
+  const btns = slots.map(slot => ({
+    label: `Reveal ${slot}`,
+    className: 'm-confirm',
+    onClick: () => resolvePendingKeyword({ keyword: 'rizz_respond', negate: false, revealSlot: slot }),
+  }));
+  openKwModalCustom('Rizz', 'Choose which face-down card to reveal.', [], btns);
+}
+
+function openRizzResponseModal(state) {
+  const me = state.players[myIndex];
+  const handCards = (me.handIds || []).map(id => allCards[id]).filter(Boolean);
+  const buttons = [{ label: 'Do not negate', className: 'm-cancel', onClick: () => chooseRizzRevealSlotAndRespond(state) }];
+  openKwModalCustom(
+    'Rizz',
+    handCards.length
+      ? 'Select a card to discard and negate Rizz, or continue without negating.'
+      : 'You have no card to discard. Choose which face-down card to reveal.',
+    handCards,
+    buttons,
+    (cardId) => resolvePendingKeyword({ keyword: 'rizz_respond', negate: true, negateCardId: cardId })
+  );
+}
+
+function chooseSupportSlotAndRespond(zombieId, state) {
+  const me = state.players[myIndex];
+  const free = ['left', 'right'].filter(s => !((me.field?.[s] || []).length));
+  if (free.length <= 1) {
+    resolvePendingKeyword({ keyword: 'necromancy_respond', zombieId, slot: free[0] || 'left' });
+    return;
+  }
+  openKwModalCustom('Necromancy', 'Choose which supporting slot to use.', [], [
+    { label: 'Left', className: 'm-confirm', onClick: () => resolvePendingKeyword({ keyword: 'necromancy_respond', zombieId, slot: 'left' }) },
+    { label: 'Right', className: 'm-confirm', onClick: () => resolvePendingKeyword({ keyword: 'necromancy_respond', zombieId, slot: 'right' }) },
+  ]);
+}
+
+function openNecromancyModal(effect, state) {
+  const zombies = (effect.zombies || []).map(id => allCards[id]).filter(Boolean);
+  if (!zombies.length) {
+    resolvePendingKeyword({ keyword: 'necromancy_respond' });
+    return;
+  }
+  openKwModalCustom('Necromancy', 'Play a Zombie from your graveyard as supporting, or skip.', zombies, [
+    { label: 'Skip', className: 'm-cancel', onClick: () => resolvePendingKeyword({ keyword: 'necromancy_respond' }) },
+  ], (zombieId) => chooseSupportSlotAndRespond(zombieId, state));
+}
+
+function openMakkarajarviModal(state) {
+  const me = state.players[myIndex];
+  const supportTopIds = ['left', 'right']
+    .map(slot => {
+      const stack = me.field?.[slot] || [];
+      return stack.length ? stack[stack.length - 1].cardId : null;
+    })
+    .filter(Boolean);
+  const cards = supportTopIds.map(id => allCards[id]).filter(Boolean);
+  if (!cards.length) {
+    resolvePendingKeyword({ keyword: 'makkarajarvi_respond' });
+    return;
+  }
+  openKwModalCustom('Makkarajarvi', 'Choose a supporting card to return to hand (or discard if Makkara), or skip.', cards, [
+    { label: 'Skip', className: 'm-cancel', onClick: () => resolvePendingKeyword({ keyword: 'makkarajarvi_respond' }) },
+  ], (cardId) => resolvePendingKeyword({ keyword: 'makkarajarvi_respond', returnCardId: cardId }));
+}
+
+function openSahkotaloFlow(state, discarded = [], retrigger = []) {
+  const me = state.players[myIndex];
+  const remainingHand = (me.handIds || []).filter(id => !discarded.includes(id));
+
+  if (discarded.length < 2 && remainingHand.length) {
+    const cards = remainingHand.map(id => allCards[id]).filter(Boolean);
+    openKwModalCustom(
+      'Sahkotalo',
+      `Discard up to 2 cards (${discarded.length}/2 selected).`,
+      cards,
+      [{ label: 'Done', className: 'm-cancel', onClick: () => openSahkotaloRetriggerFlow(state, discarded, retrigger) }],
+      (cardId) => openSahkotaloFlow(state, [...discarded, cardId], retrigger)
+    );
+    return;
+  }
+
+  openSahkotaloRetriggerFlow(state, discarded, retrigger);
+}
+
+function openSahkotaloRetriggerFlow(state, discarded, retrigger) {
+  if (!discarded.length) {
+    resolvePendingKeyword({ keyword: 'sahkotalo_respond', discardIds: [], retriggerIds: [] });
+    return;
+  }
+
+  const me = state.players[myIndex];
+  const supportTopIds = ['left', 'right']
+    .map(slot => {
+      const stack = me.field?.[slot] || [];
+      return stack.length ? stack[stack.length - 1].cardId : null;
+    })
+    .filter(Boolean)
+    .filter(id => !retrigger.includes(id));
+
+  if (retrigger.length >= discarded.length || !supportTopIds.length) {
+    resolvePendingKeyword({ keyword: 'sahkotalo_respond', discardIds: discarded, retriggerIds: retrigger });
+    return;
+  }
+
+  const cards = supportTopIds.map(id => allCards[id]).filter(Boolean);
+  openKwModalCustom(
+    'Sahkotalo',
+    `Retrigger up to ${discarded.length} supporting card effect(s) (${retrigger.length}/${discarded.length} selected).`,
+    cards,
+    [{ label: 'Done', className: 'm-cancel', onClick: () => resolvePendingKeyword({ keyword: 'sahkotalo_respond', discardIds: discarded, retriggerIds: retrigger }) }],
+    (cardId) => openSahkotaloRetriggerFlow(state, discarded, [...retrigger, cardId])
+  );
+}
+
+function openHerwoodModal(effect) {
+  const top3 = (effect.top3 || []).map(id => allCards[id]).filter(Boolean);
+  openKwModalCustom('Herwood', 'Choose one of the top 3 cards to devolve into, or skip to return them in order.', top3, [
+    { label: 'Skip', className: 'm-cancel', onClick: () => resolvePendingKeyword({ keyword: 'herwood_respond' }) },
+  ], (chosenId) => resolvePendingKeyword({ keyword: 'herwood_respond', chosenId }));
+}
+
+function openMikontaloDiscardModal(state) {
+  const me = state.players[myIndex];
+  const handCards = (me.handIds || []).map(id => allCards[id]).filter(Boolean);
+  if (!handCards.length) {
+    showPhaseMsg('No card to discard for Mikontalo', '#f85149', 1500);
+    return;
+  }
+  if (handCards.length === 1) {
+    resolvePendingKeyword({ keyword: 'mikontalo_discard_respond', discardId: handCards[0].id });
+    return;
+  }
+  openKwModalCustom(
+    'Mikontalo',
+    'Choose a card to discard.',
+    handCards,
+    [],
+    (cardId) => resolvePendingKeyword({ keyword: 'mikontalo_discard_respond', discardId: cardId })
+  );
+}
+
+function openElderSlimeDiscardModal(effect, state, selected = []) {
+  const me = state.players[myIndex];
+  const required = Math.max(1, Number(effect.discardCount || 2));
+  const handIds = me.handIds || [];
+  if (handIds.length <= required) {
+    resolvePendingKeyword({ keyword: 'elder_slime_discard_respond', discardIds: [...handIds] });
+    return;
+  }
+
+  const remaining = handIds.filter(id => !selected.includes(id));
+  if (selected.length >= required || !remaining.length) {
+    resolvePendingKeyword({ keyword: 'elder_slime_discard_respond', discardIds: selected.slice(0, required) });
+    return;
+  }
+
+  const cards = remaining.map(id => allCards[id]).filter(Boolean);
+  openKwModalCustom(
+    'Elder-Slime',
+    `Choose ${required} card(s) to discard (${selected.length}/${required}).`,
+    cards,
+    [],
+    (cardId) => openElderSlimeDiscardModal(effect, state, [...selected, cardId])
+  );
+}
+
+function openCommunismDrawModal(state) {
+  const me = state.players[myIndex];
+  const opp = state.players[1 - myIndex];
+  const myCanDraw = ((me.deckIds?.length || 0) + (me.graveyardIds?.length || 0)) > 0;
+  const oppCanDraw = ((opp.deckIds?.length || 0) + (opp.graveyardIds?.length || 0)) > 0;
+
+  const buttons = [
+    {
+      label: 'Draw from your deck',
+      className: 'm-confirm',
+      disabled: !myCanDraw,
+      onClick: () => resolvePendingKeyword({ keyword: 'communism_draw_respond', drawFrom: 'self' }),
+    },
+    {
+      label: 'Draw from opponent deck',
+      className: 'm-confirm',
+      disabled: !oppCanDraw,
+      onClick: () => resolvePendingKeyword({ keyword: 'communism_draw_respond', drawFrom: 'opponent' }),
+    },
+  ];
+
+  openKwModalCustom('Communism', 'Choose which deck to draw from.', [], buttons);
 }
 
 // ── Phase announcement ────────────────────────────────────────────────────────
@@ -947,6 +1270,14 @@ function updateActionBar(state, mi) {
     return; // RPS overlay handles everything
   }
 
+  const pending = getCurrentPendingEffect(state);
+  if (pending) {
+    const mine = isPendingResponder(pending, mi);
+    phLabel.textContent = mine ? 'Pending Effect' : 'Waiting for Pending Effect';
+    btns.innerHTML = `<span class="thinking-indicator">${mine ? 'Resolve the pending keyword effect in the popup…' : 'Opponent is resolving a keyword effect…'}</span>`;
+    return;
+  }
+
   if (phase === 'start_of_round') {
     const opp = state.players[oppIndex];
     if (!isMyTurn) {
@@ -1160,19 +1491,34 @@ function triggerOpponentPasses({ slot, cardId, keyword }) {
 }
 
 // ── Keyword effect modals ─────────────────────────────────────────────────────
-function openKwModal(title, desc, cards, onSelect, skipLabel = 'Skip') {
+function openKwModalCustom(title, desc, cards = [], buttons = [], onSelect = null) {
   document.getElementById('kw-modal-title').textContent = title;
   document.getElementById('kw-modal-desc').textContent  = desc;
+
   const list = document.getElementById('kw-modal-cards');
-  list.innerHTML = cards.map(c => `
+  list.innerHTML = (cards || []).map(c => `
     <div class="modal-card-item" data-id="${c.id}" onclick="kwModalSelect(${c.id})">
       <img src="${cardImg(c)}" alt="${stripBB(c.name)}" onerror="this.src=''" />
       <div class="mci-name">${stripBB(c.name)}</div>
     </div>`).join('');
+
   const btns = document.getElementById('kw-modal-btns');
-  btns.innerHTML = `<button class="m-cancel" onclick="closeKwModal()">${skipLabel}</button>`;
+  btns.innerHTML = '';
+  (buttons || []).forEach(btn => {
+    const el = document.createElement('button');
+    el.className = btn.className || 'm-cancel';
+    el.textContent = btn.label || 'Close';
+    if (btn.disabled) el.disabled = true;
+    el.addEventListener('click', () => { if (btn.onClick) btn.onClick(); });
+    btns.appendChild(el);
+  });
+
   window._kwModalCallback = onSelect;
   document.getElementById('kw-modal').classList.add('open');
+}
+
+function openKwModal(title, desc, cards, onSelect, skipLabel = 'Skip') {
+  openKwModalCustom(title, desc, cards, [{ label: skipLabel, className: 'm-cancel', onClick: closeKwModal }], onSelect);
 }
 function kwModalSelect(id) {
   if (window._kwModalCallback) window._kwModalCallback(id);
@@ -1450,12 +1796,14 @@ function updatePrizePanel(state, mi, oi) {
 
   const myCount  = me.prizeCount  ?? (me.prizeIds  ? me.prizeIds.length  : 5);
   const oppCount = opp.prizeCount ?? (opp.prizeIds ? opp.prizeIds.length : 5);
+  const myRevealedBottom = state.revealedPrizeBottom?.[mi] || null;
+  const oppRevealedBottom = state.revealedPrizeBottom?.[oi] || null;
 
   document.getElementById('my-prize-count').textContent  = myCount;
   document.getElementById('opp-prize-count').textContent = oppCount;
 
   // Draw face-down prize slots
-  function renderPrizeSlots(containerId, count) {
+  function renderPrizeSlots(containerId, count, revealedBottomCardId) {
     const el = document.getElementById(containerId);
     if (!el) return;
     el.innerHTML = '';
@@ -1463,12 +1811,17 @@ function updatePrizePanel(state, mi, oi) {
     for (let i = 0; i < show; i++) {
       const slot = document.createElement('div');
       slot.className = 'prize-slot';
-      slot.innerHTML = `<img src="${cardBack()}" alt="Prize" />`;
+      if (i === 0 && revealedBottomCardId && allCards[revealedBottomCardId]) {
+        const c = allCards[revealedBottomCardId];
+        slot.innerHTML = `<img src="${cardImg(c)}" alt="${stripBB(c.name)}" title="Revealed bottom prize (Communism)" />`;
+      } else {
+        slot.innerHTML = `<img src="${cardBack()}" alt="Prize" />`;
+      }
       el.appendChild(slot);
     }
   }
-  renderPrizeSlots('prize-my-slots',  myCount);
-  renderPrizeSlots('prize-opp-slots', oppCount);
+  renderPrizeSlots('prize-my-slots',  myCount, myRevealedBottom);
+  renderPrizeSlots('prize-opp-slots', oppCount, oppRevealedBottom);
 }
 
 // ── Dice rolling animation ─────────────────────────────────────────────────────

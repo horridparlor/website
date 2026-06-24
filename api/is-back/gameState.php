@@ -57,6 +57,23 @@ function getGameState(Database $database): string
 
     $state = json_decode($gs['stateJson'], true);
 
+    if (!isset($state['pendingEffects']) || !is_array($state['pendingEffects'])) {
+        $state['pendingEffects'] = [];
+    }
+    if (isset($state['pendingEffect']) && is_array($state['pendingEffect']) && empty($state['pendingEffects'])) {
+        $state['pendingEffects'][] = $state['pendingEffect'];
+    }
+    $state['pendingEffect'] = $state['pendingEffects'][0] ?? null;
+    if (!isset($state['revealedPrizeBottom']) || !is_array($state['revealedPrizeBottom'])) {
+        $state['revealedPrizeBottom'] = [null, null];
+    }
+    if (!isset($state['naturalSelectionAcks']) || !is_array($state['naturalSelectionAcks'])) {
+        $state['naturalSelectionAcks'] = [0, 0];
+    }
+    if (!isset($state['communismAcks']) || !is_array($state['communismAcks'])) {
+        $state['communismAcks'] = [0, 0];
+    }
+
     // Redact opponent hidden info
     $state['players'][$opponentIndex]['handIds']  = array_fill(0, count($state['players'][$opponentIndex]['handIds']), null);
     $state['players'][$opponentIndex]['prizeIds'] = array_fill(0, count($state['players'][$opponentIndex]['prizeIds']), null);
