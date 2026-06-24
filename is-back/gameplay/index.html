@@ -630,7 +630,7 @@ function renderSlot(el, stack, canInteract, owner) {
       ${stack.length > 1 ? `<div class="stack-count">×${stack.length}</div>` : ''}
     `;
   }
-  addTooltipListeners(el, top.cardId, top.faceDown);
+  addTooltipListeners(el, top.cardId, top.faceDown, owner === myIndex);
 }
 
 function updateField(state, mi, oi) {
@@ -653,7 +653,7 @@ function updateField(state, mi, oi) {
 function highlightPlayableSlots(state, mi, cardId) {
   for (const slot of ['primary','left','right']) {
     const el = document.getElementById(`my-${slot}`);
-    const result = GameEngine.canPlayCard(state, mi, cardId, slot, faceDownMode);
+    const result = GameEngine.canPlayCard(state, mi, cardId, slot, false);
     el.classList.toggle('can-play', result.canPlay);
   }
 }
@@ -755,13 +755,6 @@ function updateActionBar(state, mi) {
 
   if (phase === 'main_phase') {
     if (isMyTurn) {
-      // Face-down toggle
-      const fdBtn = mkBtn(faceDownMode ? '🂠 Face-Down: ON' : '🂠 Face-Down', 'action-btn btn-facedown' + (faceDownMode?' active':''), () => {
-        faceDownMode = !faceDownMode;
-        updateActionBar(state, mi);
-        if (selectedHandCardId) highlightPlayableSlots(state, mi, selectedHandCardId);
-      });
-      btns.appendChild(fdBtn);
       const canP = GameEngine.canPass(state, mi);
       btns.appendChild(mkBtn('Pass', 'action-btn btn-pass', () => sendAction('pass'), !canP));
       btns.appendChild(mkBtn('Surrender', 'action-btn btn-surr', showSurrenderConfirm));
@@ -858,14 +851,12 @@ function onHandCardRightClick(e, cardId) {
 function onSlotClick(slot) {
   if (!gameState || gameState.phase !== 'main_phase' || gameState.turn !== myIndex) return;
   if (!selectedHandCardId) return;
-  const result = GameEngine.canPlayCard(gameState, myIndex, selectedHandCardId, slot, faceDownMode);
+  const result = GameEngine.canPlayCard(gameState, myIndex, selectedHandCardId, slot, false);
   if (!result.canPlay) return;
-  const effectiveFaceDown = result.mustFaceDown || faceDownMode;
   const slotStack = gameState.players[myIndex].field[slot] || [];
   const action = slotStack.length > 0 ? 'evolveCard' : 'playCard';
-  sendAction(action, { cardId: selectedHandCardId, slot, faceDown: effectiveFaceDown });
+  sendAction(action, { cardId: selectedHandCardId, slot, faceDown: result.mustFaceDown });
   selectedHandCardId = null;
-  faceDownMode = false;
   clearSlotHighlights();
 }
 
@@ -989,8 +980,8 @@ document.addEventListener('mousemove', e => {
   const tt = document.getElementById('card-tooltip');
   if (tt.style.display !== 'none') moveTooltip(e);
 });
-function addTooltipListeners(el, cardId, faceDown) {
-  if (faceDown) return;
+function addTooltipListeners(el, cardId, faceDown, isMine = false) {
+  if (faceDown && !isMine) return;
   el.addEventListener('mouseenter', e => showTooltip(e, cardId));
   el.addEventListener('mouseleave', hideTooltip);
 }
@@ -1171,11 +1162,11 @@ document.getElementById('hand-scroll').addEventListener('dragstart', e => {
     if (!cardId) return;
     const slot = el.dataset.slot;
     if (!gameState || gameState.phase !== 'main_phase' || gameState.turn !== myIndex) return;
-    const result = GameEngine.canPlayCard(gameState, myIndex, cardId, slot, faceDownMode);
+    const result = GameEngine.canPlayCard(gameState, myIndex, cardId, slot, false);
     if (result.canPlay) {
       const slotStack = gameState.players[myIndex].field[slot] || [];
       const act = slotStack.length > 0 ? 'evolveCard' : 'playCard';
-      sendAction(act, { cardId, slot, faceDown: result.mustFaceDown || faceDownMode });
+      sendAction(act, { cardId, slot, faceDown: result.mustFaceDown });
     }
   });
 });
