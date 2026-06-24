@@ -564,6 +564,7 @@ let activePendingModalSig = null;
 let pendingActionInFlight = false;
 let magicPotionAnimating = false;
 let magicPotionQueue = [];
+let passResolveScheduledKey = null;
 
 function authHeaders() { return { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }; }
 function fmt(p) { return String(Number(p)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
@@ -1396,13 +1397,24 @@ function updateActionBar(state, mi) {
   if (phase === 'passing_phase') {
     // The responding player (not the one who passed) can trigger [Opponent passes] keywords
     const respondingIndex = 1 - (state.passerId ?? (1-mi));
-    const kws = GameEngine.getOpponentPassesKeywords(state, mi, allCards);
-    if (!kws.length) {
+    const responderKws = GameEngine.getOpponentPassesKeywords(state, respondingIndex, allCards);
+    if (!responderKws.length) {
       btns.innerHTML = '<span class="thinking-indicator">Resolving pass…</span>';
+      const key = `${lastVersion}:${state.passerId ?? -1}`;
+      if (passResolveScheduledKey !== key) {
+        passResolveScheduledKey = key;
+        setTimeout(() => {
+          if (!gameState || gameState.phase !== 'passing_phase') return;
+          const responderNow = 1 - (gameState.passerId ?? (1 - myIndex));
+          const kwsNow = GameEngine.getOpponentPassesKeywords(gameState, responderNow, allCards);
+          if (!kwsNow.length) sendAction('confirmEndOfRound');
+        }, 450);
+      }
       return;
     }
+    passResolveScheduledKey = null;
     if (respondingIndex === mi) {
-      kws.forEach(k => {
+      responderKws.forEach(k => {
         btns.appendChild(mkBtn(`⚡ ${k.keyword}`, 'action-btn btn-done', () => triggerOpponentPasses(k)));
       });
       btns.appendChild(mkBtn('Confirm End', 'action-btn btn-pass', () => sendAction('confirmEndOfRound')));

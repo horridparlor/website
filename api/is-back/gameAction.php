@@ -923,7 +923,7 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
 
             // Re-check pass after Herwood resolves.
             $winner = $engine->checkWinRound($state, $passerId);
-            if ($winner === $playerIndex || $winner === null) {
+            if ($winner === $playerIndex) {
                 $state['phase'] = 'main_phase';
                 $state['turn']  = $passerId;
                 $state['log'][] = 'Pass countered — main phase resumes.';
@@ -976,7 +976,7 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
 
             // Check if pass is now countered
             $winner = $engine->checkWinRound($state, $passerId);
-            if ($winner === $playerIndex || $winner === null) {
+            if ($winner === $playerIndex) {
                 $state['phase'] = 'main_phase';
                 $state['turn']  = $passerId;
                 $state['log'][] = 'Pass countered — main phase resumes.';
