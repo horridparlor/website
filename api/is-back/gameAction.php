@@ -282,10 +282,12 @@ class GameEngine
 
     public function applyWhenEvolves(array &$state, int $playerIndex, string $slot, int $newCardId, int $oldCardId): void
     {
-        // Elder-Slime: if evolved from a non-Slime card, opponent discards 2 (choice if hand > 2).
+        // Elder-Slime: if evolved from a non-elder Slime card, opponent discards 2 (choice if hand > 2).
         $newCard = $this->getCard($newCardId);
         if (in_array('elder-slime', array_map('strtolower', $newCard['keywords']))) {
-            if (!$this->hasKeyword($oldCardId, 'slime')) {
+            $oldIsSlime = $this->hasKeyword($oldCardId, 'slime');
+            $oldIsElderSlime = $this->hasKeyword($oldCardId, 'elder-slime');
+            if ($oldIsSlime && !$oldIsElderSlime) {
                 $oppIdx = 1 - $playerIndex;
                 $oppHandCount = count($state['players'][$oppIdx]['handIds']);
                 if ($oppHandCount <= 2) {
@@ -891,19 +893,35 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
             $p = &$state['players'][$playerIndex];
             if ($chosenId && in_array($chosenId, $top3)) {
                 // Devolve (the herwood card is the current primary/slot top — replace with chosen)
-                $herwoodId = $pending['herwoodCardId'];
-                $engine->removeTopFromStack($state, $playerIndex, $slot);
-                $p['field'][$slot][] = ['cardId' => $chosenId, 'faceDown' => false];
-                // Others go to hand
-                foreach ($top3 as $t) {
-                    if ($t !== $chosenId) $p['handIds'][] = $t;
+                $herwoodId = (int)$pending['herwoodCardId'];
+                $herwoodCard = $engine->getCard($herwoodId);
+                $chosenCard = $engine->getCard($chosenId);
+                if ($chosenCard && $herwoodCard && (int)$chosenCard['power'] < (int)$herwoodCard['power']) {
+                    $engine->removeTopFromStack($state, $playerIndex, $slot);
+                    $p['field'][$slot][] = ['cardId' => $chosenId, 'faceDown' => false];
+                    // Others go to hand
+                    foreach ($top3 as $t) {
+                        if ($t !== $chosenId) $p['handIds'][] = $t;
+                    }
+                    $state['log'][] = $p['username'] . ' devolved via Herwood.';
+                } else {
+                    // Invalid devolve target (not lower power) -> fail and return cards in order.
+                    $p['deckIds'] = array_merge($top3, $p['deckIds']);
                 }
-                $state['log'][] = $p['username'] . ' devolved via Herwood.';
             } else {
                 // Return top3 to deck in same order
                 $p['deckIds'] = array_merge($top3, $p['deckIds']);
             }
+            $passerId = (int)($pending['passerId'] ?? (1 - $playerIndex));
             consumePendingEffect($state);
+
+            // Re-check pass after Herwood resolves.
+            $winner = $engine->checkWinRound($state, $passerId);
+            if ($winner === $playerIndex || $winner === null) {
+                $state['phase'] = 'main_phase';
+                $state['turn']  = $passerId;
+                $state['log'][] = 'Pass countered — main phase resumes.';
+            }
             return null;
         }
         case 'elder_slime_discard_respond': {
@@ -1020,47 +1038,8 @@ function handlePass(array &$state, int $playerIndex, array $params, GameEngine $
         return null;
     }
 
-    $passerTop = $engine->getTopCard($state['players'][$playerIndex]['field']['primary']);
-
-    // Check if opponent has face-down primary
-    $oppTop = $engine->getTopCard($opp['field']['primary']);
-    if ($oppTop && $oppTop['faceDown']) {
-        // Face-up Divine defeats face-down without revealing it.
-        if ($passerTop && !$passerTop['faceDown'] && $engine->hasKeyword($passerTop['id'], 'divine')) {
-            clearRoundScopedFlags($state);
-            $state['phase'] = 'end_of_round';
-            $state['passerId'] = $playerIndex;
-            $state['roundWinnerId'] = $playerIndex;
-            $state['log'][] = $state['players'][$playerIndex]['username'] . ' wins immediately with Divine against a face-down primary.';
-            return null;
-        }
-
-        // Otherwise skip to end of round and resolve via reveal flow.
-        clearRoundScopedFlags($state);
-        $state['phase'] = 'end_of_round';
-        $state['passerId'] = $playerIndex;
-        $state['log'][] = 'Opponent has a face-down card. Proceeding to end of round.';
-        return null;
-    }
-
-    // Face-up opponent — check result now
-    $winner = $engine->checkWinRound($state, $playerIndex);
-    if ($winner !== null && $winner !== $playerIndex) {
-        // Passer loses → end of round
-        clearRoundScopedFlags($state);
-        $state['phase']   = 'end_of_round';
-        $state['passerId'] = $playerIndex;
-        $state['roundWinnerId'] = $winner;
-        return null;
-    }
-    if ($winner === $playerIndex) {
-        // Passer's card beats opponent → opponent gets main phase
-        $state['turn'] = $oppIdx;
-        $state['log'][] = $state['players'][$oppIdx]['username'] . '\'s card is beaten — they get another turn.';
-        return null;
-    }
-
-    // Move to passing_phase — opponent may use [Opponent passes] keywords
+    // Move to passing_phase first — opponent may use [Opponent passes] keywords
+    // before the pass is fully resolved.
     $state['phase']    = 'passing_phase';
     $state['passerId'] = $playerIndex;
     $state['log'][] = 'Passing phase — opponent may respond.';
@@ -1149,6 +1128,7 @@ function handleOpponentPassesResponse(array &$state, int $playerIndex, array $pa
             enqueuePendingEffects($state, [[
                 'type'         => 'herwood',
                 'playerIndex'  => $playerIndex,
+                'passerId'     => $passerId,
                 'slot'         => $slot,
                 'herwoodCardId' => $myTop['id'],
                 'top3'         => $top3,
@@ -1191,13 +1171,34 @@ function handleOpponentPassesResponse(array &$state, int $playerIndex, array $pa
 function resolvePassingPhase(array &$state, GameEngine $engine): void
 {
     $passerId = $state['passerId'];
+    $oppIdx = 1 - $passerId;
+    $passerTop = $engine->getTopCard($state['players'][$passerId]['field']['primary']);
+    $oppTop = $engine->getTopCard($state['players'][$oppIdx]['field']['primary']);
     $winner   = $engine->checkWinRound($state, $passerId);
+
+    if ($winner === $passerId) {
+        // Divine vs face-down is an immediate round win.
+        if ($oppTop && $oppTop['faceDown'] && $passerTop && !$passerTop['faceDown'] && $engine->hasKeyword($passerTop['id'], 'divine')) {
+            clearRoundScopedFlags($state);
+            $state['phase'] = 'end_of_round';
+            $state['roundWinnerId'] = $passerId;
+            return;
+        }
+
+        // Otherwise the passer is currently ahead; opponent gets another main phase.
+        $state['phase'] = 'main_phase';
+        $state['turn']  = $oppIdx;
+        $state['log'][] = $state['players'][$oppIdx]['username'] . "'s card is beaten — they get another turn.";
+        return;
+    }
+
     if ($winner === null) {
         // Face-down involved — go to end_of_round for reveal
         clearRoundScopedFlags($state);
         $state['phase'] = 'end_of_round';
         return;
     }
+
     clearRoundScopedFlags($state);
     $state['phase']         = 'end_of_round';
     $state['roundWinnerId'] = $winner;

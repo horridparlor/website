@@ -1340,7 +1340,7 @@ function updateActionBar(state, mi) {
 
   if (phase === 'passing_phase') {
     // The responding player (not the one who passed) can trigger [Opponent passes] keywords
-    const respondingIndex = 1 - (state.passingPlayer ?? (1-mi));
+    const respondingIndex = 1 - (state.passerId ?? (1-mi));
     if (respondingIndex === mi) {
       const kws = GameEngine.getOpponentPassesKeywords(state, mi, allCards);
       kws.forEach(k => {
@@ -1369,7 +1369,7 @@ function updateActionBar(state, mi) {
         return myFaceDown || oppFaceDown;
       });
 
-      if (stillHidden && revealScheduledSig !== revealSig && state.passerId === mi) {
+      if (stillHidden && revealScheduledSig !== revealSig) {
         revealScheduledSig = revealSig;
         setTimeout(() => {
           if (!gameState || gameState.phase !== 'end_of_round') return;
