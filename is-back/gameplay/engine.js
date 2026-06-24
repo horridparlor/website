@@ -411,7 +411,14 @@ const GameEngine = (() => {
     const phase = state.phase;
     const isMyTurn = state.turn === playerIndex;
 
-    if (!isMyTurn) return actions;
+    if (!isMyTurn) {
+      if (phase === 'passing_phase') {
+        const kws = getOpponentPassesKeywords(state, playerIndex, allCardsMap);
+        kws.forEach(k => actions.push({ type: 'triggerOpponentPasses', ...k }));
+        actions.push({ type: 'confirmEndOfRound' });
+      }
+      return actions;
+    }
 
     if (phase === 'start_of_round') {
       if (!player.diceRoll) actions.push({ type: 'rollDice' });
@@ -452,13 +459,6 @@ const GameEngine = (() => {
       if (canActivateCultism(player, allCardsMap)) actions.push({ type: 'activateCultism' });
       if (canPass(state, playerIndex)) actions.push({ type: 'pass' });
       actions.push({ type: 'surrender' });
-    }
-
-    if (phase === 'passing_phase' && !isMyTurn) {
-      // Opponent passes keywords
-      const kws = getOpponentPassesKeywords(state, playerIndex, allCardsMap);
-      kws.forEach(k => actions.push({ type: 'triggerOpponentPasses', ...k }));
-      actions.push({ type: 'confirmEndOfRound' });
     }
 
     return actions;

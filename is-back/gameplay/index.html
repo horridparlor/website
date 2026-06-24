@@ -18,7 +18,8 @@
     /* ── Phase overlay ── */
     #phase-overlay {
       position: fixed; inset: 0; z-index: 500;
-      display: flex; align-items: center; justify-content: center;
+      display: flex; align-items: flex-start; justify-content: center;
+      padding-top: 22vh;
       background: rgba(0,0,0,.75); opacity: 0; pointer-events: none;
       transition: opacity .3s;
     }
@@ -122,8 +123,9 @@
 
     /* End of round overlay */
     #round-result-overlay {
-      position: fixed; inset: 0; z-index: 450; display: none;
-      align-items: center; justify-content: center;
+      position: fixed; inset: 0; z-index: 510; display: none;
+      align-items: flex-start; justify-content: center;
+      padding-top: 43vh;
       pointer-events: none;
     }
     #round-result-overlay.show { display: flex; }
