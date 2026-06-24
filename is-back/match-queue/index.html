@@ -276,9 +276,9 @@
     const deckId = getDeckId();
     if (!deckId) { document.getElementById('join-err').textContent = 'Select a deck first.'; return; }
     try {
-      const res = await fetch(API + 'matchQueue?action=join', {
+      const res = await fetch(API + 'matchQueue', {
         method: 'POST', headers: headers(),
-        body: JSON.stringify({ joinCode: code, deckId }),
+        body: JSON.stringify({ action: 'join', joinCode: code, deckId }),
       });
       const data = await res.json();
       if (!res.ok) { document.getElementById('join-err').textContent = data.error || 'Could not join.'; return; }
