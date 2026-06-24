@@ -321,6 +321,23 @@
   /* ── Utilities ──────────────────────────────────────────────────── */
   const norm = s => (s||'').toLowerCase();
   const esc  = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const resolveTypeTokens = (desc, cardType) => {
+    if (!desc || !cardType) return desc || '';
+    const info = {
+      rock:     { weak: 'paper',   same: 'rock',    strong: 'scissor'  },
+      paper:    { weak: 'scissor', same: 'paper',   strong: 'rock'     },
+      scissors: { weak: 'rock',    same: 'scissor', strong: 'paper'    },
+    }[cardType.toLowerCase()];
+    if (!info) return desc;
+    const plural = s => s === 'scissor' ? 'scissors' : s + 's';
+    return desc
+      .replace(/%WEAK_TYPES/g,   plural(info.weak))
+      .replace(/%SAME_TYPES/g,   plural(info.same))
+      .replace(/%STRONG_TYPES/g, plural(info.strong))
+      .replace(/%WEAK_TYPE/g,    info.weak)
+      .replace(/%SAME_TYPE/g,    info.same)
+      .replace(/%STRONG_TYPE/g,  info.strong);
+  };
   const removeBB = s => s.replace(/\[[^\]]*\]/g, '');
   const cardImgName = c => {
     const cleaned = removeBB(c.name);
@@ -535,7 +552,7 @@
       const titleKw = kwData && norm(kwData.description||'').startsWith('[title]');
       return `<div class="keyword-chip${titleKw?' title-kw':''}">
         <div class="kw-name">${esc(kwData ? kwData.displayName : kw)}</div>
-        ${kwData ? `<div class="kw-desc">${esc(kwData.description)}</div>` : ''}
+        ${kwData ? `<div class="kw-desc">${esc(resolveTypeTokens(kwData.description, card.type))}</div>` : ''}
       </div>`;
     }).join('') : '<div style="color:#555;font-size:0.8rem;">No keywords</div>';
 

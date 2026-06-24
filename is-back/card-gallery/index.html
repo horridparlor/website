@@ -389,6 +389,24 @@
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
+    const resolveTypeTokens = (desc, cardType) => {
+      if (!desc || !cardType) return desc || '';
+      const info = {
+        rock:     { weak: 'paper',   same: 'rock',    strong: 'scissor'  },
+        paper:    { weak: 'scissor', same: 'paper',   strong: 'rock'     },
+        scissors: { weak: 'rock',    same: 'scissor', strong: 'paper'    },
+      }[cardType.toLowerCase()];
+      if (!info) return desc;
+      const plural = s => s === 'scissor' ? 'scissors' : s + 's';
+      return desc
+        .replace(/%WEAK_TYPES/g,   plural(info.weak))
+        .replace(/%SAME_TYPES/g,   plural(info.same))
+        .replace(/%STRONG_TYPES/g, plural(info.strong))
+        .replace(/%WEAK_TYPE/g,    info.weak)
+        .replace(/%SAME_TYPE/g,    info.same)
+        .replace(/%STRONG_TYPE/g,  info.strong);
+    };
+
     const matchKeywords = (cardKeywords, input) => {
       if (!input) return true;
       const tokens = input.split(',').join(' ').split(/\s+/).map(t => t.trim()).filter(Boolean);
@@ -706,7 +724,8 @@
           const keywordsHtml = kws.map(kw => {
             const kwData      = allKeywords.find(k => k.name === kw);
             const displayName = escapeHtml(kwData ? kwData.displayName : kw);
-            const description = escapeHtml(kwData ? kwData.description : '');
+            const rawDesc = kwData ? kwData.description : '';
+            const description = escapeHtml(resolveTypeTokens(rawDesc, c.type));
             return `<span title="${displayName} – ${description}">${displayName}</span>`;
           }).join(', ');
 

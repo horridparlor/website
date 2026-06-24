@@ -559,6 +559,23 @@ let phaseToastTimeout = null;
 function authHeaders() { return { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }; }
 function fmt(p) { return String(Number(p)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
 function stripBB(s) { return (s||'').replace(/\[[^\]]*\]/g,''); }
+function resolveTypeTokens(desc, cardType) {
+  if (!desc || !cardType) return desc || '';
+  const info = {
+    rock:     { weak: 'paper',   same: 'rock',    strong: 'scissor'  },
+    paper:    { weak: 'scissor', same: 'paper',   strong: 'rock'     },
+    scissors: { weak: 'rock',    same: 'scissor', strong: 'paper'    },
+  }[cardType.toLowerCase()];
+  if (!info) return desc;
+  const plural = s => s === 'scissor' ? 'scissors' : s + 's';
+  return desc
+    .replace(/%WEAK_TYPES/g,   plural(info.weak))
+    .replace(/%SAME_TYPES/g,   plural(info.same))
+    .replace(/%STRONG_TYPES/g, plural(info.strong))
+    .replace(/%WEAK_TYPE/g,    info.weak)
+    .replace(/%SAME_TYPE/g,    info.same)
+    .replace(/%STRONG_TYPE/g,  info.strong);
+}
 function cardImg(card) {
   if (!card) return '';
   const nm = stripBB(card.name);
@@ -1222,7 +1239,8 @@ function showTooltip(e, cardId) {
   document.getElementById('ct-power').textContent = powerText;
   document.getElementById('ct-kw').innerHTML = kws.map(k => {
     const kd = allKeywords.find(x => x.name === k);
-    return `<div><strong>${kd?.displayName||k}:</strong> ${kd?.description||''}</div>`;
+    const desc = kd?.description ? resolveTypeTokens(kd.description, card.type) : '';
+    return `<div><strong>${kd?.displayName||k}:</strong> ${desc}</div>`;
   }).join('');
   tt.style.display = 'block';
   moveTooltip(e);
