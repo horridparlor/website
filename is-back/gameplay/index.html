@@ -190,6 +190,35 @@
     .connect-banner { position: fixed; top: 0; left: 0; right: 0; background: #2d1b1b; border-bottom: 1px solid var(--red); color: var(--red); padding: 8px; text-align: center; font-size: 13px; z-index: 700; display: none; }
     .connect-banner.show { display: block; }
 
+    /* ── RPS overlay ── */
+    #rps-overlay { position: fixed; inset: 0; z-index: 800; background: rgba(8,10,14,.96); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    #rps-overlay.hidden { display: none; }
+    .rps-title { font-size: clamp(22px,4vw,40px); font-weight: 900; color: var(--blue2); margin-bottom: 6px; letter-spacing: 2px; }
+    .rps-sub { font-size: 14px; color: var(--muted); margin-bottom: 36px; }
+    .rps-choices { display: flex; gap: 20px; }
+    .rps-btn {
+      width: 110px; height: 110px; border-radius: 20px; font-size: 44px; border: 2px solid var(--border);
+      background: var(--bg2); cursor: pointer; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 4px; transition: transform .15s, border-color .15s, background .15s;
+    }
+    .rps-btn span.rps-lbl { font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+    .rps-btn:hover { transform: translateY(-6px) scale(1.08); border-color: var(--blue2); background: #1a2d4a; }
+    .rps-btn:active { transform: scale(.96); }
+    .rps-btn.selected { border-color: var(--green2); background: #1a3a22; }
+    .rps-btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+    .rps-waiting { font-size: 15px; color: var(--muted); margin-top: 28px; animation: pulse 1.5s ease-in-out infinite; }
+    .rps-result-box { text-align: center; margin-top: 10px; animation: rpsReveal .4s ease; }
+    @keyframes rpsReveal { from { opacity:0; transform: scale(.7); } to { opacity:1; transform: scale(1); } }
+    .rps-reveal { display: flex; gap: 40px; align-items: center; justify-content: center; font-size: 60px; margin-bottom: 18px; }
+    .rps-reveal-player { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .rps-reveal-label { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+    .rps-reveal-vs { font-size: 18px; color: var(--muted); font-weight: 700; }
+    .rps-outcome { font-size: clamp(24px,5vw,52px); font-weight: 900; letter-spacing: 3px; }
+    .rps-outcome.win  { color: var(--green2); text-shadow: 0 0 30px var(--green2); }
+    .rps-outcome.lose { color: var(--red);    text-shadow: 0 0 30px var(--red); }
+    .rps-outcome.tie  { color: var(--orange); text-shadow: 0 0 30px var(--orange); }
+    .rps-round-badge { margin-top: 8px; font-size: 12px; color: var(--muted); }
+
     /* Opponent thinking */
     .thinking-indicator { font-size: 12px; color: var(--muted); animation: pulse 1.5s ease-in-out infinite; }
     @keyframes pulse { 0%,100%{opacity:1;}50%{opacity:.3;} }
@@ -362,6 +391,23 @@
   <div id="phase-text">ROUND 1</div>
 </div>
 
+<!-- RPS overlay -->
+<div id="rps-overlay" class="hidden">
+  <div class="rps-title">Rock · Paper · Scissors</div>
+  <div class="rps-sub" id="rps-sub">Choose to decide who goes first!</div>
+  <div class="rps-choices" id="rps-choices">
+    <button class="rps-btn" id="rps-rock"    onclick="submitRPS('rock')">🪨<span class="rps-lbl">Rock</span></button>
+    <button class="rps-btn" id="rps-paper"   onclick="submitRPS('paper')">📄<span class="rps-lbl">Paper</span></button>
+    <button class="rps-btn" id="rps-scissors" onclick="submitRPS('scissors')">✂️<span class="rps-lbl">Scissors</span></button>
+  </div>
+  <div class="rps-waiting hidden" id="rps-waiting">Waiting for opponent…</div>
+  <div class="rps-result-box hidden" id="rps-result-box">
+    <div class="rps-reveal" id="rps-reveal"></div>
+    <div class="rps-outcome" id="rps-outcome"></div>
+    <div class="rps-round-badge" id="rps-round-badge"></div>
+  </div>
+</div>
+
 <div class="connect-banner" id="connect-banner">⚠ Reconnecting…</div>
 
 <script src="engine.js"></script>
@@ -387,6 +433,9 @@ let selectedHandCardId = null;
 let faceDownMode = false;
 let isConnected  = true;
 let failCount    = 0;
+let nextRoundScheduled = false;
+let myRpsChoice  = null;
+let lastRpsResultKey = null;
 
 function authHeaders() { return { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }; }
 function fmt(p) { return String(Number(p)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
@@ -437,9 +486,20 @@ async function poll() {
     if (!res.ok) { handleDisconnect(); return; }
     const data = await res.json();
     handleDisconnect(false);
+    if (data.unchanged) return;
     if (data.version !== undefined && data.version !== lastVersion) {
       lastVersion = data.version;
-      processState(data);
+      if (data.state) {
+        if (myIndex === -1 && data.playerIndex !== undefined) myIndex = data.playerIndex;
+        const s = data.state;
+        s._format       = data.match?.format;
+        s._matchStatus  = data.match?.status;
+        s._matchWinnerId= data.match?.winnerId;
+        s._matchWins    = [data.match?.player1Wins || 0, data.match?.player2Wins || 0];
+        s._matchPlayerIds=[data.match?.player1Id, data.match?.player2Id];
+        processState(s);
+        if (s.log) updateLog(s.log);
+      }
     }
   } catch { handleDisconnect(); }
 }
@@ -455,10 +515,15 @@ function handleDisconnect(fail = true) {
 function processState(state) {
   state._cardsMap = allCards;
 
-  // Determine my index
+  // Fallback myIndex detection from players array
   if (myIndex === -1 && state.players) {
     myIndex = state.players.findIndex(p => p.userId === myUserId);
-    if (myIndex === -1) myIndex = state.playerIndex ?? 0;
+    if (myIndex === -1) myIndex = 0;
+  }
+
+  // Reset per-phase flags when phase changes
+  if (state.phase !== lastPhase) {
+    nextRoundScheduled = false;
   }
 
   gameState = state;
@@ -466,7 +531,7 @@ function processState(state) {
 
   // Format
   const fmtEl = document.getElementById('match-format');
-  if (fmtEl && state.format) fmtEl.textContent = state.format === 'bo3' ? 'Best of 3' : 'Best of 1';
+  if (fmtEl && state._format) fmtEl.textContent = state._format === 'bo3' ? 'Best of 3' : 'Best of 1';
 
   // Phase announcement
   if (lastPhase !== state.phase) {
@@ -474,6 +539,9 @@ function processState(state) {
     lastPhase = state.phase;
     if (prevPhase !== null) announcePhase(state.phase, state.roundNumber);
   }
+
+  // RPS overlay
+  updateRpsOverlay(state);
 
   // Update UI
   updatePlayerInfo(state, myIndex, oppIndex);
@@ -483,7 +551,7 @@ function processState(state) {
   updateActionBar(state, myIndex);
 
   // Win/complete
-  if (state.phase === 'completed' || state.status === 'completed') {
+  if (state.phase === 'game_over' || state._matchStatus === 'completed') {
     handleMatchComplete(state);
   }
 }
@@ -656,32 +724,26 @@ function updateActionBar(state, mi) {
   btns.innerHTML = '';
 
   if (phase === 'setup') {
-    if (!me.readyForRound) {
-      const b = mkBtn('Ready!', 'action-btn btn-ready', () => sendAction('ready'));
-      btns.appendChild(b);
-    } else {
-      btns.innerHTML = '<span style="color:var(--muted);font-size:13px;">Waiting for opponent…</span>';
-    }
-    return;
+    phLabel.textContent = 'Rock Paper Scissors';
+    return; // RPS overlay handles everything
   }
 
   if (phase === 'start_of_round') {
-    if (isMyTurn) {
-      if (!me.diceRoll) {
-        btns.appendChild(mkBtn('🎲 Roll Dice', 'action-btn btn-done', () => sendAction('rollDice')));
-      } else if (!me.startOfRoundUsed) {
-        btns.appendChild(mkBtn('Skip Start Effect', 'action-btn btn-done', () => sendAction('skipStartOfRound')));
-        // [Start of round] cards are highlighted in hand with sor-card class
-        btns.appendChild(document.createTextNode(' '));
-        const hint = document.createElement('span');
-        hint.style.cssText = 'font-size:12px;color:var(--muted);';
-        hint.textContent = 'or click a ⭐ card in hand';
-        btns.appendChild(hint);
-      } else {
-        btns.appendChild(mkBtn('Proceed', 'action-btn btn-done', () => sendAction('doneStartOfRound')));
-      }
+    // Both players act independently — no turn gate
+    const opp = state.players[oppIndex];
+    if (!me.diceRoll) {
+      btns.appendChild(mkBtn('🎲 Roll Dice', 'action-btn btn-done', () => sendAction('rollDice')));
+    } else if (!me.startOfRoundUsed) {
+      btns.appendChild(mkBtn('Skip Start Effect', 'action-btn btn-done', () => sendAction('skipStartOfRound')));
+      const hint = document.createElement('span');
+      hint.style.cssText = 'font-size:12px;color:var(--muted);margin-left:8px;';
+      hint.textContent = 'or click an orange card in hand';
+      btns.appendChild(hint);
     } else {
-      btns.innerHTML = '<span class="thinking-indicator">Opponent is rolling dice…</span>';
+      const wait = document.createElement('span');
+      wait.style.cssText = 'font-size:13px;color:var(--muted);';
+      wait.textContent = opp && opp.startOfRoundUsed ? 'Drawing cards…' : 'Waiting for opponent…';
+      btns.appendChild(wait);
     }
     return;
   }
@@ -720,7 +782,16 @@ function updateActionBar(state, mi) {
   }
 
   if (phase === 'end_of_round') {
-    btns.innerHTML = '<span style="color:var(--muted);font-size:13px;">End of round — resolving…</span>';
+    const iWonRound = state.roundWinnerId === myIndex;
+    const roundMsg = document.createElement('span');
+    roundMsg.style.cssText = `font-size:14px;font-weight:600;color:${iWonRound ? 'var(--green2)' : 'var(--red)'};`;
+    roundMsg.textContent = iWonRound ? 'Round Won! 🎉' : 'Round Lost…';
+    btns.appendChild(roundMsg);
+    if (!nextRoundScheduled) {
+      nextRoundScheduled = true;
+      setTimeout(() => sendAction('nextRound'), 1600);
+    }
+    return;
   }
 }
 
@@ -785,7 +856,9 @@ function onSlotClick(slot) {
   const result = GameEngine.canPlayCard(gameState, myIndex, selectedHandCardId, slot, faceDownMode);
   if (!result.canPlay) return;
   const effectiveFaceDown = result.mustFaceDown || faceDownMode;
-  sendAction('playCard', { cardId: selectedHandCardId, slot, faceDown: effectiveFaceDown });
+  const slotStack = gameState.players[myIndex].field[slot] || [];
+  const action = slotStack.length > 0 ? 'evolveCard' : 'playCard';
+  sendAction(action, { cardId: selectedHandCardId, slot, faceDown: effectiveFaceDown });
   selectedHandCardId = null;
   faceDownMode = false;
   clearSlotHighlights();
@@ -925,19 +998,106 @@ async function confirmSurrender() {
   await sendAction('surrender');
 }
 
+// ── RPS ───────────────────────────────────────────────────────────────────────
+const RPS_EMOJI = { rock: '🪨', paper: '📄', scissors: '✂️' };
+
+function updateRpsOverlay(state) {
+  const overlay = document.getElementById('rps-overlay');
+  if (state.phase !== 'setup') { overlay.classList.add('hidden'); return; }
+  overlay.classList.remove('hidden');
+
+  const result = state.rpsResult;
+  const resultKey = result ? JSON.stringify(result) : null;
+
+  if (result && resultKey !== lastRpsResultKey) {
+    lastRpsResultKey = resultKey;
+    showRpsResult(state, result);
+    if (result.winner === 'tie') {
+      setTimeout(() => resetRpsChoiceUI(state), 2600);
+    }
+    return;
+  }
+
+  // Show choice UI if not submitted yet
+  const myChoice = state.rpsChoices?.[myIndex];
+  if (!myRpsChoice && !myChoice) {
+    resetRpsChoiceUI(state);
+  } else if (myRpsChoice && !result) {
+    // Submitted, waiting
+    document.getElementById('rps-choices').classList.remove('hidden');
+    document.getElementById('rps-waiting').classList.remove('hidden');
+    document.getElementById('rps-result-box').classList.add('hidden');
+  }
+}
+
+function resetRpsChoiceUI(state) {
+  myRpsChoice = null;
+  const round = state?.rpsRound || 1;
+  document.getElementById('rps-sub').textContent = round > 1 ? `Tie! Round ${round} — choose again.` : 'Choose to decide who goes first!';
+  const choicesEl = document.getElementById('rps-choices');
+  choicesEl.classList.remove('hidden');
+  choicesEl.style.opacity = '';
+  choicesEl.style.pointerEvents = '';
+  document.querySelectorAll('.rps-btn').forEach(b => { b.classList.remove('selected'); b.disabled = false; });
+  document.getElementById('rps-waiting').classList.add('hidden');
+  document.getElementById('rps-result-box').classList.add('hidden');
+}
+
+function showRpsResult(state, result) {
+  const myChoice  = myIndex === 0 ? result.p0 : result.p1;
+  const oppChoice = myIndex === 0 ? result.p1 : result.p0;
+  document.getElementById('rps-reveal').innerHTML = `
+    <div class="rps-reveal-player">
+      <div>${RPS_EMOJI[myChoice] || myChoice}</div>
+      <div class="rps-reveal-label">You</div>
+    </div>
+    <div class="rps-reveal-vs">VS</div>
+    <div class="rps-reveal-player">
+      <div>${RPS_EMOJI[oppChoice] || oppChoice}</div>
+      <div class="rps-reveal-label">${state.players?.[1-myIndex]?.username || 'Opponent'}</div>
+    </div>`;
+
+  const outcomeEl = document.getElementById('rps-outcome');
+  if (result.winner === 'tie') {
+    outcomeEl.textContent = 'TIE!'; outcomeEl.className = 'rps-outcome tie';
+    document.getElementById('rps-round-badge').textContent = 'Choose again…';
+  } else if (result.winner === myIndex) {
+    outcomeEl.textContent = 'YOU WIN! 🎉'; outcomeEl.className = 'rps-outcome win';
+    document.getElementById('rps-round-badge').textContent = 'You go first!';
+  } else {
+    outcomeEl.textContent = 'OPPONENT WINS'; outcomeEl.className = 'rps-outcome lose';
+    document.getElementById('rps-round-badge').textContent = 'They go first.';
+  }
+
+  document.getElementById('rps-choices').classList.add('hidden');
+  document.getElementById('rps-waiting').classList.add('hidden');
+  document.getElementById('rps-result-box').classList.remove('hidden');
+}
+
+function submitRPS(choice) {
+  myRpsChoice = choice;
+  document.querySelectorAll('.rps-btn').forEach(b => {
+    b.classList.toggle('selected', b.id === `rps-${choice}`);
+    b.disabled = true;
+  });
+  document.getElementById('rps-choices').style.opacity = '0.6';
+  document.getElementById('rps-waiting').classList.remove('hidden');
+  sendAction('submitRPS', { choice });
+}
+
 // ── Win screen ────────────────────────────────────────────────────────────────
 function handleMatchComplete(state) {
   clearInterval(pollInterval);
-  const winnerId = state.winnerId;
+  const winnerId = state._matchWinnerId;
   const iWon = winnerId === myUserId;
   const overlay = document.getElementById('win-overlay');
   const titleEl  = document.getElementById('win-title');
   const subEl    = document.getElementById('win-sub');
 
-  if (state.format === 'bo3') {
-    const me = state.players[myIndex];
-    const opp = state.players[1-myIndex];
-    subEl.textContent = `Match score: ${me?.wins||0} – ${opp?.wins||0}`;
+  if (state._format === 'bo3') {
+    const myWins  = state._matchWins?.[myIndex] || 0;
+    const oppWins = state._matchWins?.[1-myIndex] || 0;
+    subEl.textContent = `Match score: ${myWins} – ${oppWins}`;
   } else {
     subEl.textContent = '';
   }
@@ -988,15 +1148,7 @@ function updateLog(entries) {
 }
 function toggleLog() { document.getElementById('log-panel').classList.toggle('open'); }
 
-// Extend processState to also update log
-const _origProcessState = processState;
-// Patch after definition to include log updates:
-const processStateWithLog = (state) => {
-  processState(state);
-  if (state.log) updateLog(state.log);
-};
-// Override poll to use patched version
-// (since processState is already defined above, just always call updateLog after)
+// Log is updated in poll() after processState
 
 // ── Drag & drop ───────────────────────────────────────────────────────────────
 document.getElementById('hand-scroll').addEventListener('dragstart', e => {
@@ -1015,7 +1167,11 @@ document.getElementById('hand-scroll').addEventListener('dragstart', e => {
     const slot = el.dataset.slot;
     if (!gameState || gameState.phase !== 'main_phase' || gameState.turn !== myIndex) return;
     const result = GameEngine.canPlayCard(gameState, myIndex, cardId, slot, faceDownMode);
-    if (result.canPlay) sendAction('playCard', { cardId, slot, faceDown: result.mustFaceDown || faceDownMode });
+    if (result.canPlay) {
+      const slotStack = gameState.players[myIndex].field[slot] || [];
+      const act = slotStack.length > 0 ? 'evolveCard' : 'playCard';
+      sendAction(act, { cardId, slot, faceDown: result.mustFaceDown || faceDownMode });
+    }
   });
 });
 // Make hand cards draggable

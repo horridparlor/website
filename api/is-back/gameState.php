@@ -60,9 +60,16 @@ function getGameState(Database $database): string
     // Redact opponent hidden info
     $state['players'][$opponentIndex]['handIds']  = array_fill(0, count($state['players'][$opponentIndex]['handIds']), null);
     $state['players'][$opponentIndex]['prizeIds'] = array_fill(0, count($state['players'][$opponentIndex]['prizeIds']), null);
+    $state['players'][$opponentIndex]['deckIds']  = array_fill(0, count($state['players'][$opponentIndex]['deckIds']), null);
 
     // Also redact own prize IDs (they're face-down too, player just knows count)
     $state['players'][$playerIndex]['prizeIds'] = array_fill(0, count($state['players'][$playerIndex]['prizeIds']), null);
+    $state['players'][$playerIndex]['deckIds']  = array_fill(0, count($state['players'][$playerIndex]['deckIds']), null);
+
+    // Redact opponent's ongoing RPS choice (not yet revealed)
+    if (isset($state['rpsChoices'])) {
+        $state['rpsChoices'][$opponentIndex] = null;
+    }
 
     return Database::responseSuccess([
         'matchId'      => $matchId,

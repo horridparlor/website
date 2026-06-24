@@ -69,7 +69,10 @@ function buildInitialGameState(array $p1, array $p2, array $p1DeckIds, array $p2
             ],
         ],
         'pendingEffect' => null,
-        'log'           => ['Match started! Both players ready up to begin.'],
+        'rpsChoices'    => [null, null],
+        'rpsResult'     => null,
+        'rpsRound'      => 1,
+        'log'           => ['Match started! Play Rock Paper Scissors to decide who goes first.'],
     ];
     return json_encode($state);
 }

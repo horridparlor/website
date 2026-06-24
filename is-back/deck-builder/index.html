@@ -1029,9 +1029,10 @@
           const r = await fetch(cardPath(card));
           if (!r.ok) continue;
           const blob = await r.blob();
+          const base = filename.replace(/\.png$/i, '');
           zip.file(filename, blob);
           for (let i = 2; i <= dc.quantity; i++) {
-            zip.file(`${filename}(${i})`, blob);
+            zip.file(`${base} (${i}).png`, blob);
           }
         } catch (_) {}
       }

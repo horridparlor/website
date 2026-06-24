@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS isBack_matchQueue (
     status ENUM('waiting', 'matched', 'cancelled') NOT NULL DEFAULT 'waiting',
     matchId INT NULL,
     createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    heartbeatAt DATETIME NULL DEFAULT NULL,
     PRIMARY KEY (id),
     INDEX idx_isBack_queue_status (status),
     CONSTRAINT fk_isBack_queue_user FOREIGN KEY (userId) REFERENCES user(id),

@@ -366,7 +366,7 @@ function handlePlayStartOfRound(array &$state, int $playerIndex, array $params, 
         $state['log'][] = $state['players'][$playerIndex]['username'] . ' used Natural Selection! Each player may only play one more card this round, face-down.';
     }
 
-    maybeStartMainPhase($state);
+    maybeStartMainPhase($state, $engine);
     return null;
 }
 
@@ -375,11 +375,11 @@ function handleSkipStartOfRound(array &$state, int $playerIndex, array $params, 
     if ($state['phase'] !== 'start_of_round') return 'Not in start-of-round phase';
     if ($state['players'][$playerIndex]['diceRoll'] === null) return 'Must roll dice first';
     $state['players'][$playerIndex]['startOfRoundUsed'] = true;
-    maybeStartMainPhase($state);
+    maybeStartMainPhase($state, $engine);
     return null;
 }
 
-function maybeStartMainPhase(array &$state): void
+function maybeStartMainPhase(array &$state, GameEngine $engine): void
 {
     if (!$state['players'][0]['startOfRoundUsed'] || !$state['players'][1]['startOfRoundUsed']) return;
 
@@ -390,12 +390,15 @@ function maybeStartMainPhase(array &$state): void
         $effective = (int)$roll['effective'];
         $current   = count($state['players'][$idx]['handIds']);
         $toDraw    = max(0, $effective - $current);
-        // Can't draw here without the engine; we'll set a flag
-        $state['players'][$idx]['drawCount'] = $toDraw;
+        if ($toDraw > 0) {
+            $engine->drawCards($state, $idx, $toDraw);
+            $state['log'][] = $state['players'][$idx]['username'] . " drew $toDraw card(s).";
+        }
     }
 
-    $state['phase'] = 'draw';
+    $state['phase'] = 'main_phase';
     $state['turn']  = $state['firstPlayer'];
+    $state['log'][] = 'Main phase begins. ' . $state['players'][$state['firstPlayer']]['username'] . ' acts first.';
 }
 
 function handleDraw(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
@@ -979,6 +982,76 @@ function handleDrawPrize(array &$state, int $playerIndex, array $params, Databas
     return null;
 }
 
+// ── Auto-resolve end of round ────────────────────────────────────────────────
+
+function autoResolveEndOfRound(array &$state, GameEngine $engine): void
+{
+    $winnerId = $state['roundWinnerId'] ?? null;
+    if ($winnerId === null) return;
+    $loser = 1 - $winnerId;
+    $p = &$state['players'][$winnerId];
+
+    $state['log'][] = $state['players'][$winnerId]['username'] . ' wins the round!';
+
+    if (empty($p['prizeIds'])) {
+        $state['phase']      = 'game_over';
+        $state['gameWinner'] = $winnerId;
+        $state['log'][] = $p['username'] . ' wins the game!';
+        return;
+    }
+
+    $prize = array_shift($p['prizeIds']);
+    $p['handIds'][]  = $prize;
+    $p['prizeCount'] = count($p['prizeIds']);
+    $state['log'][] = $p['username'] . ' drew a prize card. ' . $p['prizeCount'] . ' remaining.';
+    if (empty($p['prizeIds'])) {
+        $state['log'][] = $p['username'] . ' has 0 prize cards left!';
+    }
+
+    $engine->startNewRound($state, $loser);
+}
+
+function handleNextRound(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
+{
+    if ($state['phase'] !== 'end_of_round') return 'Not in end_of_round phase';
+    if (!isset($state['roundWinnerId'])) return 'No round winner determined';
+    autoResolveEndOfRound($state, $engine);
+    return null;
+}
+
+function handleSubmitRPS(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
+{
+    if ($state['phase'] !== 'setup') return 'Not in setup phase';
+    $choice = strtolower($params['choice'] ?? '');
+    if (!in_array($choice, ['rock', 'paper', 'scissors'])) return 'Invalid choice';
+    if ($state['rpsChoices'][$playerIndex] !== null) return 'Already submitted';
+
+    $state['rpsChoices'][$playerIndex] = $choice;
+    $state['log'][] = $state['players'][$playerIndex]['username'] . ' chose.';
+
+    if ($state['rpsChoices'][0] !== null && $state['rpsChoices'][1] !== null) {
+        $c0 = $state['rpsChoices'][0];
+        $c1 = $state['rpsChoices'][1];
+        $beats = ['rock' => 'scissors', 'scissors' => 'paper', 'paper' => 'rock'];
+
+        if ($c0 === $c1) {
+            $state['rpsResult']  = ['p0' => $c0, 'p1' => $c1, 'winner' => 'tie', 'round' => (int)($state['rpsRound'] ?? 1)];
+            $state['rpsChoices'] = [null, null];
+            $state['rpsRound']   = ($state['rpsRound'] ?? 1) + 1;
+            $state['log'][] = 'RPS tie! Choose again.';
+        } elseif ($beats[$c0] === $c1) {
+            $state['rpsResult'] = ['p0' => $c0, 'p1' => $c1, 'winner' => 0, 'round' => (int)($state['rpsRound'] ?? 1)];
+            $engine->startNewRound($state, 0);
+            $state['log'][] = $state['players'][0]['username'] . ' wins RPS and goes first!';
+        } else {
+            $state['rpsResult'] = ['p0' => $c0, 'p1' => $c1, 'winner' => 1, 'round' => (int)($state['rpsRound'] ?? 1)];
+            $engine->startNewRound($state, 1);
+            $state['log'][] = $state['players'][1]['username'] . ' wins RPS and goes first!';
+        }
+    }
+    return null;
+}
+
 // ── Main entry point ────────────────────────────────────────────────────────
 
 function performAction(Database $database): string
@@ -1024,20 +1097,32 @@ function performAction(Database $database): string
 
     // Dispatch action
     $error = match($action) {
-        'ready'                    => handleReady($state, $playerIndex, $paramsArr, $engine),
+        // Setup / RPS
+        'submitRPS'                => handleSubmitRPS($state, $playerIndex, $paramsArr, $engine),
+        'ready'                    => null, // no-op (replaced by RPS)
+        // Start of round
         'rollDice'                 => handleRollDice($state, $playerIndex, $paramsArr, $engine),
-        'playStartOfRound'         => handlePlayStartOfRound($state, $playerIndex, $paramsArr, $engine),
-        'skipStartOfRound'         => handleSkipStartOfRound($state, $playerIndex, $paramsArr, $engine),
-        'draw'                     => handleDraw($state, $playerIndex, $paramsArr, $engine),
+        'playStartOfRound',
+        'useStartOfRound'          => handlePlayStartOfRound($state, $playerIndex, $paramsArr, $engine),
+        'skipStartOfRound',
+        'doneStartOfRound'         => handleSkipStartOfRound($state, $playerIndex, $paramsArr, $engine),
+        // Main phase
         'playCard'                 => handlePlayCard($state, $playerIndex, $paramsArr, $engine),
         'evolveCard'               => handleEvolveCard($state, $playerIndex, $paramsArr, $engine),
         'useKeyword'               => handleUseKeyword($state, $playerIndex, $paramsArr, $engine),
+        'playCommunism'            => handleUseKeyword($state, $playerIndex, array_merge($paramsArr, ['keyword' => 'communism']), $engine),
+        'useRizz'                  => handleUseKeyword($state, $playerIndex, array_merge($paramsArr, ['keyword' => 'rizz']), $engine),
         'pass'                     => handlePass($state, $playerIndex, $paramsArr, $engine),
         'surrender'                => handleSurrender($state, $playerIndex, $paramsArr, $engine),
-        'opponentPassesResponse'   => handleOpponentPassesResponse($state, $playerIndex, $paramsArr, $engine),
-        'confirmPassingPhase'      => handleConfirmPassingPhase($state, $playerIndex, $paramsArr, $engine),
+        // Passing phase
+        'opponentPassesResponse',
+        'triggerOpponentPasses'    => handleOpponentPassesResponse($state, $playerIndex, $paramsArr, $engine),
+        'confirmPassingPhase',
+        'confirmEndOfRound'        => handleConfirmPassingPhase($state, $playerIndex, $paramsArr, $engine),
         'revealFaceDown'           => handleRevealFaceDown($state, $playerIndex, $paramsArr, $engine),
-        'drawPrize'                => handleDrawPrize($state, $playerIndex, $paramsArr, $database),
+        // End of round
+        'nextRound',
+        'drawPrize'                => handleNextRound($state, $playerIndex, $paramsArr, $engine),
         default                    => 'Unknown action: ' . $action,
     };
 

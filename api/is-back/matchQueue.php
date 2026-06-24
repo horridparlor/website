@@ -57,10 +57,34 @@ function createMatch(Database $database, array $waitingEntry, array $joiningUser
     return ['matchId' => $matchId];
 }
 
+function cleanStaleEntries(Database $database): void
+{
+    $database->query(
+        "UPDATE isBack_matchQueue
+         SET status = 'cancelled'
+         WHERE status = 'waiting'
+           AND COALESCE(heartbeatAt, createdAt) < NOW() - INTERVAL 1 MINUTE",
+        []
+    );
+}
+
+function handleHeartbeat(Database $database): string
+{
+    $user = $database->getUser();
+    if (!$user) return Database::responseUnauthorized();
+    $database->query(
+        "UPDATE isBack_matchQueue SET heartbeatAt = NOW()
+         WHERE userId = :userId AND status = 'waiting'",
+        ['userId' => ['value' => $user->getId(), 'type' => \PDO::PARAM_INT]]
+    );
+    return Database::responseSuccess(['ok' => true]);
+}
+
 function getQueue(Database $database): string
 {
     $user = $database->getUser();
     if (!$user) return Database::responseUnauthorized();
+    cleanStaleEntries($database);
 
     $row = $database->query(
         'SELECT id, deckId, format, type, joinCode, status, matchId FROM isBack_matchQueue WHERE userId = :userId AND status = :status',
@@ -95,6 +119,7 @@ function joinQueue(Database $database): string
 {
     $user = $database->getUser();
     if (!$user) return Database::responseUnauthorized();
+    cleanStaleEntries($database);
 
     $action   = $database->getStringParam('action', '');
     $deckId   = $database->getIntParam('deckId');
@@ -261,5 +286,12 @@ function leaveQueue(Database $database): string
     return Database::responseSuccess(['left' => true]);
 }
 
+function routeMatchQueue(Database $database): string
+{
+    $action = $database->getStringParam('action', '');
+    if ($action === 'heartbeat') return handleHeartbeat($database);
+    return joinQueue($database);
+}
+
 $database = new Database();
-$database->handleRequest('getQueue', 'joinQueue', null, 'leaveQueue');
+$database->handleRequest('getQueue', 'routeMatchQueue', null, 'leaveQueue');

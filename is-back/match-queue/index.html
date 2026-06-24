@@ -344,6 +344,21 @@
   // ─── Init ─────────────────────────────────────────────────────────────────────
   async function init() {
     if (!authToken) { document.getElementById('login-modal').style.display = 'flex'; return; }
+
+    // Check for an existing active match
+    try {
+      const res = await fetch(API + 'matchQueue', { headers: headers() });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === 'matched' && data.matchId) { enterGame(data.matchId); return; }
+        if (data.status === 'waiting') {
+          allDecks = await loadDecks();
+          renderWaiting(data.type, data.joinCode);
+          return;
+        }
+      }
+    } catch {}
+
     allDecks = await loadDecks();
     renderSetup();
   }
