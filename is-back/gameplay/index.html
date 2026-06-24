@@ -548,6 +548,7 @@ let faceDownMode = false;
 let isConnected  = true;
 let failCount    = 0;
 let nextRoundScheduled = false;
+let revealScheduledSig = null;
 let lastRoundWinnerId = null;
 let roundResultShown = false;
 let diceAnimating = false;
@@ -672,7 +673,10 @@ function processState(state) {
   // Reset per-phase flags when phase changes
   if (state.phase !== lastPhase) {
     nextRoundScheduled = false;
-    if (state.phase !== 'end_of_round') roundResultShown = false;
+    if (state.phase !== 'end_of_round') {
+      roundResultShown = false;
+      revealScheduledSig = null;
+    }
   }
 
   gameState = state;
@@ -753,6 +757,14 @@ function getPendingEffects(state) {
 function getCurrentPendingEffect(state) {
   const queue = getPendingEffects(state);
   return queue.length ? queue[0] : null;
+}
+
+function getPrimaryRevealProgressSig(state) {
+  const mePrimary = state.players?.[myIndex]?.field?.primary || [];
+  const oppPrimary = state.players?.[1 - myIndex]?.field?.primary || [];
+  const myFaceDown = !!(mePrimary.length && mePrimary[mePrimary.length - 1].faceDown);
+  const oppFaceDown = !!(oppPrimary.length && oppPrimary[oppPrimary.length - 1].faceDown);
+  return JSON.stringify({ roundWinnerId: state.roundWinnerId ?? null, myFaceDown, oppFaceDown, passerId: state.passerId ?? null });
 }
 
 function isPendingResponder(effect, mi) {
@@ -1342,6 +1354,33 @@ function updateActionBar(state, mi) {
   }
 
   if (phase === 'end_of_round') {
+    if (state.roundWinnerId === undefined || state.roundWinnerId === null) {
+      const roundMsg = document.createElement('span');
+      roundMsg.style.cssText = 'font-size:14px;font-weight:600;color:var(--orange);';
+      roundMsg.textContent = 'Revealing face-down primary card(s)…';
+      btns.appendChild(roundMsg);
+
+      const revealSig = getPrimaryRevealProgressSig(state);
+      const stillHidden = ['primary'].some(() => {
+        const myPrimary = state.players?.[mi]?.field?.primary || [];
+        const oppPrimary = state.players?.[1 - mi]?.field?.primary || [];
+        const myFaceDown = !!(myPrimary.length && myPrimary[myPrimary.length - 1].faceDown);
+        const oppFaceDown = !!(oppPrimary.length && oppPrimary[oppPrimary.length - 1].faceDown);
+        return myFaceDown || oppFaceDown;
+      });
+
+      if (stillHidden && revealScheduledSig !== revealSig && state.passerId === mi) {
+        revealScheduledSig = revealSig;
+        setTimeout(() => {
+          if (!gameState || gameState.phase !== 'end_of_round') return;
+          if (gameState.roundWinnerId !== undefined && gameState.roundWinnerId !== null) return;
+          if (getPrimaryRevealProgressSig(gameState) !== revealSig) return;
+          sendAction('revealFaceDown');
+        }, 1200);
+      }
+      return;
+    }
+
     const iWonRound = state.roundWinnerId === myIndex;
     const roundMsg = document.createElement('span');
     roundMsg.style.cssText = `font-size:14px;font-weight:600;color:${iWonRound ? 'var(--green2)' : 'var(--red)'};`;

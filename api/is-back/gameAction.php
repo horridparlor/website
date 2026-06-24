@@ -180,13 +180,23 @@ class GameEngine
 
         if (!$oppTop) return null; // opponent has no card, pass goes through
 
+        // Face-down resolution / Divine interaction
+        if ($passerTop['faceDown'] && $oppTop['faceDown']) {
+            return null; // reveal sequence needed
+        }
+
         if ($oppTop['faceDown']) {
-            // Check Divine on passer
             if (!$passerTop['faceDown'] && $this->hasKeyword($passerTop['id'], 'divine')) {
-                return $passerId; // divine beats face-down
+                return $passerId; // Divine beats face-down without reveal
             }
-            // Both face-down handled elsewhere; here passer has face-up, opp face-down
-            return null; // resolve at end of round reveal
+            return null; // reveal needed
+        }
+
+        if ($passerTop['faceDown']) {
+            if (!$oppTop['faceDown'] && $this->hasKeyword($oppTop['id'], 'divine')) {
+                return $oppIdx; // Divine beats face-down without reveal
+            }
+            return null; // reveal needed
         }
 
         // Both face-up
@@ -632,7 +642,9 @@ function handleEvolveCard(array &$state, int $playerIndex, array $params, GameEn
     if (!in_array($slot, ['primary', 'left', 'right'])) return 'Invalid slot';
 
     $p = &$state['players'][$playerIndex];
-    if (!in_array($cardId, $p['handIds'])) return 'Card not in hand';
+    $inHand = in_array($cardId, $p['handIds']);
+    $inGrave = in_array($cardId, $p['graveyardIds']);
+    if (!$inHand && !$inGrave) return 'Card not in hand or graveyard';
     if (empty($p['field'][$slot])) return 'No card in slot to evolve';
 
     $currentTop = $engine->getTopCard($p['field'][$slot]);
@@ -650,22 +662,26 @@ function handleEvolveCard(array &$state, int $playerIndex, array $params, GameEn
 
     // Check Sister Virus (can evolve into Little Sister from grave)
     $isSisterVirus = $engine->hasKeyword($currentTop['id'], 'sister-virus');
+    $canSisterVirusGrave = $isSisterVirus && $inGrave && $engine->hasKeyword($cardId, 'little-sister');
 
     if ($isWizard) {
+        if (!$inHand) return 'Wizard evolve requires a card from hand';
         $faceDown = true; // Wizard always plays face-down
-    } else if ($isSisterVirus) {
-        // Target must be in graveyard and have Little Sister title
-        if (!in_array($cardId, $p['graveyardIds'])) return 'Sister Virus: target must be in your graveyard';
-        if (!$engine->hasKeyword($cardId, 'little-sister')) return 'Sister Virus: target must have Little Sister title';
+    } else if ($canSisterVirusGrave) {
+        // Sister Virus special path: evolve into a Little Sister from grave.
         // Remove from graveyard
         $gIdx = array_search($cardId, $p['graveyardIds']);
         array_splice($p['graveyardIds'], $gIdx, 1);
-        // Remove from hand check (it's from grave, not hand)
+        // If the same card also exists in hand for any reason, remove it there too.
         $hIdx = array_search($cardId, $p['handIds']);
         if ($hIdx !== false) array_splice($p['handIds'], $hIdx, 1);
         // Don't re-remove from hand below
         goto evolveApply;
     } else {
+        if (!$inHand) {
+            if ($isSisterVirus && $inGrave) return 'Sister Virus: target from graveyard must have Little Sister title';
+            return 'Normal evolve requires a card from hand';
+        }
         // Normal evolve: new card base power must be higher (unless Autocracy)
         if (!$isAutocracy && (int)$newCard['power'] <= (int)$oldCard['power']) {
             return 'New card must have higher power to evolve (unless target has Autocracy)';
@@ -1004,10 +1020,22 @@ function handlePass(array &$state, int $playerIndex, array $params, GameEngine $
         return null;
     }
 
+    $passerTop = $engine->getTopCard($state['players'][$playerIndex]['field']['primary']);
+
     // Check if opponent has face-down primary
     $oppTop = $engine->getTopCard($opp['field']['primary']);
     if ($oppTop && $oppTop['faceDown']) {
-        // Skip to end of round — resolve face-down
+        // Face-up Divine defeats face-down without revealing it.
+        if ($passerTop && !$passerTop['faceDown'] && $engine->hasKeyword($passerTop['id'], 'divine')) {
+            clearRoundScopedFlags($state);
+            $state['phase'] = 'end_of_round';
+            $state['passerId'] = $playerIndex;
+            $state['roundWinnerId'] = $playerIndex;
+            $state['log'][] = $state['players'][$playerIndex]['username'] . ' wins immediately with Divine against a face-down primary.';
+            return null;
+        }
+
+        // Otherwise skip to end of round and resolve via reveal flow.
         clearRoundScopedFlags($state);
         $state['phase'] = 'end_of_round';
         $state['passerId'] = $playerIndex;
@@ -1184,24 +1212,55 @@ function handleConfirmPassingPhase(array &$state, int $playerIndex, array $param
 
 function handleRevealFaceDown(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
 {
-    // Both face-down scenario: opponent reveals first, then passing player
+    if (($state['phase'] ?? '') !== 'end_of_round') return 'Not in end_of_round phase';
+    if (isset($state['roundWinnerId'])) return null;
+
     $passerId = $state['passerId'] ?? 0;
     $oppIdx   = 1 - $passerId;
 
-    // Reveal opponent's face-down
-    if (!empty($state['players'][$oppIdx]['field']['primary'])) {
+    $oppTop = $engine->getTopCard($state['players'][$oppIdx]['field']['primary']);
+    $passerTop = $engine->getTopCard($state['players'][$passerId]['field']['primary']);
+    if (!$oppTop || !$passerTop) {
+        $winner = $engine->checkWinRound($state, $passerId);
+        $state['roundWinnerId'] = $winner ?? $oppIdx;
+        return null;
+    }
+
+    // If there is exactly one face-down primary and the face-up primary has Divine,
+    // Divine wins immediately and the face-down card is never revealed.
+    if ($oppTop['faceDown'] && !$passerTop['faceDown'] && $engine->hasKeyword($passerTop['id'], 'divine')) {
+        $state['roundWinnerId'] = $passerId;
+        $state['log'][] = $state['players'][$passerId]['username'] . ' wins with Divine. The opponent\'s face-down primary is never revealed.';
+        return null;
+    }
+    if ($passerTop['faceDown'] && !$oppTop['faceDown'] && $engine->hasKeyword($oppTop['id'], 'divine')) {
+        $state['roundWinnerId'] = $oppIdx;
+        $state['log'][] = $state['players'][$oppIdx]['username'] . ' wins with Divine. The passing player\'s face-down primary is never revealed.';
+        return null;
+    }
+
+    // Reveal non-passing player first if they are face-down.
+    if ($oppTop['faceDown']) {
         $topIdx = count($state['players'][$oppIdx]['field']['primary']) - 1;
         $state['players'][$oppIdx]['field']['primary'][$topIdx]['faceDown'] = false;
+        $revealed = $engine->getTopCard($state['players'][$oppIdx]['field']['primary']);
+        $state['log'][] = $state['players'][$oppIdx]['username'] . ' revealed their primary card.';
+        if ($revealed && $engine->hasKeyword($revealed['id'], 'divine')) {
+            $state['roundWinnerId'] = $oppIdx;
+            $state['log'][] = $state['players'][$oppIdx]['username'] . ' wins with Divine. The passing player\'s face-down primary is never revealed.';
+        }
+        return null;
     }
-    // Reveal passer's face-down
-    if (!empty($state['players'][$passerId]['field']['primary'])) {
+
+    if ($passerTop['faceDown']) {
         $topIdx = count($state['players'][$passerId]['field']['primary']) - 1;
         $state['players'][$passerId]['field']['primary'][$topIdx]['faceDown'] = false;
+        $state['log'][] = $state['players'][$passerId]['username'] . ' revealed their primary card.';
     }
 
     $winner = $engine->checkWinRound($state, $passerId);
-    $state['roundWinnerId'] = $winner ?? (1 - $passerId);
-    $state['log'][] = 'Face-down cards revealed.';
+    $state['roundWinnerId'] = $winner ?? $oppIdx;
+    $state['log'][] = 'Primary reveal complete.';
     return null;
 }
 
@@ -1272,7 +1331,10 @@ function autoResolveEndOfRound(array &$state, GameEngine $engine): void
 function handleNextRound(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
 {
     if ($state['phase'] !== 'end_of_round') return 'Not in end_of_round phase';
-    if (!isset($state['roundWinnerId'])) return 'No round winner determined';
+    if (!isset($state['roundWinnerId'])) {
+        handleRevealFaceDown($state, $playerIndex, $params, $engine);
+        return null;
+    }
     autoResolveEndOfRound($state, $engine);
     return null;
 }

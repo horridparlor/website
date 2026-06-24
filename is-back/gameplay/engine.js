@@ -190,16 +190,29 @@ const GameEngine = (() => {
 
     if (!oppPrimTop) return 'no_opponent_card'; // opponent has no card, pass goes to them
 
-    if (oppPrimTop.faceDown) {
-      // Both go to end of round
-      return 'end_of_round_facedown';
-    }
-
-    // Both face-up: compare
     const passerCard = allCardsMap[passerPrimTop.cardId];
     const oppCard    = allCardsMap[oppPrimTop.cardId];
     if (!passerCard || !oppCard) return 'no_opponent_card';
 
+    if (passerPrimTop.faceDown && oppPrimTop.faceDown) {
+      return 'end_of_round_facedown';
+    }
+
+    if (oppPrimTop.faceDown) {
+      if (!passerPrimTop.faceDown && cardHasKeyword(passerCard, 'Divine')) {
+        return 'passing_wins';
+      }
+      return 'end_of_round_facedown';
+    }
+
+    if (passerPrimTop.faceDown) {
+      if (!oppPrimTop.faceDown && cardHasKeyword(oppCard, 'Divine')) {
+        return 'passing_loses';
+      }
+      return 'end_of_round_facedown';
+    }
+
+    // Both face-up: compare
     const passerPower = getEffectivePower(passerPrimTop.cardId, passer, allCardsMap);
     const oppPower    = getEffectivePower(oppPrimTop.cardId,    opp,    allCardsMap);
 
