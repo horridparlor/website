@@ -390,7 +390,7 @@ const GameEngine = (() => {
     const card = allCardsMap[top.cardId];
     if (!card || card.power == null) return null;
     let power = parseInt(card.power) || 0;
-    if (cardHasKeyword(card, 'democracy')) {
+    if (slot === 'primary' && cardHasKeyword(card, 'democracy')) {
       for (const s of ['left', 'right']) {
         const suppStack = field[s] || [];
         const suppTop = suppStack[suppStack.length - 1];
