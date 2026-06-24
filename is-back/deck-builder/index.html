@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rakuel Is Back – Deck Builder</title>
+  <link rel="stylesheet" href="../../styles.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- Header -->
+<header class="topbar">
+  <div class="topbar-left">
+    <a class="home-link" href="/">Home</a>
+    <h1>Deck Builder</h1>
+  </div>
+  <div class="topbar-right">
+    <span class="user-info" id="user-info">Not logged in</span>
+    <button class="btn btn-icon" id="btn-logout" style="display:none;background:#1a1a1a;border:1px solid #444;color:#aaa;">Log out</button>
+    <a href="../match-queue/" class="btn btn-add" style="text-decoration:none;font-size:0.82rem;">Match Queue →</a>
+  </div>
+</header>
+
+<!-- Three-panel layout -->
+<div class="db-layout">
+
+  <!-- LEFT: Card browser -->
+  <div class="panel-left">
+    <div class="filters-bar">
+      <input type="text" id="f-search" placeholder="Search cards…" autocomplete="off" />
+      <div class="filters-row">
+        <div>
+          <div class="filter-label">Type</div>
+          <select id="f-type">
+            <option value="">Any</option>
+            <option value="rock">Rock</option>
+            <option value="paper">Paper</option>
+            <option value="scissors">Scissors</option>
+          </select>
+        </div>
+        <div>
+          <div class="filter-label">Keyword</div>
+          <select id="f-keyword">
+            <option value="">Any</option>
+          </select>
+        </div>
+      </div>
+      <div class="filters-row">
+        <div>
+          <div class="filter-label">Min Power</div>
+          <select id="f-power-min">
+            <option value="">Any</option>
+          </select>
+        </div>
+        <div>
+          <div class="filter-label">Max Power</div>
+          <select id="f-power-max">
+            <option value="">Any</option>
+          </select>
+        </div>
+      </div>
+      <div class="card-count" id="card-count">Loading…</div>
+      <div class="bulk-btns">
+        <button class="btn btn-bulk" id="btn-select-visible" title="Add all visible cards to deck">+ Add to deck</button>
+        <button class="btn btn-bulk" id="btn-unselect-visible" title="Remove all visible cards from deck">− Remove from deck</button>
+        <button class="btn btn-bulk btn-bulk-reset" id="btn-reset-filters" title="Clear all filters">✕ Filters</button>
+      </div>
+    </div>
+    <div class="card-grid-wrap">
+      <div class="card-grid" id="card-grid">
+        <!-- populated by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- MIDDLE: Focus zone -->
+  <div class="panel-middle" id="focus-zone">
+    <div class="focus-empty" id="focus-empty">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="3" y="3" width="18" height="18" rx="3"/>
+        <path d="M3 9h18M9 21V9"/>
+      </svg>
+      <span>Hover or click a card<br>to see details here</span>
+    </div>
+    <div id="focus-content" style="display:none;width:100%;max-width:300px;display:none;">
+      <div class="focus-card-img">
+        <img id="focus-img" src="" alt="" />
+      </div>
+      <div class="focus-info">
+        <h2 class="focus-name" id="focus-name"></h2>
+        <div class="focus-meta">
+          <span class="focus-type-badge" id="focus-type-badge"></span>
+          <span class="focus-power" id="focus-power"></span>
+        </div>
+        <div class="focus-keywords" id="focus-keywords"></div>
+        <div class="focus-qty" id="focus-qty"></div>
+        <div class="focus-actions">
+          <button class="btn btn-add" id="focus-btn-add">+ Add to Deck</button>
+          <button class="btn btn-remove" id="focus-btn-remove">− Remove</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Deck -->
+  <div class="panel-right">
+    <div class="deck-header">
+      <div class="deck-selector-row">
+        <select class="deck-selector" id="deck-selector">
+          <option value="new">+ New Deck</option>
+        </select>
+        <button class="btn btn-icon btn-copy" id="btn-copy-deck" title="Copy deck">⎘</button>
+        <button class="btn btn-icon btn-clear" id="btn-clear-deck" title="Remove all cards">🗑</button>
+        <button class="btn btn-icon btn-delete" id="btn-delete-deck" title="Delete deck">✕</button>
+      </div>
+      <div class="deck-name-row">
+        <input class="deck-name-input" id="deck-name-input" type="text" value="New Deck" placeholder="Deck name…" maxlength="60" />
+      </div>
+    </div>
+
+    <div class="deck-cards-list" id="deck-cards-list">
+      <div class="deck-empty-msg" id="deck-empty-msg">Your deck is empty.<br>Click cards on the left to add them.</div>
+    </div>
+
+    <div class="deck-footer">
+      <div class="deck-stats">
+        <div class="deck-stats-row">
+          <span class="stat-item"><span class="stat-rock">Rock</span>: <span id="stat-rock">0</span></span>
+          <span class="stat-item"><span class="stat-paper">Paper</span>: <span id="stat-paper">0</span></span>
+          <span class="stat-item"><span class="stat-scissors">Scissors</span>: <span id="stat-scissors">0</span></span>
+        </div>
+        <div class="deck-stats-row">
+          <span>Vanilla: <span id="stat-vanilla">0</span></span>
+          <span>With keywords: <span id="stat-kw">0</span></span>
+        </div>
+      </div>
+      <div class="card-total-text">
+        <span class="cnt" id="stat-total">0</span> / 60 cards
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+      </div>
+      <div class="validation-msg" id="validation-msg"></div>
+      <button class="btn btn-save" id="btn-save" disabled>Save Deck</button>
+    </div>
+  </div>
+</div>
+
+<!-- Loading overlay -->
+<div class="loading-overlay hidden" id="loading-overlay">
+  <div class="spinner"></div>
+  <span id="loading-text">Loading…</span>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Login modal -->
+<div class="modal-backdrop" id="modal-login">
+  <div class="modal-box">
+    <h2>Login Required</h2>
+    <p>Log in to save and manage your decks. You can still browse cards without logging in.</p>
+    <div class="modal-form">
+      <input type="text" id="login-username" placeholder="Username" autocomplete="username" />
+      <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" />
+      <div class="modal-error" id="login-error"></div>
+      <div class="modal-actions">
+        <button class="btn-login" id="btn-do-login">Log In</button>
+        <button class="btn-guest" id="btn-guest">Continue without logging in</button>
+      </div>
+    </div>
+    <div class="modal-link" style="margin-top:1rem;">
+      Don't have an account? <a href="../register/">Register here</a>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm delete modal -->
+<div class="modal-backdrop hidden" id="modal-confirm">
+  <div class="modal-box modal-confirm">
+    <h3>Delete Deck</h3>
+    <p id="confirm-msg">Are you sure you want to delete this deck?</p>
+    <div class="modal-confirm-actions">
+      <button class="btn btn-danger" id="btn-confirm-yes">Delete</button>
+      <button class="btn btn-cancel" id="btn-confirm-no">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const API_BASE      = '../../api/is-back';
+  const API_USER      = '../../api/user';
+  const CARDS_URL     = API_BASE + '/cards';
+  const KEYWORDS_URL  = API_BASE + '/keywords';
+  const DECKS_URL     = API_BASE + '/decks';
+  const AUTH_URL      = API_USER + '/authenticate';
+
+  /* ── State ──────────────────────────────────────────────────────── */
+  let allCards       = [];
+  let allKeywords    = [];
+  let filteredCards  = [];
+  let focusedCard    = null;
+  let savedDecks     = [];
+  let authToken      = localStorage.getItem('authToken');
+  let userId         = localStorage.getItem('userId');
+  let username       = localStorage.getItem('username');
+  let isDirty        = false;
+
+  let currentDeck = {
+    id:    null,
+    name:  'New Deck',
+    cards: [],   // [{cardId, quantity}]
+  };
+
+  /* ── Draft persistence ──────────────────────────────────────────── */
+  const DRAFT_KEY = 'isback_deck_draft';
+  const saveDraft = () => {
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({
+        id:    currentDeck.id,
+        name:  currentDeck.name,
+        cards: currentDeck.cards,
+      }));
+    } catch (_) {}
+  };
+  const loadDraft = () => {
+    try { return JSON.parse(localStorage.getItem(DRAFT_KEY)); } catch { return null; }
+  };
+  const clearDraft = () => localStorage.removeItem(DRAFT_KEY);
+
+  /* ── Elements ───────────────────────────────────────────────────── */
+  const el = {
+    search:        document.getElementById('f-search'),
+    btnSelectVisible:   document.getElementById('btn-select-visible'),
+    btnUnselectVisible: document.getElementById('btn-unselect-visible'),
+    btnResetFilters:    document.getElementById('btn-reset-filters'),
+    fType:         document.getElementById('f-type'),
+    fKeyword:      document.getElementById('f-keyword'),
+    fPowerMin:     document.getElementById('f-power-min'),
+    fPowerMax:     document.getElementById('f-power-max'),
+    cardCount:     document.getElementById('card-count'),
+    cardGrid:      document.getElementById('card-grid'),
+
+    focusEmpty:    document.getElementById('focus-empty'),
+    focusContent:  document.getElementById('focus-content'),
+    focusImg:      document.getElementById('focus-img'),
+    focusName:     document.getElementById('focus-name'),
+    focusTypeBadge:document.getElementById('focus-type-badge'),
+    focusPower:    document.getElementById('focus-power'),
+    focusKeywords: document.getElementById('focus-keywords'),
+    focusQty:      document.getElementById('focus-qty'),
+    focusBtnAdd:   document.getElementById('focus-btn-add'),
+    focusBtnRemove:document.getElementById('focus-btn-remove'),
+
+    deckSelector:  document.getElementById('deck-selector'),
+    deckNameInput: document.getElementById('deck-name-input'),
+    btnCopyDeck:   document.getElementById('btn-copy-deck'),
+    btnClearDeck:  document.getElementById('btn-clear-deck'),
+    btnDeleteDeck: document.getElementById('btn-delete-deck'),
+    deckCardsList: document.getElementById('deck-cards-list'),
+    deckEmptyMsg:  document.getElementById('deck-empty-msg'),
+    statTotal:     document.getElementById('stat-total'),
+    statRock:      document.getElementById('stat-rock'),
+    statPaper:     document.getElementById('stat-paper'),
+    statScissors:  document.getElementById('stat-scissors'),
+    statVanilla:   document.getElementById('stat-vanilla'),
+    statKw:        document.getElementById('stat-kw'),
+    progressBar:   document.getElementById('progress-bar'),
+    validationMsg: document.getElementById('validation-msg'),
+    btnSave:       document.getElementById('btn-save'),
+
+    userInfo:      document.getElementById('user-info'),
+    btnLogout:     document.getElementById('btn-logout'),
+
+    loadingOverlay:document.getElementById('loading-overlay'),
+    loadingText:   document.getElementById('loading-text'),
+    toast:         document.getElementById('toast'),
+
+    modalLogin:    document.getElementById('modal-login'),
+    loginUsername: document.getElementById('login-username'),
+    loginPassword: document.getElementById('login-password'),
+    loginError:    document.getElementById('login-error'),
+    btnDoLogin:    document.getElementById('btn-do-login'),
+    btnGuest:      document.getElementById('btn-guest'),
+
+    modalConfirm:  document.getElementById('modal-confirm'),
+    confirmMsg:    document.getElementById('confirm-msg'),
+    btnConfirmYes: document.getElementById('btn-confirm-yes'),
+    btnConfirmNo:  document.getElementById('btn-confirm-no'),
+  };
+
+  /* ── Utilities ──────────────────────────────────────────────────── */
+  const norm = s => (s||'').toLowerCase();
+  const esc  = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const removeBB = s => s.replace(/\[[^\]]*\]/g, '');
+  const cardImgName = c => {
+    const cleaned = removeBB(c.name);
+    const n = cleaned.startsWith('The ') ? cleaned.slice(4) : cleaned;
+    return `${c.id} - ${n}`;
+  };
+  const cardPath = c => `../card-images/${encodeURIComponent(cardImgName(c))}.png`;
+  const fmtPower = p => String(Number(p)).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
+  const capitalize = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+
+  let toastTimer = null;
+  const showToast = (msg, type='') => {
+    el.toast.textContent = msg;
+    el.toast.className = 'toast show ' + type;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.toast.className = 'toast'; }, 3000);
+  };
+
+  const setLoading = (text) => {
+    if (text) {
+      el.loadingText.textContent = text;
+      el.loadingOverlay.classList.remove('hidden');
+    } else {
+      el.loadingOverlay.classList.add('hidden');
+    }
+  };
+
+  const authHeaders = () => ({
+    'Content-Type': 'application/json',
+    ...(authToken ? { 'Authorization': 'Bearer ' + authToken } : {}),
+  });
+
+  const hasReplicate = c => c.keywords && c.keywords.some(k => k && norm(k) === 'replicate');
+
+  /* ── Auth ───────────────────────────────────────────────────────── */
+  const updateUserUI = () => {
+    if (authToken && username) {
+      el.userInfo.innerHTML = `Logged in as <strong>${esc(username)}</strong>`;
+      el.btnLogout.style.display = '';
+      el.modalLogin.classList.add('hidden');
+    } else {
+      el.userInfo.textContent = 'Not logged in';
+      el.btnLogout.style.display = 'none';
+    }
+  };
+
+  const doLogin = async () => {
+    const user = el.loginUsername.value.trim();
+    const pass = el.loginPassword.value;
+    if (!user || !pass) { el.loginError.textContent = 'Enter username and password.'; return; }
+    el.loginError.textContent = '';
+    el.btnDoLogin.disabled = true;
+    try {
+      const res = await fetch(AUTH_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user, password: pass }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        el.loginError.textContent = data.error || 'Login failed.';
+        return;
+      }
+      authToken = data.authToken;
+      userId    = String(data.userId);
+      username  = data.firstname || user;
+      localStorage.setItem('authToken', authToken);
+      localStorage.setItem('userId', userId);
+      localStorage.setItem('username', username);
+      updateUserUI();
+      loadDecks();
+    } catch (e) {
+      el.loginError.textContent = 'Network error.';
+    } finally {
+      el.btnDoLogin.disabled = false;
+    }
+  };
+
+  el.btnDoLogin.addEventListener('click', doLogin);
+  el.loginPassword.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  el.btnGuest.addEventListener('click', () => { el.modalLogin.classList.add('hidden'); });
+  el.btnLogout.addEventListener('click', () => {
+    authToken = null; userId = null; username = null;
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('username');
+    savedDecks = [];
+    updateUserUI();
+    el.modalLogin.classList.remove('hidden');
+    renderDeckSelector();
+  });
+
+  /* ── Data loading ───────────────────────────────────────────────── */
+  const loadCards = async () => {
+    const res  = await fetch(CARDS_URL);
+    const data = await res.json();
+    allCards   = Array.isArray(data) ? data : (data.cards || []);
+  };
+
+  const loadKeywords = async () => {
+    const res  = await fetch(KEYWORDS_URL);
+    const data = await res.json();
+    const raw  = Array.isArray(data) ? data : (data.keywords || []);
+    allKeywords = raw;
+    // Build keyword select
+    const sorted = [...raw].sort((a,b) => a.displayName.localeCompare(b.displayName));
+    el.fKeyword.innerHTML = '<option value="">Any</option>' +
+      sorted.map(k => `<option value="${esc(k.name)}">${esc(k.displayName)}</option>`).join('');
+    // Build power selects
+    const powers = [...new Set(allCards.map(c => c.power))].sort((a,b)=>a-b);
+    const opts   = powers.map(p => `<option value="${p}">${fmtPower(p)}</option>`).join('');
+    el.fPowerMin.innerHTML = '<option value="">Any</option>' + opts;
+    el.fPowerMax.innerHTML = '<option value="">Any</option>' + opts;
+  };
+
+  const loadDecks = async () => {
+    if (!authToken) return;
+    try {
+      const res  = await fetch(DECKS_URL, { headers: authHeaders() });
+      if (!res.ok) { authToken=null; localStorage.removeItem('authToken'); return; }
+      const data = await res.json();
+      savedDecks = Array.isArray(data) ? data : (data.decks || []);
+      renderDeckSelector();
+    } catch (e) { /* ignore */ }
+  };
+
+  const loadDeckCards = async (deckId) => {
+    if (!authToken || !deckId) return [];
+    try {
+      const res  = await fetch(DECKS_URL + '?id=' + deckId, { headers: authHeaders() });
+      const data = await res.json();
+      return data.cards || [];
+    } catch (e) { return []; }
+  };
+
+  /* ── Filter & render card grid ──────────────────────────────────── */
+  const filterCards = () => {
+    const q    = norm(el.search.value);
+    const type = norm(el.fType.value);
+    const kw   = el.fKeyword.value;
+    const pMin = el.fPowerMin.value !== '' ? Number(el.fPowerMin.value) : null;
+    const pMax = el.fPowerMax.value !== '' ? Number(el.fPowerMax.value) : null;
+
+    filteredCards = allCards.filter(c => {
+      if (q && !norm(c.name).includes(q)) return false;
+      if (type && norm(c.type) !== type) return false;
+      if (kw) {
+        const kws = Array.isArray(c.keywords) ? c.keywords : [];
+        if (kw === 'vanilla') { if (kws.filter(Boolean).length > 0) return false; }
+        else if (!kws.includes(kw)) return false;
+      }
+      if (pMin !== null && c.power < pMin) return false;
+      if (pMax !== null && c.power > pMax) return false;
+      return true;
+    });
+
+    el.cardCount.textContent = `${filteredCards.length} card${filteredCards.length !== 1 ? 's' : ''}`;
+    renderCardGrid();
+    updateBulkResetBtn();
+  };
+
+  const updateBulkResetBtn = () => {
+    const anyActive = el.search.value !== '' || el.fType.value !== '' ||
+      el.fKeyword.value !== '' || el.fPowerMin.value !== '' || el.fPowerMax.value !== '';
+    el.btnResetFilters.disabled = !anyActive;
+  };
+
+  const renderCardGrid = () => {
+    const deckMap = {};
+    currentDeck.cards.forEach(dc => { deckMap[dc.cardId] = dc.quantity; });
+
+    el.cardGrid.innerHTML = filteredCards.map(c => {
+      const qty      = deckMap[c.id] || 0;
+      const repl     = hasReplicate(c);
+      const inDeck   = qty > 0;
+      const focused  = focusedCard && focusedCard.id === c.id;
+      const typeLc   = norm(c.type);
+      const displayName = removeBB(c.name);
+      return `
+        <div class="grid-card${inDeck?' in-deck':''}${focused?' focused':''}" data-id="${c.id}" title="${esc(displayName)}">
+          <img src="${cardPath(c)}" alt="${esc(displayName)}" loading="lazy"
+            onerror="this.style.display='none'"/>
+          ${repl ? '<span class="badge-replicate">∞</span>' : ''}
+          ${qty > 1 ? `<span class="badge-qty">×${qty}</span>` : (qty===1 && repl ? '<span class="badge-qty">×1</span>' : '')}
+        </div>`;
+    }).join('');
+  };
+
+  /* ── Focus zone ─────────────────────────────────────────────────── */
+  const setFocus = (card) => {
+    if (!card) return;
+    focusedCard = card;
+
+    el.focusEmpty.style.display   = 'none';
+    el.focusContent.style.display = 'block';
+
+    el.focusImg.src = cardPath(card);
+    el.focusImg.alt = removeBB(card.name);
+    el.focusName.textContent = removeBB(card.name);
+
+    const typeLc = norm(card.type);
+    el.focusTypeBadge.textContent = capitalize(typeLc);
+    el.focusTypeBadge.className   = 'focus-type-badge ' + typeLc;
+    el.focusPower.textContent     = fmtPower(card.power) + ' power';
+
+    // Keywords
+    const kws = Array.isArray(card.keywords) ? card.keywords.filter(Boolean) : [];
+    el.focusKeywords.innerHTML = kws.length ? kws.map(kw => {
+      const kwData = allKeywords.find(k => k.name === kw);
+      const isTitle = kwData && (norm(kwData.description || '').startsWith('[title]') || norm(kwData.name).includes('title'));
+      // Simple title detection: if description starts with [Title]
+      const titleKw = kwData && norm(kwData.description||'').startsWith('[title]');
+      return `<div class="keyword-chip${titleKw?' title-kw':''}">
+        <div class="kw-name">${esc(kwData ? kwData.displayName : kw)}</div>
+        ${kwData ? `<div class="kw-desc">${esc(kwData.description)}</div>` : ''}
+      </div>`;
+    }).join('') : '<div style="color:#555;font-size:0.8rem;">No keywords</div>';
+
+    const qty = getDeckQty(card.id);
+    updateFocusQty(card, qty);
+    renderCardGrid(); // re-render to update focused highlight
+  };
+
+  const updateFocusQty = (card, qty) => {
+    if (!card) return;
+    const repl = hasReplicate(card);
+    if (qty > 0) {
+      el.focusQty.innerHTML = `In deck: <strong>${qty}</strong>${repl ? ' (Replicate – unlimited)' : ''}`;
+    } else {
+      el.focusQty.textContent = '';
+    }
+    el.focusBtnAdd.disabled    = !repl && qty >= 1;
+    el.focusBtnRemove.disabled = qty === 0;
+  };
+
+  /* ── Deck operations ────────────────────────────────────────────── */
+  const getDeckQty  = id => (currentDeck.cards.find(dc => dc.cardId === id) || {quantity:0}).quantity;
+
+  const addCard = (card) => {
+    const repl = hasReplicate(card);
+    const existing = currentDeck.cards.find(dc => dc.cardId === card.id);
+    if (existing) {
+      if (!repl) { removeCard(card.id); return; }
+      existing.quantity++;
+    } else {
+      currentDeck.cards.push({ cardId: card.id, quantity: 1 });
+    }
+    isDirty = true;
+    saveDraft();
+    updateDeckUI();
+    filterCards();
+    showToast(`Added ${card.name}`, 'success');
+    if (focusedCard && focusedCard.id === card.id) updateFocusQty(card, getDeckQty(card.id));
+  };
+
+  const removeCard = (cardId, all = false) => {
+    const idx = currentDeck.cards.findIndex(dc => dc.cardId === cardId);
+    if (idx === -1) return;
+    const card = allCards.find(c => c.id === cardId);
+    if (!all && currentDeck.cards[idx].quantity > 1) {
+      currentDeck.cards[idx].quantity--;
+    } else {
+      currentDeck.cards.splice(idx, 1);
+    }
+    isDirty = true;
+    saveDraft();
+    updateDeckUI();
+    filterCards();
+    if (focusedCard && focusedCard.id === cardId) updateFocusQty(focusedCard, getDeckQty(cardId));
+    if (card) showToast(`Removed ${card.name}`, '');
+  };
+
+  const totalCards = () => currentDeck.cards.reduce((s, dc) => s + dc.quantity, 0);
+
+  const updateDeckUI = () => {
+    renderDeckList();
+    updateStats();
+    renderCardGrid();
+  };
+
+  const renderDeckList = () => {
+    if (currentDeck.cards.length === 0) {
+      el.deckCardsList.innerHTML = '<div class="deck-empty-msg">Your deck is empty.<br>Click cards on the left to add them.</div>';
+      return;
+    }
+
+    const groups = { rock: [], paper: [], scissors: [] };
+    currentDeck.cards.forEach(dc => {
+      const card = allCards.find(c => c.id === dc.cardId);
+      if (!card) return;
+      const t = norm(card.type);
+      if (groups[t]) groups[t].push({ ...dc, card });
+    });
+
+    const typeOrder = ['rock', 'paper', 'scissors'];
+    const colorMap  = { rock:'#4CAF50', paper:'#2196F3', scissors:'#FF9800' };
+
+    let html = '';
+    typeOrder.forEach(t => {
+      const grp = groups[t];
+      if (!grp.length) return;
+      grp.sort((a,b) => a.card.power - b.card.power);
+      const focused = focusedCard && grp.some(dc => dc.cardId === focusedCard.id);
+      html += `<div class="deck-type-group">
+        <div class="deck-type-label ${t}">
+          ${capitalize(t)}
+          <span class="type-count">${grp.reduce((s,dc)=>s+dc.quantity,0)}</span>
+        </div>
+        ${grp.map(dc => {
+          const repl = hasReplicate(dc.card);
+          const kwNames = (dc.card.keywords||[]).filter(Boolean).map(kw => {
+            const d = allKeywords.find(k=>k.name===kw);
+            return d ? d.displayName : kw;
+          }).join(', ');
+          const isFocused = focusedCard && focusedCard.id === dc.cardId;
+          const dcDisplayName = removeBB(dc.card.name);
+          return `<div class="deck-card-row${isFocused?' focused':''}" data-id="${dc.cardId}">
+            <div class="deck-card-mini">
+              <img src="${cardPath(dc.card)}" alt="${esc(dcDisplayName)}" loading="lazy" onerror="this.style.display='none'"/>
+            </div>
+            <div class="deck-card-info">
+              <div class="deck-card-name">${esc(dcDisplayName)}</div>
+              <div class="deck-card-sub">${fmtPower(dc.card.power)}${kwNames ? ' · ' + esc(kwNames) : ''}</div>
+            </div>
+            ${repl ? `<span class="deck-card-qty-badge">×${dc.quantity}</span>` : ''}
+            <button class="deck-card-remove" data-id="${dc.cardId}" data-all="${repl?'1':'0'}" title="${repl?'Remove all copies':'Remove'}">×</button>
+          </div>`;
+        }).join('')}
+      </div>`;
+    });
+
+    el.deckCardsList.innerHTML = html;
+
+    // Attach remove listeners
+    el.deckCardsList.querySelectorAll('.deck-card-remove').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        removeCard(Number(btn.dataset.id), btn.dataset.all === '1');
+      });
+    });
+    // Click row = focus only (right panel has its own remove button)
+    el.deckCardsList.querySelectorAll('.deck-card-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const card = allCards.find(c => c.id === Number(row.dataset.id));
+        if (card) setFocus(card);
+      });
+    });
+  };
+
+  const updateStats = () => {
+    const total    = totalCards();
+    const rocks    = currentDeck.cards.filter(dc => { const c=allCards.find(x=>x.id===dc.cardId); return c&&norm(c.type)==='rock'; }).reduce((s,dc)=>s+dc.quantity,0);
+    const papers   = currentDeck.cards.filter(dc => { const c=allCards.find(x=>x.id===dc.cardId); return c&&norm(c.type)==='paper'; }).reduce((s,dc)=>s+dc.quantity,0);
+    const scissors = currentDeck.cards.filter(dc => { const c=allCards.find(x=>x.id===dc.cardId); return c&&norm(c.type)==='scissors'; }).reduce((s,dc)=>s+dc.quantity,0);
+    const vanilla  = currentDeck.cards.filter(dc => { const c=allCards.find(x=>x.id===dc.cardId); return c&&(!c.keywords||c.keywords.filter(Boolean).length===0); }).reduce((s,dc)=>s+dc.quantity,0);
+    const withKw   = total - vanilla;
+
+    el.statTotal.textContent    = total;
+    el.statRock.textContent     = rocks;
+    el.statPaper.textContent    = papers;
+    el.statScissors.textContent = scissors;
+    el.statVanilla.textContent  = vanilla;
+    el.statKw.textContent       = withKw;
+
+    const pct = Math.min(100, (total / 60) * 100);
+    el.progressBar.style.width = pct + '%';
+
+    // Check duplicates (non-replicate) — always check first
+    const dupes = currentDeck.cards.filter(dc => {
+      const c = allCards.find(x => x.id === dc.cardId);
+      return c && !hasReplicate(c) && dc.quantity > 1;
+    });
+
+    if (total === 60) {
+      el.statTotal.className       = 'cnt ok';
+      el.progressBar.className     = 'progress-bar ok';
+      el.validationMsg.textContent = dupes.length ? 'Some non-Replicate cards appear more than once!' : '';
+      el.btnSave.disabled          = !authToken || dupes.length > 0;
+    } else if (total > 60) {
+      el.statTotal.className       = 'cnt over';
+      el.progressBar.className     = 'progress-bar over';
+      el.validationMsg.textContent = `${total - 60} cards over the limit (max 60)`;
+      el.btnSave.disabled          = true;
+    } else {
+      el.statTotal.className       = 'cnt warn';
+      el.progressBar.className     = 'progress-bar warn';
+      // Show warning but still allow saving
+      el.validationMsg.textContent = dupes.length
+        ? 'Some non-Replicate cards appear more than once!'
+        : `${60 - total} card${60-total!==1?'s':''} short of a full deck`;
+      el.btnSave.disabled          = !authToken || dupes.length > 0;
+    }
+  };
+
+  /* ── Deck selector ──────────────────────────────────────────────── */
+  const renderDeckSelector = () => {
+    const current = currentDeck.id;
+    el.deckSelector.innerHTML = '<option value="new">+ New Deck</option>' +
+      savedDecks.map(d => `<option value="${d.id}"${d.id===current?' selected':''}>${esc(d.name)} (${d.totalCards||0}/60)</option>`).join('');
+    if (current) el.deckSelector.value = current;
+  };
+
+  el.deckSelector.addEventListener('change', async () => {
+    const val = el.deckSelector.value;
+    if (val === 'new') {
+      startNewDeck();
+      return;
+    }
+    setLoading('Loading deck…');
+    const deckId   = Number(val);
+    const deckMeta = savedDecks.find(d => d.id === deckId);
+    const cards    = await loadDeckCards(deckId);
+    currentDeck = {
+      id:    deckId,
+      name:  deckMeta ? deckMeta.name : 'Deck',
+      cards: cards.map(c => ({ cardId: c.cardId, quantity: c.quantity || 1 })),
+    };
+    el.deckNameInput.value = currentDeck.name;
+    isDirty = false;
+    saveDraft();
+    setLoading(null);
+    updateDeckUI();
+    renderDeckSelector();
+  });
+
+  const startNewDeck = () => {
+    currentDeck = { id: null, name: 'New Deck', cards: [] };
+    el.deckNameInput.value = 'New Deck';
+    isDirty = false;
+    el.deckSelector.value = 'new';
+    saveDraft();
+    updateDeckUI();
+  };
+
+  el.deckNameInput.addEventListener('input', () => {
+    currentDeck.name = el.deckNameInput.value || 'Unnamed Deck';
+    isDirty = true;
+    saveDraft();
+  });
+
+  /* ── Save deck ──────────────────────────────────────────────────── */
+  el.btnSave.addEventListener('click', async () => {
+    if (!authToken) { el.modalLogin.classList.remove('hidden'); return; }
+
+    setLoading('Saving deck…');
+    try {
+      // Step 1: ensure deck exists on server (create if new)
+      if (!currentDeck.id) {
+        const res = await fetch(DECKS_URL, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ name: currentDeck.name }),
+        });
+        if (!res.ok) throw new Error('Failed to create deck');
+        const data = await res.json();
+        currentDeck.id = data.id;
+      }
+
+      // Step 2: save cards + name in one call
+      const res = await fetch(DECKS_URL, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          id:     currentDeck.id,
+          action: 'saveCards',
+          name:   currentDeck.name,
+          cards:  currentDeck.cards,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Save failed');
+      }
+
+      isDirty = false;
+      saveDraft();
+      await loadDecks();
+      showToast('Deck saved!', 'success');
+    } catch (e) {
+      showToast('Failed to save: ' + e.message, 'error');
+    } finally {
+      setLoading(null);
+    }
+  });
+
+  /* ── Copy deck ──────────────────────────────────────────────────── */
+  el.btnCopyDeck.addEventListener('click', async () => {
+    if (!authToken) { el.modalLogin.classList.remove('hidden'); return; }
+    if (!currentDeck.id) { showToast('Save the deck first before copying', 'warn'); return; }
+    setLoading('Copying deck…');
+    try {
+      const res = await fetch(DECKS_URL, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ id: currentDeck.id, action: 'copy' }),
+      });
+      const data = await res.json();
+      await loadDecks();
+      showToast('Deck copied!', 'success');
+    } catch (e) {
+      showToast('Failed to copy deck', 'error');
+    } finally {
+      setLoading(null);
+    }
+  });
+
+  /* ── Delete deck ────────────────────────────────────────────────── */
+  let pendingDelete = null;
+  el.btnClearDeck.addEventListener('click', () => {
+    if (!currentDeck.cards.length) return;
+    currentDeck.cards = [];
+    isDirty = true;
+    saveDraft();
+    updateDeckUI();
+    filterCards();
+    showToast('All cards removed', '');
+  });
+
+  el.btnDeleteDeck.addEventListener('click', () => {
+    if (!currentDeck.id) { showToast('No saved deck to delete', 'warn'); return; }
+    el.confirmMsg.textContent = `Delete "${currentDeck.name}"? This cannot be undone.`;
+    pendingDelete = currentDeck.id;
+    el.modalConfirm.classList.remove('hidden');
+  });
+  el.btnConfirmNo.addEventListener('click', () => { el.modalConfirm.classList.add('hidden'); });
+  el.btnConfirmYes.addEventListener('click', async () => {
+    el.modalConfirm.classList.add('hidden');
+    if (!pendingDelete) return;
+    setLoading('Deleting…');
+    try {
+      await fetch(DECKS_URL, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ id: pendingDelete, action: 'delete' }),
+      });
+      clearDraft();
+      await loadDecks();
+      startNewDeck();
+      showToast('Deck deleted', '');
+    } catch (e) {
+      showToast('Failed to delete deck', 'error');
+    } finally {
+      setLoading(null);
+    }
+  });
+
+  /* ── Card grid events ───────────────────────────────────────────── */
+  el.cardGrid.addEventListener('click', e => {
+    const card = e.target.closest('.grid-card[data-id]');
+    if (!card) return;
+    const id = Number(card.dataset.id);
+    const c  = allCards.find(x => x.id === id);
+    if (!c) return;
+    setFocus(c);
+    addCard(c);
+  });
+
+  el.cardGrid.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    const card = e.target.closest('.grid-card[data-id]');
+    if (!card) return;
+    const id = Number(card.dataset.id);
+    removeCard(id);
+  });
+
+  el.cardGrid.addEventListener('mouseover', e => {
+    const card = e.target.closest('.grid-card[data-id]');
+    if (!card) return;
+    const id = Number(card.dataset.id);
+    const c  = allCards.find(x => x.id === id);
+    if (c && (!focusedCard || focusedCard.id !== c.id)) setFocus(c);
+  });
+
+  /* ── Focus buttons ──────────────────────────────────────────────── */
+  el.focusBtnAdd.addEventListener('click', () => {
+    if (focusedCard) addCard(focusedCard);
+  });
+  el.focusBtnRemove.addEventListener('click', () => {
+    if (focusedCard) removeCard(focusedCard.id);
+  });
+
+  /* ── Filter events ──────────────────────────────────────────────── */
+  el.btnSelectVisible.addEventListener('click', () => {
+    let added = 0;
+    filteredCards.forEach(card => {
+      const repl = hasReplicate(card);
+      const existing = currentDeck.cards.find(dc => dc.cardId === card.id);
+      if (!existing) { currentDeck.cards.push({ cardId: card.id, quantity: 1 }); added++; }
+      else if (repl)  { existing.quantity++; added++; }
+    });
+    if (added) { isDirty = true; saveDraft(); updateDeckUI(); filterCards(); }
+    showToast(added ? `Added ${added} card${added!==1?'s':''}` : 'All visible cards already in deck', added ? 'success' : '');
+  });
+
+  el.btnUnselectVisible.addEventListener('click', () => {
+    const visibleIds = new Set(filteredCards.map(c => c.id));
+    const before = currentDeck.cards.length;
+    currentDeck.cards = currentDeck.cards.filter(dc => !visibleIds.has(dc.cardId));
+    const removed = before - currentDeck.cards.length;
+    if (removed) { isDirty = true; saveDraft(); updateDeckUI(); filterCards(); }
+    showToast(removed ? `Removed ${removed} card${removed!==1?'s':''}` : 'No visible cards in deck', removed ? '' : '');
+  });
+
+  el.btnResetFilters.addEventListener('click', () => {
+    el.search.value   = '';
+    el.fType.value    = '';
+    el.fKeyword.value = '';
+    el.fPowerMin.value = '';
+    el.fPowerMax.value = '';
+    filterCards();
+  });
+
+  [el.search].forEach(ctrl => ctrl.addEventListener('input', filterCards));
+  [el.fType, el.fKeyword, el.fPowerMin, el.fPowerMax].forEach(ctrl => ctrl.addEventListener('change', filterCards));
+
+  /* ── Keyboard ───────────────────────────────────────────────────── */
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      el.modalLogin.classList.add('hidden');
+      el.modalConfirm.classList.add('hidden');
+    }
+  });
+
+  /* ── Init ───────────────────────────────────────────────────────── */
+  (async () => {
+    setLoading('Loading cards…');
+    updateUserUI();
+    try {
+      await loadCards();
+      await loadKeywords();
+      filterCards();
+    } catch (e) {
+      showToast('Failed to load cards', 'error');
+    }
+
+    if (authToken) {
+      await loadDecks();
+
+      // Restore draft or auto-select the most-recently-updated deck
+      const draft = loadDraft();
+      if (draft) {
+        const exists = draft.id ? savedDecks.find(d => d.id === draft.id) : true;
+        if (exists !== undefined) {
+          currentDeck = { id: draft.id || null, name: draft.name || 'New Deck', cards: draft.cards || [] };
+          el.deckNameInput.value = currentDeck.name;
+          isDirty = false;
+          renderDeckSelector();
+          if (currentDeck.id) el.deckSelector.value = currentDeck.id;
+        } else {
+          clearDraft();
+          if (savedDecks.length) {
+            const first = savedDecks[0];
+            const cards = await loadDeckCards(first.id);
+            currentDeck = { id: first.id, name: first.name, cards: cards.map(c => ({ cardId: c.cardId, quantity: c.quantity || 1 })) };
+            el.deckNameInput.value = currentDeck.name;
+            isDirty = false;
+            renderDeckSelector();
+            el.deckSelector.value = currentDeck.id;
+          }
+        }
+      } else if (savedDecks.length) {
+        const first = savedDecks[0];
+        setLoading('Loading deck…');
+        const cards = await loadDeckCards(first.id);
+        currentDeck = { id: first.id, name: first.name, cards: cards.map(c => ({ cardId: c.cardId, quantity: c.quantity || 1 })) };
+        el.deckNameInput.value = currentDeck.name;
+        isDirty = false;
+        renderDeckSelector();
+        el.deckSelector.value = currentDeck.id;
+      }
+    } else {
+      // Not logged in — check for a guest draft (no id)
+      const draft = loadDraft();
+      if (draft && !draft.id) {
+        currentDeck = { id: null, name: draft.name || 'New Deck', cards: draft.cards || [] };
+        el.deckNameInput.value = currentDeck.name;
+      }
+    }
+
+    // Re-render left panel so quantity badges reflect the loaded deck
+    filterCards();
+    updateDeckUI();
+    updateStats();
+    setLoading(null);
+
+    if (!authToken) {
+      el.modalLogin.classList.remove('hidden');
+    }
+  })();
+})();
+</script>
+</body>
+</html>

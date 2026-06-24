@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rakuel Is Back – Gameplay</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0d1117; --bg2: #161b22; --border: #30363d; --text: #e6edf3; --muted: #8b949e;
+      --green: #238636; --green2: #2ea043; --blue: #1f6feb; --blue2: #388bfd;
+      --orange: #d29922; --red: #da3633; --gold: #f0c040;
+      --rock: #2a4a2a; --rock-b: #3fb950; --paper: #1a2d4a; --paper-b: #58a6ff; --scissors: #4a2d0a; --scissors-b: #f0883e;
+    }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; overflow: hidden; }
+
+    /* ── Phase overlay ── */
+    #phase-overlay {
+      position: fixed; inset: 0; z-index: 500;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,.75); opacity: 0; pointer-events: none;
+      transition: opacity .3s;
+    }
+    #phase-overlay.show { opacity: 1; pointer-events: all; }
+    #phase-text {
+      font-size: clamp(32px,6vw,72px); font-weight: 900; letter-spacing: 4px;
+      text-transform: uppercase; text-align: center; text-shadow: 0 0 40px currentColor;
+      transform: scale(.8); transition: transform .3s;
+    }
+    #phase-overlay.show #phase-text { transform: scale(1); }
+
+    /* ── Win overlay ── */
+    #win-overlay {
+      position: fixed; inset: 0; z-index: 600; display: none;
+      flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(0,0,0,.85);
+    }
+    #win-overlay.show { display: flex; }
+    #win-title { font-size: clamp(36px,8vw,90px); font-weight: 900; letter-spacing: 6px; text-align: center; margin-bottom: 16px; }
+    #win-sub { font-size: 20px; color: var(--muted); margin-bottom: 30px; }
+    .particle { position: absolute; width: 8px; height: 8px; border-radius: 50%; animation: fall 1.5s ease-in forwards; }
+    @keyframes fall { 0%{opacity:1;transform:translateY(0) rotate(0);} 100%{opacity:0;transform:translateY(300px) rotate(720deg);} }
+
+    /* ── Layout ── */
+    #app { height: 100vh; display: grid; grid-template-rows: auto 1fr auto auto; }
+    #topbar { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 8px 16px; display: flex; align-items: center; gap: 10px; }
+    #topbar a, #topbar button { background: #21262d; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; text-decoration: none; font-size: 13px; cursor: pointer; }
+    #topbar a:hover, #topbar button:hover { background: var(--border); }
+    #topbar .title { flex:1; font-size: 15px; color: var(--blue2); font-weight: 600; }
+    .avatar-btn { width: 34px; height: 34px; border-radius: 50% !important; background: linear-gradient(135deg,var(--green),var(--blue)) !important; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; padding: 0 !important; border: 2px solid var(--border) !important; position: relative; }
+
+    #board { display: grid; grid-template-rows: 1fr auto 1fr; gap: 0; overflow: hidden; padding: 8px 16px; }
+    #opp-area, #my-area { display: flex; flex-direction: column; gap: 6px; }
+    #opp-info, #my-info { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+    .player-name { font-weight: 700; font-size: 14px; }
+    .player-name.active { color: var(--green2); }
+    .stat-badge { background: #21262d; border: 1px solid var(--border); border-radius: 20px; padding: 3px 10px; font-size: 12px; color: var(--muted); }
+    .stat-badge span { color: var(--text); font-weight: 600; }
+
+    #opp-field, #my-field { display: flex; align-items: center; justify-content: center; gap: 12px; flex: 1; }
+    .divider-line { border: none; border-top: 1px dashed var(--border); margin: 0; }
+    .card-zone { position: relative; }
+    .card-slot {
+      width: 80px; height: 112px; border-radius: 8px;
+      border: 2px dashed var(--border); background: rgba(255,255,255,.03);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: border-color .2s, background .2s;
+      position: relative; font-size: 11px; color: var(--muted); text-align: center;
+    }
+    .card-slot.droptarget { border-color: var(--green2); background: rgba(46,160,67,.12); }
+    .card-slot.can-play  { border-color: var(--blue2); cursor: pointer; }
+    .card-slot.can-play:hover { background: rgba(56,139,253,.15); }
+    .card-slot.has-card  { border-style: solid; border-color: var(--border); }
+    .card-slot img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; display: block; }
+    .card-slot .face-down-label { position: absolute; bottom: 4px; left: 0; right: 0; text-align: center; font-size: 9px; color: var(--muted); pointer-events: none; }
+    .card-slot .stack-count { position: absolute; top: 3px; right: 5px; background: #000a; color: #fff; font-size: 10px; padding: 1px 5px; border-radius: 10px; }
+    .card-slot .power-badge {
+      position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
+      background: #000c; color: #fff; font-size: 10px; padding: 1px 6px; border-radius: 8px;
+      white-space: nowrap;
+    }
+    .card-slot .type-indicator {
+      position: absolute; top: 3px; left: 3px;
+      width: 10px; height: 10px; border-radius: 50%;
+    }
+    .type-rock    { background: var(--rock-b); }
+    .type-paper   { background: var(--paper-b); }
+    .type-scissors { background: var(--scissors-b); }
+
+    .primary-label { font-size: 10px; color: var(--muted); text-align: center; margin-top: 3px; }
+
+    /* Graveyard */
+    .grave-pile { width: 50px; height: 70px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg2); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--muted); cursor: pointer; position: relative; }
+    .grave-pile:hover { border-color: var(--muted); }
+    .grave-count { position: absolute; top: -6px; right: -6px; background: var(--border); color: var(--text); border-radius: 10px; font-size: 10px; padding: 1px 5px; }
+
+    /* Hand */
+    #hand-area { background: var(--bg2); border-top: 1px solid var(--border); padding: 8px 16px; }
+    #hand-scroll { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0; scrollbar-width: thin; }
+    .hand-card {
+      flex-shrink: 0; width: 70px; height: 98px; border-radius: 7px; border: 2px solid var(--border);
+      cursor: pointer; position: relative; transition: transform .15s, border-color .15s;
+      background: var(--bg);
+    }
+    .hand-card:hover { transform: translateY(-6px); border-color: var(--blue2); z-index: 10; }
+    .hand-card.selected { border-color: var(--gold); transform: translateY(-10px); }
+    .hand-card img { width: 100%; height: 100%; object-fit: cover; border-radius: 5px; }
+    .hand-card .hc-power { position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%); background: #000c; color: #fff; font-size: 9px; padding: 1px 5px; border-radius: 8px; white-space: nowrap; }
+    .hand-card .hc-type { position: absolute; top: 3px; left: 3px; width: 8px; height: 8px; border-radius: 50%; }
+    .hand-card[data-sor="1"] { border-color: var(--orange); }
+    .hand-card.communism-card { border-color: #9b59b6; }
+    .hand-card.rizz-card { border-color: #e74c3c; }
+
+    /* Action bar */
+    #action-bar { background: var(--bg2); border-top: 1px solid var(--border); padding: 8px 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 52px; }
+    .action-btn { border-radius: 6px; padding: 7px 16px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid; transition: background .15s; }
+    .action-btn:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-pass    { background: var(--green); color: #fff; border-color: var(--green2); }
+    .btn-pass:hover:not(:disabled)    { background: var(--green2); }
+    .btn-surr    { background: transparent; color: var(--red); border-color: var(--red); }
+    .btn-surr:hover:not(:disabled)    { background: #2d1b1b; }
+    .btn-done    { background: var(--blue); color: #fff; border-color: var(--blue2); }
+    .btn-done:hover:not(:disabled)    { background: var(--blue2); }
+    .btn-facedown { background: transparent; color: var(--muted); border-color: var(--border); font-size: 12px; }
+    .btn-facedown.active { color: var(--orange); border-color: var(--orange); }
+    .btn-facedown:hover:not(:disabled) { background: #21262d; }
+    .phase-label { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+    .dice-display { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+    .die { width: 28px; height: 28px; border: 2px solid var(--border); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; background: var(--bg); }
+    .die.rolling { animation: diceRoll .6s ease; }
+    @keyframes diceRoll { 0%,100%{transform:rotate(0);} 25%{transform:rotate(-20deg);} 75%{transform:rotate(20deg);} }
+    .dice-total { font-size: 13px; font-weight: 700; color: var(--blue2); }
+
+    /* Log panel */
+    #log-panel { position: fixed; right: 0; top: 0; bottom: 0; width: 260px; background: var(--bg2); border-left: 1px solid var(--border); transform: translateX(100%); transition: transform .3s; z-index: 50; display: flex; flex-direction: column; }
+    #log-panel.open { transform: translateX(0); }
+    #log-toggle { position: fixed; right: 8px; bottom: 80px; background: #21262d; border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 6px 10px; font-size: 12px; cursor: pointer; z-index: 60; }
+    #log-toggle:hover { background: var(--border); }
+    #log-header { padding: 12px 16px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+    #log-header button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; }
+    #log-list { flex:1; overflow-y: auto; padding: 8px 12px; font-size: 12px; color: var(--muted); }
+    #log-list .log-entry { padding: 4px 0; border-bottom: 1px solid #21262d; }
+    #log-list .log-entry.new { color: var(--text); }
+
+    /* Card tooltip */
+    #card-tooltip {
+      position: fixed; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px; z-index: 400; display: none; max-width: 220px; pointer-events: none;
+      box-shadow: 0 8px 24px #0008;
+    }
+    #card-tooltip img { width: 130px; height: 182px; object-fit: cover; border-radius: 6px; display: block; margin: 0 auto 8px; }
+    #card-tooltip .ct-name { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+    #card-tooltip .ct-type { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+    #card-tooltip .ct-power { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+    #card-tooltip .ct-kw { font-size: 11px; color: var(--muted); line-height: 1.4; }
+
+    /* Stack popup */
+    #stack-popup {
+      position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 300;
+      display: none; align-items: center; justify-content: center;
+    }
+    #stack-popup.open { display: flex; }
+    #stack-inner { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; max-width: 480px; width: 100%; }
+    #stack-inner h3 { font-size: 16px; margin-bottom: 12px; }
+    #stack-cards { display: flex; gap: 10px; flex-wrap: wrap; }
+    #stack-cards .sc-card { width: 80px; }
+    #stack-cards .sc-card img { width: 80px; height: 112px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
+    #stack-cards .sc-label { font-size: 10px; color: var(--muted); text-align: center; margin-top: 3px; }
+    #stack-close { margin-top: 14px; background: #21262d; border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 7px 20px; cursor: pointer; }
+
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 350; display: none; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 24px 28px; max-width: 400px; width: 100%; }
+    .modal-box h3 { font-size: 17px; margin-bottom: 8px; }
+    .modal-box p { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+    .modal-box .modal-btns { display: flex; gap: 10px; justify-content: flex-end; }
+    .modal-box .modal-btns button { border-radius: 6px; padding: 7px 18px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid; }
+    .modal-box .m-confirm { background: var(--red); color: #fff; border-color: var(--red); }
+    .modal-box .m-confirm:hover { opacity:.85; }
+    .modal-box .m-cancel { background: transparent; color: var(--text); border-color: var(--border); }
+    .modal-box .m-cancel:hover { background: #21262d; }
+    .modal-card-list { display: flex; flex-wrap: wrap; gap: 8px; max-height: 260px; overflow-y: auto; margin-bottom: 12px; }
+    .modal-card-item { width: 70px; cursor: pointer; border: 2px solid transparent; border-radius: 6px; }
+    .modal-card-item:hover { border-color: var(--blue2); }
+    .modal-card-item.selected { border-color: var(--gold); }
+    .modal-card-item img { width: 70px; height: 98px; object-fit: cover; border-radius: 4px; display: block; }
+    .modal-card-item .mci-name { font-size: 9px; color: var(--muted); text-align: center; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .connect-banner { position: fixed; top: 0; left: 0; right: 0; background: #2d1b1b; border-bottom: 1px solid var(--red); color: var(--red); padding: 8px; text-align: center; font-size: 13px; z-index: 700; display: none; }
+    .connect-banner.show { display: block; }
+
+    /* Opponent thinking */
+    .thinking-indicator { font-size: 12px; color: var(--muted); animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;}50%{opacity:.3;} }
+
+    /* Status bar */
+    #status-bar { display: flex; align-items: center; gap: 8px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green2); }
+
+    /* Ready btn */
+    .btn-ready { background: var(--green); color: #fff; border-color: var(--green2); font-size: 16px; padding: 12px 30px; }
+    .btn-ready:hover { background: var(--green2); }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .card-slot { width: 62px; height: 87px; }
+      .hand-card { width: 56px; height: 78px; }
+      #log-panel { width: 220px; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- Topbar -->
+  <div id="topbar">
+    <a href="/">Home</a>
+    <div class="title">Rakuel Is Back</div>
+    <div id="match-format" style="font-size:12px;color:var(--muted);"></div>
+    <button class="avatar-btn" id="my-avatar" title="Surrender" onclick="showSurrenderConfirm()">?</button>
+  </div>
+
+  <!-- Board -->
+  <div id="board">
+    <!-- Opponent -->
+    <div id="opp-area">
+      <div id="opp-info">
+        <div class="player-name" id="opp-name">Opponent</div>
+        <div class="stat-badge">Hand: <span id="opp-hand">0</span></div>
+        <div class="stat-badge">Prizes: <span id="opp-prizes">5</span></div>
+        <div class="stat-badge">Deck: <span id="opp-deck">55</span></div>
+        <div class="grave-pile" onclick="showGrave(1)" title="Opponent graveyard">
+          🗑️
+          <span class="grave-count" id="opp-grave-count">0</span>
+        </div>
+        <div class="thinking-indicator" id="opp-thinking" style="display:none;">Thinking…</div>
+      </div>
+      <div id="opp-field">
+        <div class="card-zone">
+          <div class="card-slot" id="opp-left"  data-owner="1" data-slot="left"   onclick="showStack(1,'left')">Left</div>
+          <div class="primary-label">Support</div>
+        </div>
+        <div class="card-zone">
+          <div class="card-slot" id="opp-primary" data-owner="1" data-slot="primary" onclick="showStack(1,'primary')">Primary</div>
+          <div class="primary-label">Primary</div>
+        </div>
+        <div class="card-zone">
+          <div class="card-slot" id="opp-right" data-owner="1" data-slot="right"  onclick="showStack(1,'right')">Right</div>
+          <div class="primary-label">Support</div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider-line" />
+
+    <!-- My field -->
+    <div id="my-area">
+      <div id="my-field">
+        <div class="card-zone">
+          <div class="card-slot" id="my-left"    data-owner="0" data-slot="left"    onclick="onSlotClick('left')">Left</div>
+          <div class="primary-label">Support</div>
+        </div>
+        <div class="card-zone">
+          <div class="card-slot" id="my-primary" data-owner="0" data-slot="primary" onclick="onSlotClick('primary')">Primary</div>
+          <div class="primary-label">Primary</div>
+        </div>
+        <div class="card-zone">
+          <div class="card-slot" id="my-right"   data-owner="0" data-slot="right"   onclick="onSlotClick('right')">Right</div>
+          <div class="primary-label">Support</div>
+        </div>
+      </div>
+      <div id="my-info">
+        <div class="player-name" id="my-name">You</div>
+        <div class="stat-badge">Prizes: <span id="my-prizes">5</span></div>
+        <div class="stat-badge">Deck: <span id="my-deck">55</span></div>
+        <div class="grave-pile" onclick="showGrave(0)" title="Your graveyard">
+          🗑️
+          <span class="grave-count" id="my-grave-count">0</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hand -->
+  <div id="hand-area">
+    <div id="hand-scroll"></div>
+  </div>
+
+  <!-- Action bar -->
+  <div id="action-bar">
+    <div id="status-bar">
+      <div class="status-dot" id="status-dot"></div>
+      <span class="phase-label" id="phase-label">Connecting…</span>
+    </div>
+    <div id="dice-area" style="display:none;" class="dice-display">
+      <div class="die" id="d1">?</div>
+      <div class="die" id="d2">?</div>
+      <div class="dice-total" id="dice-total"></div>
+    </div>
+    <div id="action-btns" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+  </div>
+</div>
+
+<!-- Log toggle -->
+<button id="log-toggle" onclick="toggleLog()">📋 Log</button>
+
+<!-- Log panel -->
+<div id="log-panel">
+  <div id="log-header">Game Log <button onclick="toggleLog()">✕</button></div>
+  <div id="log-list"></div>
+</div>
+
+<!-- Card tooltip -->
+<div id="card-tooltip">
+  <img id="ct-img" src="" alt="" />
+  <div class="ct-name" id="ct-name"></div>
+  <div class="ct-type" id="ct-type"></div>
+  <div class="ct-power" id="ct-power"></div>
+  <div class="ct-kw" id="ct-kw"></div>
+</div>
+
+<!-- Stack popup -->
+<div id="stack-popup">
+  <div id="stack-inner">
+    <h3 id="stack-title">Stack</h3>
+    <div id="stack-cards"></div>
+    <button id="stack-close" onclick="closeStack()">Close</button>
+  </div>
+</div>
+
+<!-- Surrender modal -->
+<div class="modal-overlay" id="surr-modal">
+  <div class="modal-box">
+    <h3>Surrender Round?</h3>
+    <p>You will concede this round. Your opponent wins and draws a prize card.</p>
+    <div class="modal-btns">
+      <button class="m-cancel" onclick="closeSurr()">Cancel</button>
+      <button class="m-confirm" onclick="confirmSurrender()">Surrender</button>
+    </div>
+  </div>
+</div>
+
+<!-- Generic modal (for keyword effects) -->
+<div class="modal-overlay" id="kw-modal">
+  <div class="modal-box" id="kw-modal-box">
+    <h3 id="kw-modal-title">Choose</h3>
+    <p id="kw-modal-desc"></p>
+    <div class="modal-card-list" id="kw-modal-cards"></div>
+    <div class="modal-btns" id="kw-modal-btns"></div>
+  </div>
+</div>
+
+<!-- Win overlay -->
+<div id="win-overlay">
+  <div id="win-title">WIN!</div>
+  <div id="win-sub"></div>
+  <button onclick="location.href='/is-back/match-queue/'" style="background:var(--green);color:#fff;border:1px solid var(--green2);border-radius:8px;padding:12px 28px;font-size:16px;cursor:pointer;">Back to Queue</button>
+</div>
+
+<!-- Phase overlay -->
+<div id="phase-overlay">
+  <div id="phase-text">ROUND 1</div>
+</div>
+
+<div class="connect-banner" id="connect-banner">⚠ Reconnecting…</div>
+
+<script src="engine.js"></script>
+<script>
+// ── Constants & state ────────────────────────────────────────────────────────
+const API       = '../../api/is-back/';
+const USER_API  = '../../api/user/';
+const authToken = localStorage.getItem('authToken');
+const myUserId  = parseInt(localStorage.getItem('userId') || '0');
+const myUsername = localStorage.getItem('username') || 'You';
+const myFirstname = localStorage.getItem('firstname') || '?';
+const params    = new URLSearchParams(location.search);
+const matchId   = parseInt(params.get('matchId') || '0');
+
+let gameState   = null;
+let allCards    = {};   // id → card
+let allKeywords = [];
+let myIndex     = -1;   // 0 or 1
+let pollInterval = null;
+let lastVersion  = -1;
+let lastPhase    = null;
+let selectedHandCardId = null;
+let faceDownMode = false;
+let isConnected  = true;
+let failCount    = 0;
+
+function authHeaders() { return { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }; }
+function fmt(p) { return String(Number(p)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
+function stripBB(s) { return (s||'').replace(/\[[^\]]*\]/g,''); }
+function cardImg(card) {
+  if (!card) return '';
+  const nm = stripBB(card.name);
+  const n  = nm.startsWith('The ') ? nm.slice(4) : nm;
+  return `../card-images/${encodeURIComponent(`${card.id} - ${n}`)}.png`;
+}
+function cardBack() { return '../card-images/0%20-%20Card%20Back.png'; }
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+(async () => {
+  if (!authToken) { location.href = '/is-back/profile/'; return; }
+  if (!matchId)   { location.href = '/is-back/match-queue/'; return; }
+
+  document.getElementById('my-avatar').textContent = myFirstname[0].toUpperCase();
+  document.getElementById('my-name').textContent   = myUsername;
+
+  // Load cards & keywords
+  try {
+    const [cr, kr] = await Promise.all([
+      fetch(API + 'cards'),
+      fetch(API + 'keywords'),
+    ]);
+    const cd = await cr.json(); const kd = await kr.json();
+    (cd.cards || []).forEach(c => { allCards[c.id] = c; });
+    allKeywords = kd.keywords || [];
+  } catch {}
+
+  startPolling();
+})();
+
+// ── Polling ───────────────────────────────────────────────────────────────────
+function startPolling() {
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = setInterval(poll, 2000);
+  poll();
+}
+
+async function poll() {
+  try {
+    const url = `${API}gameState?matchId=${matchId}&version=${lastVersion}`;
+    const res = await fetch(url, { headers: authHeaders() });
+    if (res.status === 401) { clearInterval(pollInterval); location.href = '/is-back/profile/'; return; }
+    if (res.status === 404) { clearInterval(pollInterval); showPhaseMsg('Match not found', '#f85149'); return; }
+    if (!res.ok) { handleDisconnect(); return; }
+    const data = await res.json();
+    handleDisconnect(false);
+    if (data.version !== undefined && data.version !== lastVersion) {
+      lastVersion = data.version;
+      processState(data);
+    }
+  } catch { handleDisconnect(); }
+}
+
+function handleDisconnect(fail = true) {
+  if (fail) { failCount++; } else { failCount = 0; }
+  const bad = failCount >= 3;
+  document.getElementById('connect-banner').classList.toggle('show', bad);
+  document.getElementById('status-dot').style.background = bad ? 'var(--red)' : 'var(--green2)';
+}
+
+// ── State processing ──────────────────────────────────────────────────────────
+function processState(state) {
+  state._cardsMap = allCards;
+
+  // Determine my index
+  if (myIndex === -1 && state.players) {
+    myIndex = state.players.findIndex(p => p.userId === myUserId);
+    if (myIndex === -1) myIndex = state.playerIndex ?? 0;
+  }
+
+  gameState = state;
+  const oppIndex = 1 - myIndex;
+
+  // Format
+  const fmtEl = document.getElementById('match-format');
+  if (fmtEl && state.format) fmtEl.textContent = state.format === 'bo3' ? 'Best of 3' : 'Best of 1';
+
+  // Phase announcement
+  if (lastPhase !== state.phase) {
+    const prevPhase = lastPhase;
+    lastPhase = state.phase;
+    if (prevPhase !== null) announcePhase(state.phase, state.roundNumber);
+  }
+
+  // Update UI
+  updatePlayerInfo(state, myIndex, oppIndex);
+  updateField(state, myIndex, oppIndex);
+  updateHand(state, myIndex);
+  updateDice(state, myIndex);
+  updateActionBar(state, myIndex);
+
+  // Win/complete
+  if (state.phase === 'completed' || state.status === 'completed') {
+    handleMatchComplete(state);
+  }
+}
+
+// ── Phase announcement ────────────────────────────────────────────────────────
+const PHASE_COLORS = {
+  start_of_round: '#58a6ff',
+  main_phase:     '#3fb950',
+  passing_phase:  '#d29922',
+  end_of_round:   '#f85149',
+  setup:          '#8b949e',
+};
+function announcePhase(phase, roundNum) {
+  const labels = {
+    start_of_round: `START OF ROUND ${roundNum || ''}`,
+    main_phase:     'MAIN PHASE',
+    passing_phase:  'PASSING PHASE',
+    end_of_round:   'END OF ROUND',
+    setup:          'PREPARE',
+  };
+  const label = labels[phase] || phase.toUpperCase().replace(/_/g,' ');
+  showPhaseMsg(label, PHASE_COLORS[phase] || '#e6edf3');
+}
+function showPhaseMsg(text, color, duration = 1800) {
+  const overlay = document.getElementById('phase-overlay');
+  const textEl  = document.getElementById('phase-text');
+  textEl.textContent = text;
+  textEl.style.color = color || '#e6edf3';
+  overlay.classList.add('show');
+  setTimeout(() => overlay.classList.remove('show'), duration);
+}
+
+// ── Player info ───────────────────────────────────────────────────────────────
+function updatePlayerInfo(state, mi, oi) {
+  const me  = state.players[mi];
+  const opp = state.players[oi];
+  if (!me || !opp) return;
+
+  const isMyTurn = state.turn === mi;
+  document.getElementById('my-name').className = `player-name${isMyTurn ? ' active' : ''}`;
+  document.getElementById('opp-name').className = `player-name${!isMyTurn ? ' active' : ''}`;
+  document.getElementById('opp-name').textContent = opp.username || 'Opponent';
+
+  document.getElementById('my-prizes').textContent  = me.prizeCount  ?? 5;
+  document.getElementById('opp-prizes').textContent = opp.prizeCount ?? 5;
+  document.getElementById('my-deck').textContent    = me.deckCount   ?? '?';
+  document.getElementById('opp-deck').textContent   = opp.deckCount  ?? '?';
+  document.getElementById('opp-hand').textContent   = opp.handCount  ?? 0;
+  document.getElementById('my-grave-count').textContent  = (me.graveyardIds  || []).length;
+  document.getElementById('opp-grave-count').textContent = (opp.graveyardIds || []).length;
+
+  const thinking = state.turn !== mi && state.phase !== 'setup' && state.phase !== 'completed';
+  document.getElementById('opp-thinking').style.display = thinking ? '' : 'none';
+}
+
+// ── Field rendering ───────────────────────────────────────────────────────────
+function renderSlot(el, stack, canInteract, owner) {
+  if (!stack || !stack.length) {
+    el.innerHTML = el.dataset.slot.charAt(0).toUpperCase() + el.dataset.slot.slice(1);
+    el.className = 'card-slot';
+    return;
+  }
+  const top = stack[stack.length - 1];
+  const card = allCards[top.cardId];
+  el.className = 'card-slot has-card';
+
+  if (top.faceDown || !card) {
+    el.innerHTML = `<img src="${cardBack()}" alt="Face Down" /><div class="face-down-label">Face Down</div>`;
+  } else {
+    const typeClass = `type-${(card.type||'').toLowerCase()}`;
+    const power = GameEngine.getEffectivePower(top.cardId, { field: { primary: el.dataset.slot==='primary'?stack:[], left: el.dataset.slot==='left'?stack:[], right: el.dataset.slot==='right'?stack:[] }, graveyardIds: [] }, allCards);
+    el.innerHTML = `
+      <img src="${cardImg(card)}" alt="${stripBB(card.name)}" onerror="this.src=''" />
+      <div class="type-indicator ${typeClass}"></div>
+      <div class="power-badge">${fmt(power)}</div>
+      ${stack.length > 1 ? `<div class="stack-count">×${stack.length}</div>` : ''}
+    `;
+  }
+  addTooltipListeners(el, top.cardId, top.faceDown);
+}
+
+function updateField(state, mi, oi) {
+  const me  = state.players[mi];
+  const opp = state.players[oi];
+  if (!me || !opp) return;
+  const isMyTurn = state.turn === mi && state.phase === 'main_phase';
+
+  for (const slot of ['primary','left','right']) {
+    renderSlot(document.getElementById(`my-${slot}`),  me.field[slot],  isMyTurn, mi);
+    renderSlot(document.getElementById(`opp-${slot}`), opp.field[slot], false,    oi);
+  }
+
+  // Highlight playable slots
+  if (isMyTurn && selectedHandCardId) {
+    highlightPlayableSlots(state, mi, selectedHandCardId);
+  }
+}
+
+function highlightPlayableSlots(state, mi, cardId) {
+  for (const slot of ['primary','left','right']) {
+    const el = document.getElementById(`my-${slot}`);
+    const result = GameEngine.canPlayCard(state, mi, cardId, slot, faceDownMode);
+    el.classList.toggle('can-play', result.canPlay);
+  }
+}
+
+// ── Hand rendering ────────────────────────────────────────────────────────────
+function updateHand(state, mi) {
+  const me = state.players[mi];
+  if (!me || !me.handIds) return;
+  const isMyTurn = state.turn === mi;
+  const phase = state.phase;
+  const handScroll = document.getElementById('hand-scroll');
+  handScroll.innerHTML = me.handIds.map(id => {
+    const card = allCards[id];
+    if (!card) return '';
+    const isSOR = card.keywords && card.keywords.some(k => k && (k.toLowerCase()==='greed'||k.toLowerCase()==='natural selection'));
+    const isCommunism = card.keywords && card.keywords.some(k=>k&&k.toLowerCase()==='communism');
+    const isRizz = card.keywords && card.keywords.some(k=>k&&k.toLowerCase()==='rizz');
+    const isSelected = selectedHandCardId === id;
+    const typeClass = `type-${(card.type||'').toLowerCase()}`;
+    let cls = 'hand-card';
+    if (isSelected) cls += ' selected';
+    if (isSOR && phase === 'start_of_round') cls += ' sor-card';
+    if (isCommunism) cls += ' communism-card';
+    if (isRizz) cls += ' rizz-card';
+    return `
+      <div class="${cls}" data-id="${id}" data-sor="${isSOR?1:0}"
+           onclick="onHandCardClick(${id})"
+           oncontextmenu="onHandCardRightClick(event,${id})"
+           onmouseenter="showTooltip(event,${id})"
+           onmouseleave="hideTooltip()">
+        <img src="${cardImg(card)}" alt="${stripBB(card.name)}" onerror="this.src=''" />
+        <div class="hc-type ${typeClass}"></div>
+        <div class="hc-power">${fmt(card.power)}</div>
+      </div>`;
+  }).join('');
+}
+
+// ── Dice display ──────────────────────────────────────────────────────────────
+function updateDice(state, mi) {
+  const me = state.players[mi];
+  const diceArea = document.getElementById('dice-area');
+  if (!me || !me.diceRoll) { diceArea.style.display = 'none'; return; }
+  diceArea.style.display = 'flex';
+  document.getElementById('d1').textContent = me.diceRoll[0];
+  document.getElementById('d2').textContent = me.diceRoll[1];
+  const total = me.diceRoll[0] + me.diceRoll[1] + (me.diceBonus || 0);
+  document.getElementById('dice-total').textContent = `= ${total}`;
+}
+
+// ── Action bar ────────────────────────────────────────────────────────────────
+function updateActionBar(state, mi) {
+  const phase = state.phase;
+  const isMyTurn = state.turn === mi;
+  const me = state.players[mi];
+  const btns = document.getElementById('action-btns');
+  const phLabel = document.getElementById('phase-label');
+
+  const phaseNames = {
+    setup: 'Setup',
+    start_of_round: 'Start of Round',
+    main_phase: 'Main Phase',
+    passing_phase: 'Passing Phase',
+    end_of_round: 'End of Round',
+    completed: 'Match Complete',
+  };
+  phLabel.textContent = phaseNames[phase] || phase;
+
+  btns.innerHTML = '';
+
+  if (phase === 'setup') {
+    if (!me.readyForRound) {
+      const b = mkBtn('Ready!', 'action-btn btn-ready', () => sendAction('ready'));
+      btns.appendChild(b);
+    } else {
+      btns.innerHTML = '<span style="color:var(--muted);font-size:13px;">Waiting for opponent…</span>';
+    }
+    return;
+  }
+
+  if (phase === 'start_of_round') {
+    if (isMyTurn) {
+      if (!me.diceRoll) {
+        btns.appendChild(mkBtn('🎲 Roll Dice', 'action-btn btn-done', () => sendAction('rollDice')));
+      } else if (!me.startOfRoundUsed) {
+        btns.appendChild(mkBtn('Skip Start Effect', 'action-btn btn-done', () => sendAction('skipStartOfRound')));
+        // [Start of round] cards are highlighted in hand with sor-card class
+        btns.appendChild(document.createTextNode(' '));
+        const hint = document.createElement('span');
+        hint.style.cssText = 'font-size:12px;color:var(--muted);';
+        hint.textContent = 'or click a ⭐ card in hand';
+        btns.appendChild(hint);
+      } else {
+        btns.appendChild(mkBtn('Proceed', 'action-btn btn-done', () => sendAction('doneStartOfRound')));
+      }
+    } else {
+      btns.innerHTML = '<span class="thinking-indicator">Opponent is rolling dice…</span>';
+    }
+    return;
+  }
+
+  if (phase === 'main_phase') {
+    if (isMyTurn) {
+      // Face-down toggle
+      const fdBtn = mkBtn(faceDownMode ? '🂠 Face-Down: ON' : '🂠 Face-Down', 'action-btn btn-facedown' + (faceDownMode?' active':''), () => {
+        faceDownMode = !faceDownMode;
+        updateActionBar(state, mi);
+        if (selectedHandCardId) highlightPlayableSlots(state, mi, selectedHandCardId);
+      });
+      btns.appendChild(fdBtn);
+      const canP = GameEngine.canPass(state, mi);
+      btns.appendChild(mkBtn('Pass', 'action-btn btn-pass', () => sendAction('pass'), !canP));
+      btns.appendChild(mkBtn('Surrender', 'action-btn btn-surr', showSurrenderConfirm));
+    } else {
+      btns.innerHTML = '<span class="thinking-indicator">Opponent is playing…</span>';
+    }
+    return;
+  }
+
+  if (phase === 'passing_phase') {
+    // The responding player (not the one who passed) can trigger [Opponent passes] keywords
+    const respondingIndex = 1 - (state.passingPlayer ?? (1-mi));
+    if (respondingIndex === mi) {
+      const kws = GameEngine.getOpponentPassesKeywords(state, mi, allCards);
+      kws.forEach(k => {
+        btns.appendChild(mkBtn(`⚡ ${k.keyword}`, 'action-btn btn-done', () => triggerOpponentPasses(k)));
+      });
+      btns.appendChild(mkBtn('Confirm End', 'action-btn btn-pass', () => sendAction('confirmEndOfRound')));
+    } else {
+      btns.innerHTML = '<span class="thinking-indicator">Opponent is responding…</span>';
+    }
+    return;
+  }
+
+  if (phase === 'end_of_round') {
+    btns.innerHTML = '<span style="color:var(--muted);font-size:13px;">End of round — resolving…</span>';
+  }
+}
+
+function mkBtn(label, cls, onClick, disabled = false) {
+  const b = document.createElement('button');
+  b.className = cls; b.textContent = label; b.disabled = disabled;
+  b.addEventListener('click', onClick);
+  return b;
+}
+
+// ── Card interactions ─────────────────────────────────────────────────────────
+function onHandCardClick(cardId) {
+  if (!gameState) return;
+  const phase = gameState.phase;
+  const isMyTurn = gameState.turn === myIndex;
+
+  // [Start of round] card usage
+  if (phase === 'start_of_round' && isMyTurn && !gameState.players[myIndex].startOfRoundUsed) {
+    const card = allCards[cardId];
+    if (card && card.keywords && card.keywords.some(k=>k&&(k.toLowerCase()==='greed'||k.toLowerCase()==='natural selection'))) {
+      sendAction('useStartOfRound', { cardId });
+      return;
+    }
+  }
+
+  // Communism from hand
+  if (phase === 'main_phase' && isMyTurn) {
+    const card = allCards[cardId];
+    if (card && GameEngine.cardHasKeyword(card, 'Communism')) {
+      sendAction('playCommunism', { cardId });
+      return;
+    }
+    if (card && GameEngine.cardHasKeyword(card, 'Rizz')) {
+      sendAction('useRizz', { cardId });
+      return;
+    }
+  }
+
+  if (phase !== 'main_phase' || !isMyTurn) return;
+
+  if (selectedHandCardId === cardId) {
+    // Deselect
+    selectedHandCardId = null;
+    faceDownMode = false;
+    clearSlotHighlights();
+  } else {
+    selectedHandCardId = cardId;
+    highlightPlayableSlots(gameState, myIndex, cardId);
+  }
+  updateHand(gameState, myIndex);
+}
+
+function onHandCardRightClick(e, cardId) {
+  e.preventDefault();
+  // Right-click in hand: in deck builder context this removes; here show tooltip
+  showTooltip(e, cardId);
+}
+
+function onSlotClick(slot) {
+  if (!gameState || gameState.phase !== 'main_phase' || gameState.turn !== myIndex) return;
+  if (!selectedHandCardId) return;
+  const result = GameEngine.canPlayCard(gameState, myIndex, selectedHandCardId, slot, faceDownMode);
+  if (!result.canPlay) return;
+  const effectiveFaceDown = result.mustFaceDown || faceDownMode;
+  sendAction('playCard', { cardId: selectedHandCardId, slot, faceDown: effectiveFaceDown });
+  selectedHandCardId = null;
+  faceDownMode = false;
+  clearSlotHighlights();
+}
+
+function clearSlotHighlights() {
+  ['primary','left','right'].forEach(s => document.getElementById(`my-${s}`).classList.remove('can-play'));
+}
+
+// ── Actions → API ─────────────────────────────────────────────────────────────
+async function sendAction(action, params = {}) {
+  try {
+    const res = await fetch(API + 'gameAction', {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ matchId, action, params }),
+    });
+    const data = await res.json();
+    if (!res.ok) { showPhaseMsg(data.error || 'Invalid action', '#f85149', 2000); return; }
+    if (data.state) { lastVersion = -1; processState(data.state); }
+    else poll();
+  } catch { showPhaseMsg('Network error', '#f85149', 2000); }
+}
+
+function triggerOpponentPasses({ slot, cardId, keyword }) {
+  sendAction('triggerOpponentPasses', { slot, cardId, keyword });
+}
+
+// ── Keyword effect modals ─────────────────────────────────────────────────────
+function openKwModal(title, desc, cards, onSelect, skipLabel = 'Skip') {
+  document.getElementById('kw-modal-title').textContent = title;
+  document.getElementById('kw-modal-desc').textContent  = desc;
+  const list = document.getElementById('kw-modal-cards');
+  list.innerHTML = cards.map(c => `
+    <div class="modal-card-item" data-id="${c.id}" onclick="kwModalSelect(${c.id})">
+      <img src="${cardImg(c)}" alt="${stripBB(c.name)}" onerror="this.src=''" />
+      <div class="mci-name">${stripBB(c.name)}</div>
+    </div>`).join('');
+  const btns = document.getElementById('kw-modal-btns');
+  btns.innerHTML = `<button class="m-cancel" onclick="closeKwModal()">${skipLabel}</button>`;
+  window._kwModalCallback = onSelect;
+  document.getElementById('kw-modal').classList.add('open');
+}
+function kwModalSelect(id) {
+  if (window._kwModalCallback) window._kwModalCallback(id);
+  closeKwModal();
+}
+function closeKwModal() {
+  document.getElementById('kw-modal').classList.remove('open');
+  window._kwModalCallback = null;
+}
+
+// ── Graveyard popup ───────────────────────────────────────────────────────────
+function showGrave(playerIndex) {
+  if (!gameState) return;
+  const p = gameState.players[playerIndex];
+  if (!p) return;
+  const cards = (p.graveyardIds || []).map(id => allCards[id]).filter(Boolean);
+  showStackPopup(`${playerIndex===myIndex?'Your':'Opponent\'s'} Graveyard (${cards.length})`, cards.map(c=>({cardId:c.id,faceDown:false})));
+}
+
+// ── Stack popup ───────────────────────────────────────────────────────────────
+function showStack(playerIndex, slot) {
+  if (!gameState) return;
+  const p = gameState.players[playerIndex];
+  if (!p) return;
+  const stack = p.field[slot] || [];
+  if (!stack.length) return;
+  showStackPopup(`${slot} stack (${stack.length} card${stack.length>1?'s':''})`, stack);
+}
+function showStackPopup(title, stack) {
+  document.getElementById('stack-title').textContent = title;
+  document.getElementById('stack-cards').innerHTML = [...stack].reverse().map((entry, i) => {
+    const card = allCards[entry.cardId];
+    const isActive = i === 0;
+    return `<div class="sc-card">
+      <img src="${entry.faceDown||!card ? cardBack() : cardImg(card)}" alt="" />
+      <div class="sc-label">${isActive?'▶ Active':''} ${entry.faceDown?'(face-down)':card?stripBB(card.name):''}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('stack-popup').classList.add('open');
+}
+function closeStack() { document.getElementById('stack-popup').classList.remove('open'); }
+document.getElementById('stack-popup').addEventListener('click', e => { if (e.target === document.getElementById('stack-popup')) closeStack(); });
+
+// ── Tooltip ───────────────────────────────────────────────────────────────────
+let tooltipTimeout;
+function showTooltip(e, cardId) {
+  const card = allCards[cardId];
+  if (!card) return;
+  const tt = document.getElementById('card-tooltip');
+  document.getElementById('ct-img').src = cardImg(card);
+  document.getElementById('ct-name').textContent  = stripBB(card.name);
+  document.getElementById('ct-type').textContent  = `${card.type} • #${card.id}`;
+  const kws = (card.keywords || []).filter(Boolean);
+  let powerText = `Power: ${fmt(card.power)}`;
+  // Democracy: show effective if applicable
+  if (gameState && myIndex !== -1) {
+    const me = gameState.players[myIndex];
+    if (me) {
+      const eff = GameEngine.getEffectivePower(cardId, me, allCards);
+      if (eff !== card.power) powerText += ` (Effective: ${fmt(eff)})`;
+    }
+  }
+  document.getElementById('ct-power').textContent = powerText;
+  document.getElementById('ct-kw').innerHTML = kws.map(k => {
+    const kd = allKeywords.find(x => x.name === k);
+    return `<div><strong>${kd?.displayName||k}:</strong> ${kd?.description||''}</div>`;
+  }).join('');
+  tt.style.display = 'block';
+  moveTooltip(e);
+}
+function moveTooltip(e) {
+  const tt = document.getElementById('card-tooltip');
+  let x = e.clientX + 14, y = e.clientY - 10;
+  if (x + 230 > window.innerWidth)  x = e.clientX - 240;
+  if (y + 320 > window.innerHeight) y = window.innerHeight - 330;
+  tt.style.left = x + 'px'; tt.style.top = y + 'px';
+}
+function hideTooltip() {
+  document.getElementById('card-tooltip').style.display = 'none';
+}
+document.addEventListener('mousemove', e => {
+  const tt = document.getElementById('card-tooltip');
+  if (tt.style.display !== 'none') moveTooltip(e);
+});
+function addTooltipListeners(el, cardId, faceDown) {
+  if (faceDown) return;
+  el.addEventListener('mouseenter', e => showTooltip(e, cardId));
+  el.addEventListener('mouseleave', hideTooltip);
+}
+
+// ── Surrender ──────────────────────────────────────────────────────────────────
+function showSurrenderConfirm() { document.getElementById('surr-modal').classList.add('open'); }
+function closeSurr() { document.getElementById('surr-modal').classList.remove('open'); }
+async function confirmSurrender() {
+  closeSurr();
+  await sendAction('surrender');
+}
+
+// ── Win screen ────────────────────────────────────────────────────────────────
+function handleMatchComplete(state) {
+  clearInterval(pollInterval);
+  const winnerId = state.winnerId;
+  const iWon = winnerId === myUserId;
+  const overlay = document.getElementById('win-overlay');
+  const titleEl  = document.getElementById('win-title');
+  const subEl    = document.getElementById('win-sub');
+
+  if (state.format === 'bo3') {
+    const me = state.players[myIndex];
+    const opp = state.players[1-myIndex];
+    subEl.textContent = `Match score: ${me?.wins||0} – ${opp?.wins||0}`;
+  } else {
+    subEl.textContent = '';
+  }
+
+  if (iWon) {
+    titleEl.textContent = 'YOU WIN! 🎉';
+    titleEl.style.color = 'var(--gold)';
+    spawnParticles();
+  } else {
+    titleEl.textContent = 'YOU LOSE 💀';
+    titleEl.style.color = 'var(--red)';
+  }
+  overlay.classList.add('show');
+}
+
+function spawnParticles() {
+  const colors = ['#f0c040','#3fb950','#58a6ff','#f0883e','#bc8cff'];
+  for (let i = 0; i < 40; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.cssText = `left:${Math.random()*100}vw;top:${Math.random()*50}vh;background:${colors[Math.floor(Math.random()*colors.length)]};animation-delay:${Math.random()*.8}s;`;
+    document.getElementById('win-overlay').appendChild(p);
+    setTimeout(() => p.remove(), 2200);
+  }
+}
+
+// Round result announcements (called when end_of_round resolves)
+function announceRoundResult(iWon) {
+  const text  = iWon ? 'ROUND WON!' : 'ROUND LOST!';
+  const color = iWon ? '#3fb950' : '#f85149';
+  showPhaseMsg(text, color, 2000);
+}
+
+// ── Log ───────────────────────────────────────────────────────────────────────
+let loggedEntries = new Set();
+function updateLog(entries) {
+  const list = document.getElementById('log-list');
+  (entries || []).forEach(entry => {
+    if (loggedEntries.has(entry)) return;
+    loggedEntries.add(entry);
+    const div = document.createElement('div');
+    div.className = 'log-entry new';
+    div.textContent = entry;
+    list.appendChild(div);
+    setTimeout(() => div.classList.remove('new'), 3000);
+  });
+  list.scrollTop = list.scrollHeight;
+}
+function toggleLog() { document.getElementById('log-panel').classList.toggle('open'); }
+
+// Extend processState to also update log
+const _origProcessState = processState;
+// Patch after definition to include log updates:
+const processStateWithLog = (state) => {
+  processState(state);
+  if (state.log) updateLog(state.log);
+};
+// Override poll to use patched version
+// (since processState is already defined above, just always call updateLog after)
+
+// ── Drag & drop ───────────────────────────────────────────────────────────────
+document.getElementById('hand-scroll').addEventListener('dragstart', e => {
+  const card = e.target.closest('.hand-card');
+  if (!card) return;
+  e.dataTransfer.setData('cardId', card.dataset.id);
+});
+['my-primary','my-left','my-right'].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('droptarget'); });
+  el.addEventListener('dragleave', () => el.classList.remove('droptarget'));
+  el.addEventListener('drop', e => {
+    e.preventDefault(); el.classList.remove('droptarget');
+    const cardId = parseInt(e.dataTransfer.getData('cardId'));
+    if (!cardId) return;
+    const slot = el.dataset.slot;
+    if (!gameState || gameState.phase !== 'main_phase' || gameState.turn !== myIndex) return;
+    const result = GameEngine.canPlayCard(gameState, myIndex, cardId, slot, faceDownMode);
+    if (result.canPlay) sendAction('playCard', { cardId, slot, faceDown: result.mustFaceDown || faceDownMode });
+  });
+});
+// Make hand cards draggable
+document.getElementById('hand-scroll').addEventListener('mousedown', e => {
+  const hc = e.target.closest('.hand-card');
+  if (hc) hc.draggable = true;
+});
+</script>
+</body>
+</html>

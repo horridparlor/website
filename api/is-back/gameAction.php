@@ -1,0 +1,1113 @@
+<?php
+
+use system\Database;
+
+header('Content-Type: application/json');
+
+include("../../system/Database.php");
+include(__DIR__ . "/gameHelper.php");
+
+// Card type that beats another: beater => loser
+// Rock beats Scissors, Paper beats Rock, Scissors beats Paper
+const BEATS = ['rock' => 'scissors', 'paper' => 'rock', 'scissors' => 'paper'];
+// Weak type of each card: what it loses to, and what it itself beats (its own weak type in Facism context = the type it beats)
+const WEAK_TYPE = ['rock' => 'scissors', 'paper' => 'rock', 'scissors' => 'paper'];
+
+class GameEngine
+{
+    private Database $db;
+    private array $cardCache = [];
+
+    public function __construct(Database $db) {
+        $this->db = $db;
+    }
+
+    public function getCard(int $cardId): array
+    {
+        if (isset($this->cardCache[$cardId])) return $this->cardCache[$cardId];
+        $rows = $this->db->query(
+            <<<SQL
+                SELECT c.id, c.name, ct.name type, c.power,
+                    k1.name kw1, k2.name kw2, k3.name kw3
+                FROM isBack_card c
+                JOIN isBack_cardType ct ON ct.id = c.cardTypeId
+                LEFT JOIN isBack_keyword k1 ON k1.id = c.keywordId
+                LEFT JOIN isBack_keyword k2 ON k2.id = c.keyword2Id
+                LEFT JOIN isBack_keyword k3 ON k3.id = c.keyword3Id
+                WHERE c.id = :id
+            SQL,
+            ['id' => ['value' => $cardId, 'type' => \PDO::PARAM_INT]]
+        );
+        if (!$rows) return [];
+        $c = $rows[0];
+        $c['keywords'] = array_values(array_filter([$c['kw1'], $c['kw2'], $c['kw3']]));
+        $this->cardCache[$cardId] = $c;
+        return $c;
+    }
+
+    public function hasKeyword(int $cardId, string $kw): bool
+    {
+        $c = $this->getCard($cardId);
+        return in_array(strtolower($kw), array_map('strtolower', $c['keywords']));
+    }
+
+    public function getTopCard(array $stack): ?array
+    {
+        if (empty($stack)) return null;
+        $top = end($stack);
+        if (!$top || !isset($top['cardId'])) return null;
+        $card = $this->getCard((int)$top['cardId']);
+        $card['faceDown'] = $top['faceDown'];
+        return $card;
+    }
+
+    public function drawCards(array &$state, int $playerIndex, int $count): void
+    {
+        $p = &$state['players'][$playerIndex];
+        for ($i = 0; $i < $count; $i++) {
+            if (empty($p['deckIds'])) {
+                if (empty($p['graveyardIds'])) break;
+                // Reshuffle graveyard
+                $p['deckIds'] = $p['graveyardIds'];
+                shuffle($p['deckIds']);
+                $p['graveyardIds'] = [];
+                $state['log'][] = $p['username'] . ' reshuffled graveyard into deck.';
+            }
+            $drawn = array_shift($p['deckIds']);
+            $p['handIds'][] = $drawn;
+        }
+    }
+
+    public function discardFromHand(array &$state, int $playerIndex, int $cardId): bool
+    {
+        $p = &$state['players'][$playerIndex];
+        $idx = array_search($cardId, $p['handIds']);
+        if ($idx === false) return false;
+        array_splice($p['handIds'], $idx, 1);
+        $p['graveyardIds'][] = $cardId;
+        return true;
+    }
+
+    public function discardFromField(array &$state, int $playerIndex, string $slot): void
+    {
+        $p = &$state['players'][$playerIndex];
+        foreach (array_reverse($p['field'][$slot]) as $entry) {
+            $p['graveyardIds'][] = $entry['cardId'];
+        }
+        $p['field'][$slot] = [];
+    }
+
+    public function removeTopFromStack(array &$state, int $playerIndex, string $slot): void
+    {
+        $p = &$state['players'][$playerIndex];
+        if (empty($p['field'][$slot])) return;
+        $top = array_pop($p['field'][$slot]);
+        $p['graveyardIds'][] = $top['cardId'];
+    }
+
+    public function recalcDemocracy(array &$state, int $playerIndex): void
+    {
+        $p = &$state['players'][$playerIndex];
+        $primaryTop = $this->getTopCard($p['field']['primary']);
+        if (!$primaryTop || !$this->hasKeyword($primaryTop['id'], 'democracy')) {
+            $p['effectivePowerBonus'] = 0;
+            return;
+        }
+        $bonus = 0;
+        foreach (['left', 'right'] as $slot) {
+            $sup = $this->getTopCard($p['field'][$slot]);
+            if ($sup) $bonus += (int)$sup['power'];
+        }
+        $p['effectivePowerBonus'] = $bonus;
+    }
+
+    public function getEffectivePower(array &$state, int $playerIndex): int
+    {
+        $p = &$state['players'][$playerIndex];
+        $top = $this->getTopCard($p['field']['primary']);
+        if (!$top) return 0;
+        $base = (int)$top['power'];
+        return $base + (int)($p['effectivePowerBonus'] ?? 0);
+    }
+
+    public function checkWinRound(array &$state, int $passerId): ?int
+    {
+        // Returns winner index (0 or 1), or null if no winner yet
+        $oppIdx = 1 - $passerId;
+        $passerField = $state['players'][$passerId]['field'];
+        $oppField    = $state['players'][$oppIdx]['field'];
+
+        $passerTop = $this->getTopCard($passerField['primary']);
+        $oppTop    = $this->getTopCard($oppField['primary']);
+
+        if (!$passerTop) return $oppIdx; // no primary = surrender/lose
+
+        if (!$oppTop) return null; // opponent has no card, pass goes through
+
+        if ($oppTop['faceDown']) {
+            // Check Divine on passer
+            if (!$passerTop['faceDown'] && $this->hasKeyword($passerTop['id'], 'divine')) {
+                return $passerId; // divine beats face-down
+            }
+            // Both face-down handled elsewhere; here passer has face-up, opp face-down
+            return null; // resolve at end of round reveal
+        }
+
+        // Both face-up
+        $passerType  = strtolower($passerTop['type']);
+        $oppType     = strtolower($oppTop['type']);
+        $passerPower = $this->getEffectivePower($state, $passerId);
+        $oppPower    = $this->getEffectivePower($state, $oppIdx);
+
+        // Check Monarchy on opponent's card: defeats weak type regardless of power
+        if ($this->hasKeyword($oppTop['id'], 'monarchy')) {
+            if (WEAK_TYPE[$oppType] === $passerType) {
+                return $oppIdx;
+            }
+        }
+
+        if (BEATS[$oppType] === $passerType) return $oppIdx;
+        if (BEATS[$passerType] === $oppType) return $passerId;
+
+        // Same type
+        if ($passerPower < $oppPower) return $oppIdx;
+        if ($passerPower > $oppPower) return $passerId;
+        // Same type, same power → passer loses
+        return $oppIdx;
+    }
+
+    public function applyWhenPlayed(array &$state, int $playerIndex, string $slot, int $cardId): array
+    {
+        $pendingEffects = [];
+        $card = $this->getCard($cardId);
+        foreach ($card['keywords'] as $kw) {
+            switch (strtolower($kw)) {
+                case 'magic potion':
+                    $roll = rand(1, 6);
+                    $state['log'][] = $state['players'][$playerIndex]['username'] . ' rolled D6 for Magic Potion: ' . $roll;
+                    if ($roll === 1) {
+                        $this->removeTopFromStack($state, $playerIndex, $slot);
+                        $state['log'][] = 'Magic Potion destroyed the card!';
+                    } elseif ($roll === 6) {
+                        $this->drawCards($state, $playerIndex, 1);
+                        $state['log'][] = 'Magic Potion: drew a card!';
+                    }
+                    break;
+                case 'necromancy':
+                    // Handled via pendingEffect — prompt player to optionally play a zombie from grave
+                    $zombiesInGrave = array_filter($state['players'][$playerIndex]['graveyardIds'], function($cid) {
+                        return $this->hasKeyword($cid, 'zombie');
+                    });
+                    if (!empty($zombiesInGrave)) {
+                        $pendingEffects[] = ['type' => 'necromancy', 'cardId' => $cardId, 'zombies' => array_values($zombiesInGrave)];
+                    }
+                    break;
+                case 'makkarajärvi':
+                case 'makkara':
+                    $pendingEffects[] = ['type' => 'makkarajarvi', 'cardId' => $cardId];
+                    break;
+                case 'sähkötalo':
+                    $pendingEffects[] = ['type' => 'sahkotalo', 'cardId' => $cardId];
+                    break;
+            }
+        }
+        // Wanderret: when supporting a wanderret
+        if ($slot !== 'primary') {
+            $primaryTop = $this->getTopCard($state['players'][$playerIndex]['field']['primary']);
+            if ($primaryTop && $this->hasKeyword($primaryTop['id'], 'wanderret') && $this->hasKeyword($cardId, 'wanderret')) {
+                $this->drawCards($state, $playerIndex, 1);
+                $state['log'][] = $state['players'][$playerIndex]['username'] . ' drew a card (Wanderret).';
+            }
+            // Cougar
+            if ($this->hasKeyword($cardId, 'cougar') && $primaryTop) {
+                if ((int)$primaryTop['power'] <= 5000) {
+                    $this->drawCards($state, $playerIndex, 1);
+                    $state['log'][] = $state['players'][$playerIndex]['username'] . ' drew a card (Cougar).';
+                    // Cougar-Magnet on primary
+                    if ($this->hasKeyword($primaryTop['id'], 'cougar-magnet')) {
+                        $this->drawCards($state, $playerIndex, 1);
+                        $state['log'][] = $state['players'][$playerIndex]['username'] . ' drew an additional card (Cougar-Magnet).';
+                    }
+                }
+            }
+        }
+        $this->recalcDemocracy($state, $playerIndex);
+        return $pendingEffects;
+    }
+
+    public function applyWhenEvolves(array &$state, int $playerIndex, string $slot, int $newCardId, int $oldCardId): void
+    {
+        // Elder-Slime: if evolved from a non-Slime card, opponent discards 2
+        $newCard = $this->getCard($newCardId);
+        if (in_array('elder-slime', array_map('strtolower', $newCard['keywords']))) {
+            if (!$this->hasKeyword($oldCardId, 'slime')) {
+                $oppIdx = 1 - $playerIndex;
+                $discarded = 0;
+                while ($discarded < 2 && !empty($state['players'][$oppIdx]['handIds'])) {
+                    $last = array_pop($state['players'][$oppIdx]['handIds']);
+                    $state['players'][$oppIdx]['graveyardIds'][] = $last;
+                    $discarded++;
+                }
+                $state['log'][] = $state['players'][$oppIdx]['username'] . " discarded $discarded card(s) (Elder-Slime).";
+            }
+        }
+        $this->recalcDemocracy($state, $playerIndex);
+    }
+
+    public function clearField(array &$state, int $playerIndex): void
+    {
+        foreach (['primary', 'left', 'right'] as $slot) {
+            $this->discardFromField($state, $playerIndex, $slot);
+        }
+    }
+
+    public function startNewRound(array &$state, int $firstPlayer): void
+    {
+        $state['roundNumber']++;
+        $state['phase']       = 'start_of_round';
+        $state['firstPlayer'] = $firstPlayer;
+        $state['turn']        = $firstPlayer;
+        $state['naturalSelection'] = false;
+        $state['naturalSelectionPlays'] = [0, 0];
+
+        foreach ($state['players'] as &$p) {
+            $p['diceRoll']         = null;
+            $p['diceBonus']        = 0;
+            $p['startOfRoundUsed'] = false;
+            $p['surrendered']      = false;
+            foreach (['primary', 'left', 'right'] as $slot) {
+                foreach (array_reverse($p['field'][$slot]) as $entry) {
+                    $p['graveyardIds'][] = $entry['cardId'];
+                }
+                $p['field'][$slot] = [];
+            }
+            $p['effectivePowerBonus'] = 0;
+        }
+        unset($p);
+
+        $state['log'][] = '--- Round ' . $state['roundNumber'] . ' begins ---';
+    }
+}
+
+// ── Action handlers ────────────────────────────────────────────────────────
+
+function handleReady(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
+{
+    if ($state['phase'] !== 'setup') return 'Not in setup phase';
+    $state['players'][$playerIndex]['ready'] = true;
+    $state['log'][] = $state['players'][$playerIndex]['username'] . ' is ready.';
+
+    if ($state['players'][0]['ready'] && $state['players'][1]['ready']) {
+        // Both ready — determine first player randomly and start round 1
+        $first = rand(0, 1);
+        $engine->startNewRound($state, $first);
+        $state['log'][] = $state['players'][$first]['username'] . ' goes first (determined randomly).';
+    }
+    return null;
+}
+
+function handleRollDice(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
+{
+    if ($state['phase'] !== 'start_of_round') return 'Not in start-of-round phase';
+    if ($state['players'][$playerIndex]['diceRoll'] !== null) return 'Already rolled';
+
+    $d1 = rand(1, 6);
+    $d2 = rand(1, 6);
+    $total = $d1 + $d2;
+    $bonus = (int)($state['players'][$playerIndex]['diceBonus'] ?? 0);
+    $effective = min(12, max(2, $total + $bonus));
+
+    $state['players'][$playerIndex]['diceRoll'] = [$d1, $d2, 'total' => $total, 'effective' => $effective];
+    $state['log'][] = $state['players'][$playerIndex]['username'] . " rolled $d1+$d2=$total" . ($bonus ? " (+$bonus bonus) = $effective" : '') . '.';
+
+    // Check if both players have rolled
+    if ($state['players'][0]['diceRoll'] !== null && $state['players'][1]['diceRoll'] !== null) {
+        // Both players check start-of-round cards (handled separately via playStartOfRound/skipStartOfRound)
+        // Move to awaiting start-of-round actions
+    }
+    return null;
+}
+
+function handlePlayStartOfRound(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
+{
+    if ($state['phase'] !== 'start_of_round') return 'Not in start-of-round phase';
+    if ($state['players'][$playerIndex]['startOfRoundUsed']) return 'Already used start-of-round';
+    if ($state['players'][$playerIndex]['diceRoll'] === null) return 'Must roll dice first';
+
+    $cardId = (int)($params['cardId'] ?? 0);
+    if (!$cardId) return 'cardId required';
+
+    // Verify card is in hand
+    if (!in_array($cardId, $state['players'][$playerIndex]['handIds'])) return 'Card not in hand';
+
+    $card = $engine->getCard($cardId);
+    $kwLower = array_map('strtolower', $card['keywords']);
+
+    if (!in_array('greed', $kwLower) && !in_array('natural selection', $kwLower)) {
+        return 'Card has no [Start of round] keyword';
+    }
+
+    $engine->discardFromHand($state, $playerIndex, $cardId);
+    $state['players'][$playerIndex]['startOfRoundUsed'] = true;
+
+    if (in_array('greed', $kwLower)) {
+        $bonus = (int)($state['players'][$playerIndex]['diceBonus'] ?? 0) + 2;
+        $state['players'][$playerIndex]['diceBonus'] = $bonus;
+        // Recalculate effective roll
+        $roll = $state['players'][$playerIndex]['diceRoll'];
+        $effective = min(12, max(2, $roll['total'] + $bonus));
+        $state['players'][$playerIndex]['diceRoll']['effective'] = $effective;
+        $state['log'][] = $state['players'][$playerIndex]['username'] . ' used Greed! Dice result +2 → ' . $effective . '.';
+    }
+
+    if (in_array('natural selection', $kwLower)) {
+        $state['naturalSelection'] = true;
+        $state['naturalSelectionPlays'] = [0, 0];
+        $state['log'][] = $state['players'][$playerIndex]['username'] . ' used Natural Selection! Each player may only play one more card this round, face-down.';
+    }
+
+    maybeStartMainPhase($state);
+    return null;
+}
+
+function handleSkipStartOfRound(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
+{
+    if ($state['phase'] !== 'start_of_round') return 'Not in start-of-round phase';
+    if ($state['players'][$playerIndex]['diceRoll'] === null) return 'Must roll dice first';
+    $state['players'][$playerIndex]['startOfRoundUsed'] = true;
+    maybeStartMainPhase($state);
+    return null;
+}
+
+function maybeStartMainPhase(array &$state): void
+{
+    if (!$state['players'][0]['startOfRoundUsed'] || !$state['players'][1]['startOfRoundUsed']) return;
+
+    // Draw cards for each player up to their effective roll
+    foreach ([0, 1] as $idx) {
+        $roll = $state['players'][$idx]['diceRoll'];
+        if (!$roll) continue;
+        $effective = (int)$roll['effective'];
+        $current   = count($state['players'][$idx]['handIds']);
+        $toDraw    = max(0, $effective - $current);
+        // Can't draw here without the engine; we'll set a flag
+        $state['players'][$idx]['drawCount'] = $toDraw;
+    }
+
+    $state['phase'] = 'draw';
+    $state['turn']  = $state['firstPlayer'];
+}
+
+function handleDraw(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
+{
+    if ($state['phase'] !== 'draw') return 'Not in draw phase';
+
+    $toDraw = (int)($state['players'][$playerIndex]['drawCount'] ?? 0);
+    $engine->drawCards($state, $playerIndex, $toDraw);
+    $state['players'][$playerIndex]['drawCount'] = 0;
+    $state['players'][$playerIndex]['drawnThisRound'] = true;
+
+    $state['log'][] = $state['players'][$playerIndex]['username'] . " drew $toDraw card(s).";
+
+    if (($state['players'][0]['drawnThisRound'] ?? false) && ($state['players'][1]['drawnThisRound'] ?? false)) {
+        $state['phase'] = 'main_phase';
+        $state['turn']  = $state['firstPlayer'];
+        foreach ($state['players'] as &$p) { $p['drawnThisRound'] = false; }
+        unset($p);
+        $state['log'][] = 'Main phase begins. ' . $state['players'][$state['firstPlayer']]['username'] . ' acts first.';
+    }
+    return null;
+}
+
+function handlePlayCard(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
+{
+    if ($state['phase'] !== 'main_phase') return 'Not in main phase';
+    if ($state['turn'] !== $playerIndex) return 'Not your turn';
+
+    $cardId  = (int)($params['cardId'] ?? 0);
+    $slot    = $params['slot'] ?? 'primary';
+    $faceDown = !empty($params['faceDown']);
+
+    if (!$cardId) return 'cardId required';
+    if (!in_array($slot, ['primary', 'left', 'right'])) return 'Invalid slot';
+
+    $p = &$state['players'][$playerIndex];
+
+    if (!in_array($cardId, $p['handIds'])) return 'Card not in hand';
+
+    // Natural Selection: max 1 card per player, must be face-down
+    if ($state['naturalSelection']) {
+        if (($state['naturalSelectionPlays'][$playerIndex] ?? 0) >= 1) return 'Natural Selection: you may only play one more card this round';
+        $faceDown = true;
+    }
+
+    // Supporting cards require a primary
+    if ($slot !== 'primary' && empty($p['field']['primary'])) return 'Need a primary card first';
+
+    // Max 2 supporting cards
+    if ($slot !== 'primary') {
+        $leftOccupied  = !empty($p['field']['left']);
+        $rightOccupied = !empty($p['field']['right']);
+        if ($slot === 'left' && $leftOccupied) return 'Left slot already occupied';
+        if ($slot === 'right' && $rightOccupied) return 'Right slot already occupied';
+        if ($leftOccupied && $rightOccupied) return 'Both supporting slots occupied';
+    }
+
+    // Face-down cards cannot evolve, but playing a new card to an empty slot is not evolving
+    if (!empty($p['field'][$slot])) {
+        return 'Slot occupied, use evolveCard to evolve';
+    }
+
+    // Remove from hand, add to field
+    $idx = array_search($cardId, $p['handIds']);
+    array_splice($p['handIds'], $idx, 1);
+    $p['field'][$slot][] = ['cardId' => $cardId, 'faceDown' => $faceDown];
+
+    if ($state['naturalSelection']) {
+        $state['naturalSelectionPlays'][$playerIndex]++;
+    }
+
+    $card = $engine->getCard($cardId);
+    $state['log'][] = $p['username'] . ' played ' . ($faceDown ? 'a face-down card' : $card['name']) . ' to ' . $slot . '.';
+
+    if (!$faceDown) {
+        $pending = $engine->applyWhenPlayed($state, $playerIndex, $slot, $cardId);
+        if ($pending) $state['pendingEffect'] = $pending[0];
+    }
+
+    return null;
+}
+
+function handleEvolveCard(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
+{
+    if ($state['phase'] !== 'main_phase') return 'Not in main phase';
+    if ($state['turn'] !== $playerIndex) return 'Not your turn';
+
+    $cardId   = (int)($params['cardId'] ?? 0);
+    $slot     = $params['slot'] ?? 'primary';
+    $faceDown = !empty($params['faceDown']);
+
+    if (!$cardId) return 'cardId required';
+    if (!in_array($slot, ['primary', 'left', 'right'])) return 'Invalid slot';
+
+    $p = &$state['players'][$playerIndex];
+    if (!in_array($cardId, $p['handIds'])) return 'Card not in hand';
+    if (empty($p['field'][$slot])) return 'No card in slot to evolve';
+
+    $currentTop = $engine->getTopCard($p['field'][$slot]);
+    if (!$currentTop) return 'No active card';
+    if ($currentTop['faceDown']) return 'Cannot evolve a face-down card';
+
+    $newCard = $engine->getCard($cardId);
+    $oldCard = $engine->getCard($currentTop['id']);
+
+    // Check Wizard on current primary (allows any evolve, but must be face-down)
+    $isWizard = ($slot === 'primary') && $engine->hasKeyword($currentTop['id'], 'wizard');
+
+    // Check Autocracy on new card (allows devolve)
+    $isAutocracy = $engine->hasKeyword($cardId, 'autocracy');
+
+    // Check Sister Virus (can evolve into Little Sister from grave)
+    $isSisterVirus = $engine->hasKeyword($currentTop['id'], 'sister virus');
+
+    if ($isWizard) {
+        $faceDown = true; // Wizard always plays face-down
+    } else if ($isSisterVirus) {
+        // Target must be in graveyard and have Little Sister title
+        if (!in_array($cardId, $p['graveyardIds'])) return 'Sister Virus: target must be in your graveyard';
+        if (!$engine->hasKeyword($cardId, 'little sister')) return 'Sister Virus: target must have Little Sister title';
+        // Remove from graveyard
+        $gIdx = array_search($cardId, $p['graveyardIds']);
+        array_splice($p['graveyardIds'], $gIdx, 1);
+        // Remove from hand check (it's from grave, not hand)
+        $hIdx = array_search($cardId, $p['handIds']);
+        if ($hIdx !== false) array_splice($p['handIds'], $hIdx, 1);
+        // Don't re-remove from hand below
+        goto evolveApply;
+    } else {
+        // Normal evolve: new card base power must be higher (unless Autocracy)
+        if (!$isAutocracy && (int)$newCard['power'] <= (int)$oldCard['power']) {
+            return 'New card must have higher power to evolve (unless target has Autocracy)';
+        }
+        if ($isAutocracy && (int)$newCard['power'] >= (int)$oldCard['power']) {
+            return 'Autocracy allows devolve only (lower power required)';
+        }
+        // Check Monarchy: cannot evolve
+        if ($engine->hasKeyword($currentTop['id'], 'monarchy')) return 'Monarchy: cannot evolve this card';
+    }
+
+    // Remove card from hand
+    {
+        $idx = array_search($cardId, $p['handIds']);
+        array_splice($p['handIds'], $idx, 1);
+    }
+
+    evolveApply:
+    $p['field'][$slot][] = ['cardId' => $cardId, 'faceDown' => $faceDown];
+
+    $state['log'][] = $p['username'] . ' evolved ' . $slot . ' to ' . ($faceDown ? 'face-down' : $newCard['name']) . '.';
+
+    if (!$faceDown) {
+        $engine->applyWhenEvolves($state, $playerIndex, $slot, $cardId, $currentTop['id']);
+        $pending = $engine->applyWhenPlayed($state, $playerIndex, $slot, $cardId);
+        if ($pending) $state['pendingEffect'] = $pending[0];
+    }
+
+    if ($state['naturalSelection']) {
+        $state['naturalSelectionPlays'][$playerIndex]++;
+    }
+
+    return null;
+}
+
+function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
+{
+    $keyword = strtolower($params['keyword'] ?? '');
+    $cardId  = (int)($params['cardId'] ?? 0);
+
+    switch ($keyword) {
+        case 'communism': {
+            if (!$cardId || !in_array($cardId, $state['players'][$playerIndex]['handIds'])) return 'Card not in hand';
+            $p = &$state['players'][$playerIndex];
+            if (empty($p['prizeIds'])) return 'No prize cards to replace';
+            // Swap bottom prize card with this card
+            $bottomPrize = array_shift($p['prizeIds']);
+            $hIdx = array_search($cardId, $p['handIds']);
+            array_splice($p['handIds'], $hIdx, 1);
+            array_unshift($p['prizeIds'], $cardId);
+            if ($bottomPrize !== null) $p['handIds'][] = $bottomPrize;
+            $p['prizeCount'] = count($p['prizeIds']);
+            $state['log'][] = $p['username'] . ' used Communism.';
+            return null;
+        }
+        case 'cultism': {
+            $p = &$state['players'][$playerIndex];
+            // Must be in graveyard and card has Cultism
+            if (!$cardId || !in_array($cardId, $p['graveyardIds'])) return 'Card not in graveyard';
+            // Reshuffle all Little Sisters from graveyard into deck
+            $littleSisters = array_filter($p['graveyardIds'], function($cid) use ($engine) {
+                return $engine->hasKeyword($cid, 'little sister');
+            });
+            if (empty($littleSisters)) return 'No Little Sisters in graveyard';
+            $p['graveyardIds'] = array_values(array_filter($p['graveyardIds'], function($cid) use ($littleSisters) {
+                return !in_array($cid, $littleSisters);
+            }));
+            foreach ($littleSisters as $lsId) {
+                $p['deckIds'][] = $lsId;
+            }
+            shuffle($p['deckIds']);
+            // Draw a prize card
+            if (!empty($p['prizeIds'])) {
+                $prize = array_shift($p['prizeIds']);
+                $p['handIds'][] = $prize;
+                $p['prizeCount'] = count($p['prizeIds']);
+                $state['log'][] = $p['username'] . ' used Cultism! Drew a prize card.';
+            }
+            return null;
+        }
+        case 'rizz': {
+            if (!$cardId || !in_array($cardId, $state['players'][$playerIndex]['handIds'])) return 'Card not in hand';
+            $oppIdx = 1 - $playerIndex;
+            $state['pendingEffect'] = [
+                'type'         => 'rizz',
+                'playerIndex'  => $playerIndex,
+                'cardId'       => $cardId,
+                'awaitingOpp'  => true,
+            ];
+            $engine->discardFromHand($state, $playerIndex, $cardId);
+            $state['log'][] = $state['players'][$playerIndex]['username'] . ' used Rizz! Opponent may discard to negate.';
+            return null;
+        }
+        case 'rizz_respond': {
+            // Opponent responds to Rizz
+            if (!$state['pendingEffect'] || $state['pendingEffect']['type'] !== 'rizz') return 'No Rizz pending';
+            $oppIdx = 1 - $state['pendingEffect']['playerIndex'];
+            if ($playerIndex !== $oppIdx) return 'Not your response';
+            $negate  = !empty($params['negate']);
+            $negateCardId = (int)($params['negateCardId'] ?? 0);
+            if ($negate && $negateCardId && in_array($negateCardId, $state['players'][$playerIndex]['handIds'])) {
+                $engine->discardFromHand($state, $playerIndex, $negateCardId);
+                $state['log'][] = $state['players'][$playerIndex]['username'] . ' negated Rizz.';
+            } else {
+                // Rizz resolves: reveal one face-down card of opponent
+                $rizzPlayer = $state['pendingEffect']['playerIndex'];
+                $revealTarget = $params['revealSlot'] ?? null;
+                if ($revealTarget) {
+                    $field = $state['players'][$playerIndex]['field'];
+                    $slot  = $revealTarget;
+                    if (!empty($field[$slot])) {
+                        $topIdx = count($field[$slot]) - 1;
+                        if ($state['players'][$playerIndex]['field'][$slot][$topIdx]['faceDown']) {
+                            $state['players'][$playerIndex]['field'][$slot][$topIdx]['faceDown'] = false;
+                            $state['log'][] = 'Rizz revealed a face-down card!';
+                        }
+                    }
+                }
+            }
+            $state['pendingEffect'] = null;
+            return null;
+        }
+        case 'necromancy_respond': {
+            if (!$state['pendingEffect'] || $state['pendingEffect']['type'] !== 'necromancy') return 'No Necromancy pending';
+            $zombieId = (int)($params['zombieId'] ?? 0);
+            $slot     = $params['slot'] ?? 'left';
+            if ($zombieId) {
+                $p = &$state['players'][$playerIndex];
+                $gIdx = array_search($zombieId, $p['graveyardIds']);
+                if ($gIdx !== false) {
+                    array_splice($p['graveyardIds'], $gIdx, 1);
+                    if (!in_array($slot, ['left', 'right'])) $slot = 'left';
+                    if (!empty($p['field'][$slot])) $slot = ($slot === 'left' ? 'right' : 'left');
+                    $p['field'][$slot][] = ['cardId' => $zombieId, 'faceDown' => false];
+                    $engine->recalcDemocracy($state, $playerIndex);
+                    $state['log'][] = $p['username'] . ' played a Zombie from graveyard (Necromancy).';
+                }
+            }
+            $state['pendingEffect'] = null;
+            return null;
+        }
+        case 'makkarajarvi_respond': {
+            if (!$state['pendingEffect'] || $state['pendingEffect']['type'] !== 'makkarajarvi') return 'No Makkarajärvi pending';
+            $returnCardId = (int)($params['returnCardId'] ?? 0);
+            $p = &$state['players'][$playerIndex];
+            if ($returnCardId) {
+                // Find in supporting slots
+                foreach (['left', 'right'] as $s) {
+                    if (!empty($p['field'][$s])) {
+                        $topIdx = count($p['field'][$s]) - 1;
+                        if ($p['field'][$s][$topIdx]['cardId'] == $returnCardId) {
+                            array_pop($p['field'][$s]);
+                            $returnedCard = $engine->getCard($returnCardId);
+                            // Check if it's makkara (name contains makkara)
+                            if (stripos($returnedCard['name'], 'makkara') !== false) {
+                                $p['graveyardIds'][] = $returnCardId;
+                                $engine->drawCards($state, $playerIndex, 1);
+                                $state['log'][] = $p['username'] . ' discarded a Makkara and drew a card.';
+                            } else {
+                                $p['handIds'][] = $returnCardId;
+                                $state['log'][] = $p['username'] . ' returned a card to hand.';
+                            }
+                            $engine->recalcDemocracy($state, $playerIndex);
+                            break;
+                        }
+                    }
+                }
+            }
+            $state['pendingEffect'] = null;
+            return null;
+        }
+        case 'sahkotalo_respond': {
+            if (!$state['pendingEffect'] || $state['pendingEffect']['type'] !== 'sahkotalo') return 'No Sähkötalo pending';
+            $discardIds   = $params['discardIds'] ?? [];
+            $retriggerIds = $params['retriggerIds'] ?? [];
+            $p = &$state['players'][$playerIndex];
+            $discarded = 0;
+            foreach (array_slice($discardIds, 0, 2) as $dId) {
+                if ($engine->discardFromHand($state, $playerIndex, (int)$dId)) $discarded++;
+            }
+            // Retrigger up to $discarded supporting cards
+            foreach (array_slice($retriggerIds, 0, $discarded) as $rId) {
+                $engine->applyWhenPlayed($state, $playerIndex, 'left', (int)$rId); // slot is approximate
+            }
+            $state['pendingEffect'] = null;
+            return null;
+        }
+        case 'herwood_respond': {
+            if (!$state['pendingEffect'] || $state['pendingEffect']['type'] !== 'herwood') return 'No Herwood pending';
+            $chosenId = (int)($params['chosenId'] ?? 0);
+            $top3     = $state['pendingEffect']['top3'];
+            $slot     = $state['pendingEffect']['slot'];
+            $p = &$state['players'][$playerIndex];
+            if ($chosenId && in_array($chosenId, $top3)) {
+                // Devolve (the herwood card is the current primary/slot top — replace with chosen)
+                $herwoodId = $state['pendingEffect']['herwoodCardId'];
+                $engine->removeTopFromStack($state, $playerIndex, $slot);
+                $p['field'][$slot][] = ['cardId' => $chosenId, 'faceDown' => false];
+                // Others go to hand
+                foreach ($top3 as $t) {
+                    if ($t !== $chosenId) $p['handIds'][] = $t;
+                }
+                $state['log'][] = $p['username'] . ' devolved via Herwood.';
+            } else {
+                // Return top3 to deck in same order
+                $p['deckIds'] = array_merge($top3, $p['deckIds']);
+            }
+            $state['pendingEffect'] = null;
+            return null;
+        }
+    }
+    return 'Unknown keyword: ' . $keyword;
+}
+
+function handlePass(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
+{
+    if ($state['phase'] !== 'main_phase') return 'Not in main phase';
+    if ($state['turn'] !== $playerIndex) return 'Not your turn';
+
+    $p = $state['players'][$playerIndex];
+    if (empty($p['field']['primary'])) return 'Need a primary card to pass';
+
+    $state['log'][] = $state['players'][$playerIndex]['username'] . ' passes.';
+
+    $oppIdx = 1 - $playerIndex;
+    $opp    = $state['players'][$oppIdx];
+
+    // If opponent has no primary card, they get another turn
+    if (empty($opp['field']['primary'])) {
+        $state['turn'] = $oppIdx;
+        $state['log'][] = $state['players'][$oppIdx]['username'] . ' has no card — their main phase continues.';
+        return null;
+    }
+
+    // Check if opponent has face-down primary
+    $oppTop = $engine->getTopCard($opp['field']['primary']);
+    if ($oppTop && $oppTop['faceDown']) {
+        // Skip to end of round — resolve face-down
+        $state['phase'] = 'end_of_round';
+        $state['passerId'] = $playerIndex;
+        $state['log'][] = 'Opponent has a face-down card. Proceeding to end of round.';
+        return null;
+    }
+
+    // Face-up opponent — check result now
+    $winner = $engine->checkWinRound($state, $playerIndex);
+    if ($winner !== null && $winner !== $playerIndex) {
+        // Passer loses → end of round
+        $state['phase']   = 'end_of_round';
+        $state['passerId'] = $playerIndex;
+        $state['roundWinnerId'] = $winner;
+        return null;
+    }
+    if ($winner === $playerIndex) {
+        // Passer's card beats opponent → opponent gets main phase
+        $state['turn'] = $oppIdx;
+        $state['log'][] = $state['players'][$oppIdx]['username'] . '\'s card is beaten — they get another turn.';
+        return null;
+    }
+
+    // Move to passing_phase — opponent may use [Opponent passes] keywords
+    $state['phase']    = 'passing_phase';
+    $state['passerId'] = $playerIndex;
+    $state['log'][] = 'Passing phase — opponent may respond.';
+    return null;
+}
+
+function handleSurrender(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
+{
+    $state['players'][$playerIndex]['surrendered'] = true;
+    $state['phase']         = 'end_of_round';
+    $state['roundWinnerId'] = 1 - $playerIndex;
+    $state['log'][] = $state['players'][$playerIndex]['username'] . ' surrendered.';
+    return null;
+}
+
+function handleOpponentPassesResponse(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
+{
+    if ($state['phase'] !== 'passing_phase') return 'Not in passing phase';
+    $passerId  = $state['passerId'];
+    $oppIdx    = 1 - $passerId;
+    if ($playerIndex !== $oppIdx) return 'Only the non-passing player responds';
+
+    $keyword = strtolower($params['keyword'] ?? '');
+    $slot    = $params['slot'] ?? 'primary';
+
+    switch ($keyword) {
+        case 'facism': {
+            $p = $state['players'][$playerIndex];
+            // Trigger: passing player's primary is WEAK_TYPE of this card at ≤5000 power
+            $myTop    = $engine->getTopCard($p['field'][$slot]);
+            if (!$myTop) return 'No card in that slot';
+            if (!$engine->hasKeyword($myTop['id'], 'facism')) return 'Card does not have Facism';
+            $myType   = strtolower($myTop['type']);
+            $weakType = WEAK_TYPE[$myType];
+            $passerTop = $engine->getTopCard($state['players'][$passerId]['field']['primary']);
+            if (!$passerTop) return 'No passer primary';
+            if (strtolower($passerTop['type']) !== $weakType) return 'Facism trigger condition not met (wrong type)';
+            if ((int)$passerTop['power'] > 5000) return 'Facism trigger condition not met (power too high)';
+
+            // Destroy ALL weak type on passing player's field, with cascade
+            foreach (['primary', 'left', 'right'] as $s) {
+                $changed = true;
+                while ($changed) {
+                    $changed = false;
+                    $top = $engine->getTopCard($state['players'][$passerId]['field'][$s]);
+                    if ($top && strtolower($top['type']) === $weakType) {
+                        $engine->removeTopFromStack($state, $passerId, $s);
+                        $changed = true;
+                    }
+                }
+            }
+            // If primary is gone, discard all supporting
+            if (empty($state['players'][$passerId]['field']['primary'])) {
+                $engine->discardFromField($state, $passerId, 'left');
+                $engine->discardFromField($state, $passerId, 'right');
+            }
+            $state['log'][] = $state['players'][$playerIndex]['username'] . ' triggered Facism!';
+            // Check if pass is now countered
+            $passerNewTop = $engine->getTopCard($state['players'][$passerId]['field']['primary']);
+            if (!$passerNewTop) {
+                // Passing player's primary gone → their main phase countered, they must surrender or play again
+                $state['phase'] = 'main_phase';
+                $state['turn']  = $passerId;
+                $state['log'][] = 'Pass countered — ' . $state['players'][$passerId]['username'] . '\'s main phase resumes.';
+            }
+            return null;
+        }
+        case 'herwood': {
+            $myTop = $engine->getTopCard($state['players'][$playerIndex]['field'][$slot]);
+            if (!$myTop) return 'No card in that slot';
+            if (!$engine->hasKeyword($myTop['id'], 'herwood')) return 'Card does not have Herwood';
+            // Look at top 3 of deck
+            $p   = &$state['players'][$playerIndex];
+            $top3 = array_splice($p['deckIds'], 0, 3);
+            $state['pendingEffect'] = [
+                'type'         => 'herwood',
+                'playerIndex'  => $playerIndex,
+                'slot'         => $slot,
+                'herwoodCardId' => $myTop['id'],
+                'top3'         => $top3,
+            ];
+            $state['log'][] = $state['players'][$playerIndex]['username'] . ' uses Herwood — looking at top 3 cards.';
+            return null;
+        }
+        case 'mikontalo': {
+            $myTop = $engine->getTopCard($state['players'][$playerIndex]['field'][$slot]);
+            if (!$myTop) return 'No card in that slot';
+            if (!$engine->hasKeyword($myTop['id'], 'mikontalo')) return 'Card does not have Mikontalo';
+            $discardId = (int)($params['discardId'] ?? 0);
+            if (!$discardId || !in_array($discardId, $state['players'][$playerIndex]['handIds'])) return 'Must discard a card from hand';
+            // Return card to hand, discard chosen card
+            $engine->removeTopFromStack($state, $playerIndex, $slot);
+            $state['players'][$playerIndex]['handIds'][] = $myTop['id'];
+            $engine->discardFromHand($state, $playerIndex, $discardId);
+            $engine->recalcDemocracy($state, $playerIndex);
+            $state['log'][] = $state['players'][$playerIndex]['username'] . ' returned card via Mikontalo.';
+            // Check if pass is now countered
+            $winner = $engine->checkWinRound($state, $passerId);
+            if ($winner === $playerIndex || $winner === null) {
+                $state['phase'] = 'main_phase';
+                $state['turn']  = $passerId;
+                $state['log'][] = 'Pass countered — main phase resumes.';
+            }
+            return null;
+        }
+        case 'skip': {
+            // No response, proceed to end of round
+            break;
+        }
+    }
+
+    resolvePassingPhase($state, $engine);
+    return null;
+}
+
+function resolvePassingPhase(array &$state, GameEngine $engine): void
+{
+    $passerId = $state['passerId'];
+    $winner   = $engine->checkWinRound($state, $passerId);
+    if ($winner === null) {
+        // Face-down involved — go to end_of_round for reveal
+        $state['phase'] = 'end_of_round';
+        return;
+    }
+    $state['phase']         = 'end_of_round';
+    $state['roundWinnerId'] = $winner;
+}
+
+function handleConfirmPassingPhase(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
+{
+    if ($state['phase'] !== 'passing_phase') return 'Not in passing phase';
+    resolvePassingPhase($state, $engine);
+    return null;
+}
+
+function handleRevealFaceDown(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
+{
+    // Both face-down scenario: opponent reveals first, then passing player
+    $passerId = $state['passerId'] ?? 0;
+    $oppIdx   = 1 - $passerId;
+
+    // Reveal opponent's face-down
+    if (!empty($state['players'][$oppIdx]['field']['primary'])) {
+        $topIdx = count($state['players'][$oppIdx]['field']['primary']) - 1;
+        $state['players'][$oppIdx]['field']['primary'][$topIdx]['faceDown'] = false;
+    }
+    // Reveal passer's face-down
+    if (!empty($state['players'][$passerId]['field']['primary'])) {
+        $topIdx = count($state['players'][$passerId]['field']['primary']) - 1;
+        $state['players'][$passerId]['field']['primary'][$topIdx]['faceDown'] = false;
+    }
+
+    $winner = $engine->checkWinRound($state, $passerId);
+    $state['roundWinnerId'] = $winner ?? (1 - $passerId);
+    $state['log'][] = 'Face-down cards revealed.';
+    return null;
+}
+
+function handleDrawPrize(array &$state, int $playerIndex, array $params, Database $db): ?string
+{
+    $winnerId = $state['roundWinnerId'] ?? null;
+    if ($winnerId === null) return 'No round winner determined';
+    if ($playerIndex !== $winnerId) return 'You did not win this round';
+
+    $p = &$state['players'][$winnerId];
+    $loserId = 1 - $winnerId;
+
+    if (empty($p['prizeIds'])) {
+        // Already at 0 prize cards → WIN
+        $state['phase']     = 'game_over';
+        $state['gameWinner'] = $winnerId;
+        $state['log'][] = $p['username'] . ' wins the game!';
+        return null;
+    }
+
+    // Draw one prize card
+    $prize = array_shift($p['prizeIds']);
+    $p['handIds'][]  = $prize;
+    $p['prizeCount'] = count($p['prizeIds']);
+    $state['log'][] = $p['username'] . ' drew a prize card. ' . $p['prizeCount'] . ' remaining.';
+
+    // Check win condition
+    if (empty($p['prizeIds'])) {
+        // Next time they win a round they win the game
+        $state['log'][] = $p['username'] . ' has 0 prize cards left!';
+    }
+
+    // Start next round — loser goes first
+    $engine = new GameEngine($db);
+    $engine->startNewRound($state, $loserId);
+    return null;
+}
+
+// ── Main entry point ────────────────────────────────────────────────────────
+
+function performAction(Database $database): string
+{
+    $user = $database->getUser();
+    if (!$user) return Database::responseUnauthorized();
+
+    $matchId  = $database->getIntParam('matchId');
+    $action   = $database->getStringParam('action');
+    $params   = $database->getRequestData();
+    $paramsArr = json_decode(json_encode($params), true) ?? [];
+
+    if (!$matchId) return Database::responseBadRequest('matchId required');
+    if (!$action)  return Database::responseBadRequest('action required');
+
+    // Load match + verify user
+    $match = $database->query(
+        'SELECT id, player1Id, player2Id, status FROM isBack_match WHERE id = :matchId',
+        ['matchId' => ['value' => $matchId, 'type' => \PDO::PARAM_INT]]
+    );
+    if (!$match) return Database::responseNotFound();
+    $match = $match[0];
+    $userId = $user->getId();
+    if ($match['player1Id'] != $userId && $match['player2Id'] != $userId) {
+        return Database::responseForbidden(['error' => 'You are not in this match']);
+    }
+    if ($match['status'] !== 'active') return Database::responseBadRequest('Match is not active');
+
+    $playerIndex = $match['player1Id'] == $userId ? 0 : 1;
+
+    // Load game state with lock
+    $gsRows = $database->query(
+        "SELECT id, stateJson, version FROM isBack_gameState WHERE matchId = :matchId AND status = 'active' ORDER BY gameNumber DESC LIMIT 1",
+        ['matchId' => ['value' => $matchId, 'type' => \PDO::PARAM_INT]]
+    );
+    if (!$gsRows) return Database::responseNotFound();
+    $gs      = $gsRows[0];
+    $gsId    = (int)$gs['id'];
+    $version = (int)$gs['version'];
+    $state   = json_decode($gs['stateJson'], true);
+
+    $engine = new GameEngine($database);
+
+    // Dispatch action
+    $error = match($action) {
+        'ready'                    => handleReady($state, $playerIndex, $paramsArr, $engine),
+        'rollDice'                 => handleRollDice($state, $playerIndex, $paramsArr, $engine),
+        'playStartOfRound'         => handlePlayStartOfRound($state, $playerIndex, $paramsArr, $engine),
+        'skipStartOfRound'         => handleSkipStartOfRound($state, $playerIndex, $paramsArr, $engine),
+        'draw'                     => handleDraw($state, $playerIndex, $paramsArr, $engine),
+        'playCard'                 => handlePlayCard($state, $playerIndex, $paramsArr, $engine),
+        'evolveCard'               => handleEvolveCard($state, $playerIndex, $paramsArr, $engine),
+        'useKeyword'               => handleUseKeyword($state, $playerIndex, $paramsArr, $engine),
+        'pass'                     => handlePass($state, $playerIndex, $paramsArr, $engine),
+        'surrender'                => handleSurrender($state, $playerIndex, $paramsArr, $engine),
+        'opponentPassesResponse'   => handleOpponentPassesResponse($state, $playerIndex, $paramsArr, $engine),
+        'confirmPassingPhase'      => handleConfirmPassingPhase($state, $playerIndex, $paramsArr, $engine),
+        'revealFaceDown'           => handleRevealFaceDown($state, $playerIndex, $paramsArr, $engine),
+        'drawPrize'                => handleDrawPrize($state, $playerIndex, $paramsArr, $database),
+        default                    => 'Unknown action: ' . $action,
+    };
+
+    if ($error) return Database::responseBadRequest($error);
+
+    // Handle game over
+    if (($state['phase'] ?? '') === 'game_over') {
+        $database->query(
+            "UPDATE isBack_gameState SET stateJson = :json, version = version + 1, status = 'completed', winnerId = :winnerId WHERE id = :id",
+            [
+                'json'     => ['value' => json_encode($state), 'type' => \PDO::PARAM_STR],
+                'winnerId' => ['value' => (int)($match[$state['gameWinner'] === 0 ? 'player1Id' : 'player2Id']), 'type' => \PDO::PARAM_INT],
+                'id'       => ['value' => $gsId, 'type' => \PDO::PARAM_INT],
+            ]
+        );
+        $winnerUserId = (int)$match[$state['gameWinner'] === 0 ? 'player1Id' : 'player2Id'];
+        $p1Wins = $state['gameWinner'] === 0 ? 1 : 0;
+        $p2Wins = $state['gameWinner'] === 1 ? 1 : 0;
+        $database->query(
+            'UPDATE isBack_match SET player1Wins = player1Wins + :p1w, player2Wins = player2Wins + :p2w WHERE id = :id',
+            [
+                'p1w' => ['value' => $p1Wins, 'type' => \PDO::PARAM_INT],
+                'p2w' => ['value' => $p2Wins, 'type' => \PDO::PARAM_INT],
+                'id'  => ['value' => $matchId, 'type' => \PDO::PARAM_INT],
+            ]
+        );
+        // Check if match is over (bo1 or bo3 win condition)
+        $matchRow = $database->query('SELECT format, player1Wins, player2Wins FROM isBack_match WHERE id = :id', [
+            'id' => ['value' => $matchId, 'type' => \PDO::PARAM_INT],
+        ]);
+        $mRow = $matchRow[0];
+        $winsNeeded = $mRow['format'] === 'bo3' ? 2 : 1;
+        if ($mRow['player1Wins'] >= $winsNeeded || $mRow['player2Wins'] >= $winsNeeded) {
+            $matchWinner = $mRow['player1Wins'] >= $winsNeeded ? $match['player1Id'] : $match['player2Id'];
+            $database->query(
+                "UPDATE isBack_match SET status = 'completed', winnerId = :wid WHERE id = :id",
+                [
+                    'wid' => ['value' => $matchWinner, 'type' => \PDO::PARAM_INT],
+                    'id'  => ['value' => $matchId, 'type' => \PDO::PARAM_INT],
+                ]
+            );
+        } else {
+            // Start next game in match
+            $gameNumber = (int)$database->query(
+                'SELECT MAX(gameNumber) gn FROM isBack_gameState WHERE matchId = :mid',
+                ['mid' => ['value' => $matchId, 'type' => \PDO::PARAM_INT]]
+            )[0]['gn'];
+            $loserIdx = 1 - $state['gameWinner'];
+            // Reload decks from match
+            $deckRows = $database->query(
+                'SELECT player1DeckId, player2DeckId, player1Id, player2Id FROM isBack_match WHERE id = :id',
+                ['id' => ['value' => $matchId, 'type' => \PDO::PARAM_INT]]
+            )[0];
+            // Build fresh game state for next game in the series
+            insertNextGame($database, $matchId, $deckRows, $gameNumber + 1);
+        }
+    } else {
+        // Save updated state (optimistic locking via version)
+        $database->query(
+            'UPDATE isBack_gameState SET stateJson = :json, version = version + 1 WHERE id = :id AND version = :version',
+            [
+                'json'    => ['value' => json_encode($state), 'type' => \PDO::PARAM_STR],
+                'id'      => ['value' => $gsId, 'type' => \PDO::PARAM_INT],
+                'version' => ['value' => $version, 'type' => \PDO::PARAM_INT],
+            ]
+        );
+    }
+
+    return Database::responseSuccess(['ok' => true, 'version' => $version + 1, 'phase' => $state['phase']]);
+}
+
+$database = new Database();
+$database->handleRequest(null, 'performAction');

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rakuel Is Back – Register</title>
+  <link rel="stylesheet" href="../../styles.css" />
+  <style>
+    body { background: #0d1117; color: #e6edf3; min-height: 100vh; display: flex; flex-direction: column; }
+    .topbar { background: #161b22; border-bottom: 1px solid #30363d; padding: 12px 20px; display: flex; align-items: center; gap: 12px; }
+    .home-btn { background: #21262d; color: #e6edf3; border: 1px solid #30363d; border-radius: 6px; padding: 6px 14px; text-decoration: none; font-size: 14px; }
+    .home-btn:hover { background: #30363d; }
+    .header-text h1 { font-size: 18px; margin: 0; color: #58a6ff; }
+    .auth-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 16px; }
+    .auth-card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 36px 40px; width: 100%; max-width: 440px; }
+    .auth-card h2 { margin: 0 0 6px; font-size: 22px; color: #f0f6fc; }
+    .auth-card .subtitle { color: #8b949e; font-size: 14px; margin: 0 0 28px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .field { margin-bottom: 18px; }
+    .field label { display: block; font-size: 13px; color: #8b949e; margin-bottom: 6px; font-weight: 500; }
+    .field input { width: 100%; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 9px 12px; color: #e6edf3; font-size: 14px; box-sizing: border-box; transition: border-color .15s; }
+    .field input:focus { outline: none; border-color: #58a6ff; }
+    .field input.error { border-color: #f85149; }
+    .field-error { font-size: 12px; color: #f85149; margin-top: 4px; }
+    .btn-primary { width: 100%; background: #238636; color: #fff; border: 1px solid #2ea043; border-radius: 6px; padding: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background .15s; margin-top: 8px; }
+    .btn-primary:hover { background: #2ea043; }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+    .alt-link { text-align: center; margin-top: 20px; font-size: 14px; color: #8b949e; }
+    .alt-link a { color: #58a6ff; text-decoration: none; }
+    .alt-link a:hover { text-decoration: underline; }
+    .global-error { background: #2d1b1b; border: 1px solid #f85149; color: #f85149; border-radius: 6px; padding: 10px 14px; font-size: 13px; margin-bottom: 18px; }
+    .global-success { background: #1a2d1a; border: 1px solid #2ea043; color: #3fb950; border-radius: 6px; padding: 10px 14px; font-size: 13px; margin-bottom: 18px; }
+  </style>
+</head>
+<body>
+<header class="topbar">
+  <a class="home-btn" href="/">Home</a>
+  <div class="header-text"><h1>Rakuel Is Back</h1></div>
+</header>
+<div class="auth-wrap">
+  <div class="auth-card">
+    <h2>Create Account</h2>
+    <p class="subtitle">Join to build decks and play matches.</p>
+    <div id="global-msg"></div>
+    <form id="reg-form" novalidate>
+      <div class="form-row">
+        <div class="field">
+          <label for="firstname">First Name</label>
+          <input id="firstname" name="firstname" type="text" placeholder="Eero" maxlength="16" />
+          <div class="field-error" id="err-firstname"></div>
+        </div>
+        <div class="field">
+          <label for="lastname">Last Name</label>
+          <input id="lastname" name="lastname" type="text" placeholder="Laine" maxlength="16" />
+          <div class="field-error" id="err-lastname"></div>
+        </div>
+      </div>
+      <div class="field">
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" placeholder="coolplayer99" maxlength="16" autocomplete="username" />
+        <div class="field-error" id="err-username"></div>
+      </div>
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" placeholder="you@example.com" maxlength="64" autocomplete="email" />
+        <div class="field-error" id="err-email"></div>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" placeholder="Min. 8 characters" autocomplete="new-password" />
+        <div class="field-error" id="err-password"></div>
+      </div>
+      <div class="field">
+        <label for="confirm">Confirm Password</label>
+        <input id="confirm" name="confirm" type="password" placeholder="Repeat password" autocomplete="new-password" />
+        <div class="field-error" id="err-confirm"></div>
+      </div>
+      <button class="btn-primary" type="submit" id="submit-btn">Create Account</button>
+    </form>
+    <div class="alt-link">Already have an account? <a href="/is-back/profile/">Sign in</a></div>
+  </div>
+</div>
+<script>
+  const form = document.getElementById('reg-form');
+  const globalMsg = document.getElementById('global-msg');
+
+  const setError = (id, msg) => {
+    const el = document.getElementById('err-' + id);
+    const input = document.getElementById(id);
+    if (el) el.textContent = msg;
+    if (input) input.classList.toggle('error', !!msg);
+  };
+  const clearErrors = () => ['firstname','lastname','username','email','password','confirm'].forEach(f => setError(f, ''));
+
+  const validate = () => {
+    clearErrors();
+    let ok = true;
+    const v = id => document.getElementById(id).value.trim();
+    if (!v('firstname')) { setError('firstname', 'Required'); ok = false; }
+    if (!v('lastname'))  { setError('lastname', 'Required'); ok = false; }
+    const un = v('username');
+    if (!un) { setError('username', 'Required'); ok = false; }
+    else if (un.length < 3 || un.length > 16) { setError('username', '3–16 characters'); ok = false; }
+    else if (!/^[a-zA-Z0-9_]+$/.test(un)) { setError('username', 'Letters, numbers, underscore only'); ok = false; }
+    const em = v('email');
+    if (!em) { setError('email', 'Required'); ok = false; }
+    else if (!/^[^@]+@[^@]+\.[^@]+$/.test(em)) { setError('email', 'Invalid email'); ok = false; }
+    const pw = document.getElementById('password').value;
+    if (!pw) { setError('password', 'Required'); ok = false; }
+    else if (pw.length < 8) { setError('password', 'At least 8 characters'); ok = false; }
+    const cf = document.getElementById('confirm').value;
+    if (!cf) { setError('confirm', 'Required'); ok = false; }
+    else if (pw !== cf) { setError('confirm', 'Passwords do not match'); ok = false; }
+    return ok;
+  };
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!validate()) return;
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Creating…';
+    globalMsg.innerHTML = '';
+    try {
+      const body = {
+        username:  document.getElementById('username').value.trim(),
+        firstname: document.getElementById('firstname').value.trim(),
+        lastname:  document.getElementById('lastname').value.trim(),
+        email:     document.getElementById('email').value.trim(),
+        password:  document.getElementById('password').value,
+      };
+      const res = await fetch('../../api/user/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        globalMsg.innerHTML = `<div class="global-error">${data.error || 'Registration failed.'}</div>`;
+        return;
+      }
+      localStorage.setItem('authToken', data.authToken);
+      localStorage.setItem('userId', data.userId);
+      localStorage.setItem('username', body.username);
+      localStorage.setItem('firstname', body.firstname);
+      globalMsg.innerHTML = `<div class="global-success">Account created! Redirecting…</div>`;
+      setTimeout(() => location.href = '/is-back/profile/', 800);
+    } catch {
+      globalMsg.innerHTML = `<div class="global-error">Network error. Please try again.</div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Create Account';
+    }
+  });
+</script>
+</body>
+</html>

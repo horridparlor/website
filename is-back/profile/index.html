@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rakuel Is Back – Profile</title>
+  <link rel="stylesheet" href="../../styles.css" />
+  <style>
+    body { background: #0d1117; color: #e6edf3; min-height: 100vh; display: flex; flex-direction: column; }
+    .topbar { background: #161b22; border-bottom: 1px solid #30363d; padding: 12px 20px; display: flex; align-items: center; gap: 10px; }
+    .topbar a, .topbar button { background: #21262d; color: #e6edf3; border: 1px solid #30363d; border-radius: 6px; padding: 6px 14px; text-decoration: none; font-size: 14px; cursor: pointer; }
+    .topbar a:hover, .topbar button:hover { background: #30363d; }
+    .topbar .title { flex: 1; font-size: 18px; color: #58a6ff; font-weight: 600; }
+    .page { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; }
+    .card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 32px 36px; width: 100%; max-width: 520px; }
+    .card h2 { margin: 0 0 4px; font-size: 20px; color: #f0f6fc; }
+    .card .subtitle { color: #8b949e; font-size: 14px; margin: 0 0 24px; }
+    .section-title { font-size: 13px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: .5px; margin: 24px 0 12px; border-top: 1px solid #21262d; padding-top: 20px; }
+    .section-title:first-of-type { margin-top: 0; border-top: none; padding-top: 0; }
+    .field { margin-bottom: 16px; }
+    .field label { display: block; font-size: 13px; color: #8b949e; margin-bottom: 5px; }
+    .field input { width: 100%; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 9px 12px; color: #e6edf3; font-size: 14px; box-sizing: border-box; transition: border-color .15s; }
+    .field input:focus { outline: none; border-color: #58a6ff; }
+    .field input.error { border-color: #f85149; }
+    .field input[readonly] { opacity: .6; cursor: default; }
+    .field-error { font-size: 12px; color: #f85149; margin-top: 4px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .btn { border-radius: 6px; padding: 9px 18px; font-size: 14px; font-weight: 600; cursor: pointer; border: 1px solid; transition: background .15s; }
+    .btn-green { background: #238636; color: #fff; border-color: #2ea043; }
+    .btn-green:hover { background: #2ea043; }
+    .btn-green:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-red { background: #2d1b1b; color: #f85149; border-color: #f85149; }
+    .btn-red:hover { background: #3d2020; }
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+    .msg-ok  { background: #1a2d1a; border: 1px solid #2ea043; color: #3fb950; border-radius: 6px; padding: 8px 12px; font-size: 13px; margin-bottom: 12px; }
+    .msg-err { background: #2d1b1b; border: 1px solid #f85149; color: #f85149; border-radius: 6px; padding: 8px 12px; font-size: 13px; margin-bottom: 12px; }
+    /* Login form */
+    .login-card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 36px 40px; width: 100%; max-width: 380px; }
+    .login-card h2 { margin: 0 0 6px; font-size: 22px; color: #f0f6fc; }
+    .login-card .subtitle { color: #8b949e; font-size: 14px; margin: 0 0 24px; }
+    .btn-block { width: 100%; margin-top: 6px; }
+    .alt-link { text-align: center; margin-top: 16px; font-size: 14px; color: #8b949e; }
+    .alt-link a { color: #58a6ff; text-decoration: none; }
+    .alt-link a:hover { text-decoration: underline; }
+    .profile-avatar { width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg,#238636,#1f6feb); display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 700; color: #fff; margin-bottom: 16px; }
+    .profile-meta { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+    .profile-meta-text { font-size: 20px; font-weight: 700; }
+    .profile-meta-sub { font-size: 13px; color: #8b949e; margin-top: 2px; }
+  </style>
+</head>
+<body>
+<header class="topbar">
+  <a href="/">Home</a>
+  <a href="/is-back/deck-builder/">Deck Builder</a>
+  <a href="/is-back/match-queue/">Play</a>
+  <div class="title">Rakuel Is Back</div>
+  <button id="logout-btn" style="display:none;" onclick="logout()">Logout</button>
+</header>
+
+<div class="page" id="page-root"></div>
+
+<script>
+  const root = document.getElementById('page-root');
+  const logoutBtn = document.getElementById('logout-btn');
+  const token = localStorage.getItem('authToken');
+
+  function logout() {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('username');
+    localStorage.removeItem('firstname');
+    location.reload();
+  }
+
+  function msg(text, ok) {
+    return `<div class="${ok ? 'msg-ok' : 'msg-err'}">${text}</div>`;
+  }
+
+  // ─── LOGIN VIEW ──────────────────────────────────────────────────────────────
+  function renderLogin() {
+    root.innerHTML = `
+      <div class="login-card">
+        <h2>Sign In</h2>
+        <p class="subtitle">Sign in to manage decks and play matches.</p>
+        <div id="login-msg"></div>
+        <form id="login-form" novalidate>
+          <div class="field">
+            <label>Username</label>
+            <input id="l-user" type="text" autocomplete="username" placeholder="Your username" />
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <input id="l-pass" type="password" autocomplete="current-password" placeholder="Password" />
+          </div>
+          <button class="btn btn-green btn-block" type="submit">Sign In</button>
+        </form>
+        <div class="alt-link">No account? <a href="/is-back/register/">Create one</a></div>
+      </div>`;
+
+    document.getElementById('login-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const msgEl = document.getElementById('login-msg');
+      const btn = e.target.querySelector('button');
+      btn.disabled = true; btn.textContent = 'Signing in…';
+      msgEl.innerHTML = '';
+      try {
+        const res = await fetch('../../api/user/authenticate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: document.getElementById('l-user').value.trim(), password: document.getElementById('l-pass').value }),
+        });
+        const data = await res.json();
+        if (!res.ok) { msgEl.innerHTML = msg(data.error || 'Incorrect credentials.', false); return; }
+        localStorage.setItem('authToken', data.authToken);
+        localStorage.setItem('userId', data.userId);
+        localStorage.setItem('username', document.getElementById('l-user').value.trim());
+        localStorage.setItem('firstname', data.firstname || '');
+        location.reload();
+      } catch { msgEl.innerHTML = msg('Network error.', false); }
+      finally { btn.disabled = false; btn.textContent = 'Sign In'; }
+    });
+  }
+
+  // ─── PROFILE VIEW ────────────────────────────────────────────────────────────
+  async function renderProfile() {
+    logoutBtn.style.display = '';
+    root.innerHTML = `<div style="width:100%;max-width:520px;"><div style="text-align:center;color:#8b949e;padding:40px">Loading profile…</div></div>`;
+    let profile = {};
+    try {
+      const res = await fetch('../../api/user/profile', { headers: { Authorization: `Bearer ${token}` } });
+      if (res.status === 401) { logout(); return; }
+      profile = await res.json();
+    } catch {}
+
+    const initials = ((profile.firstname || '?')[0] + (profile.lastname || '?')[0]).toUpperCase();
+
+    root.innerHTML = `
+      <div class="card">
+        <div class="profile-meta">
+          <div class="profile-avatar">${initials}</div>
+          <div>
+            <div class="profile-meta-text">${profile.firstname || ''} ${profile.lastname || ''}</div>
+            <div class="profile-meta-sub">@${profile.username || ''}</div>
+          </div>
+        </div>
+
+        <p class="section-title">Edit Profile</p>
+        <div id="profile-msg"></div>
+        <form id="profile-form" novalidate>
+          <div class="form-row">
+            <div class="field">
+              <label>First Name</label>
+              <input id="p-first" type="text" value="${profile.firstname || ''}" maxlength="16" />
+              <div class="field-error" id="err-p-first"></div>
+            </div>
+            <div class="field">
+              <label>Last Name</label>
+              <input id="p-last" type="text" value="${profile.lastname || ''}" maxlength="16" />
+              <div class="field-error" id="err-p-last"></div>
+            </div>
+          </div>
+          <div class="field">
+            <label>Email</label>
+            <input id="p-email" type="email" value="${profile.email || ''}" maxlength="64" />
+            <div class="field-error" id="err-p-email"></div>
+          </div>
+          <div class="field">
+            <label>Pen Name <span style="color:#8b949e;font-size:11px;">(optional)</span></label>
+            <input id="p-penname" type="text" value="${profile.penName || ''}" maxlength="32" />
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-green" type="submit">Save Changes</button>
+          </div>
+        </form>
+
+        <p class="section-title">Change Password</p>
+        <div id="pw-msg"></div>
+        <form id="pw-form" novalidate>
+          <div class="field">
+            <label>Current Password</label>
+            <input id="pw-cur" type="password" autocomplete="current-password" />
+            <div class="field-error" id="err-pw-cur"></div>
+          </div>
+          <div class="field">
+            <label>New Password</label>
+            <input id="pw-new" type="password" autocomplete="new-password" placeholder="Min. 8 characters" />
+            <div class="field-error" id="err-pw-new"></div>
+          </div>
+          <div class="field">
+            <label>Confirm New Password</label>
+            <input id="pw-cf" type="password" autocomplete="new-password" />
+            <div class="field-error" id="err-pw-cf"></div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-green" type="submit">Change Password</button>
+          </div>
+        </form>
+
+        <p class="section-title">Account</p>
+        <div class="btn-row">
+          <button class="btn btn-red" onclick="logout()">Logout</button>
+        </div>
+      </div>`;
+
+    document.getElementById('profile-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const msgEl = document.getElementById('profile-msg');
+      const first = document.getElementById('p-first').value.trim();
+      const last  = document.getElementById('p-last').value.trim();
+      const email = document.getElementById('p-email').value.trim();
+      let ok = true;
+      document.getElementById('err-p-first').textContent = '';
+      document.getElementById('err-p-last').textContent  = '';
+      document.getElementById('err-p-email').textContent = '';
+      if (!first) { document.getElementById('err-p-first').textContent = 'Required'; ok=false; }
+      if (!last)  { document.getElementById('err-p-last').textContent  = 'Required'; ok=false; }
+      if (!email || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) { document.getElementById('err-p-email').textContent = 'Valid email required'; ok=false; }
+      if (!ok) return;
+      const btn = e.target.querySelector('button');
+      btn.disabled = true; btn.textContent = 'Saving…';
+      msgEl.innerHTML = '';
+      try {
+        const res = await fetch('../../api/user/profile', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ firstname: first, lastname: last, email, penName: document.getElementById('p-penname').value.trim() }),
+        });
+        const data = await res.json();
+        if (!res.ok) { msgEl.innerHTML = msg(data.error || 'Update failed.', false); }
+        else { msgEl.innerHTML = msg('Profile updated!', true); localStorage.setItem('firstname', first); }
+      } catch { msgEl.innerHTML = msg('Network error.', false); }
+      finally { btn.disabled = false; btn.textContent = 'Save Changes'; }
+    });
+
+    document.getElementById('pw-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const msgEl = document.getElementById('pw-msg');
+      const cur = document.getElementById('pw-cur').value;
+      const nw  = document.getElementById('pw-new').value;
+      const cf  = document.getElementById('pw-cf').value;
+      let ok = true;
+      ['pw-cur','pw-new','pw-cf'].forEach(id => document.getElementById('err-' + id).textContent = '');
+      if (!cur) { document.getElementById('err-pw-cur').textContent = 'Required'; ok=false; }
+      if (!nw || nw.length < 8) { document.getElementById('err-pw-new').textContent = 'At least 8 characters'; ok=false; }
+      if (nw !== cf) { document.getElementById('err-pw-cf').textContent = 'Passwords do not match'; ok=false; }
+      if (!ok) return;
+      const btn = e.target.querySelector('button');
+      btn.disabled = true; btn.textContent = 'Changing…';
+      msgEl.innerHTML = '';
+      try {
+        const res = await fetch('../../api/user/changePassword', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ currentPassword: cur, newPassword: nw }),
+        });
+        const data = await res.json();
+        if (!res.ok) { msgEl.innerHTML = msg(data.error || 'Failed to change password.', false); }
+        else { msgEl.innerHTML = msg('Password changed successfully!', true); e.target.reset(); }
+      } catch { msgEl.innerHTML = msg('Network error.', false); }
+      finally { btn.disabled = false; btn.textContent = 'Change Password'; }
+    });
+  }
+
+  if (token) renderProfile(); else renderLogin();
+</script>
+</body>
+</html>

@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rakuel Is Back – Match Queue</title>
+  <link rel="stylesheet" href="../../styles.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { background: #0d1117; color: #e6edf3; min-height: 100vh; display: flex; flex-direction: column; font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+    .topbar { background: #161b22; border-bottom: 1px solid #30363d; padding: 12px 20px; display: flex; align-items: center; gap: 10px; }
+    .topbar a,.topbar button { background: #21262d; color: #e6edf3; border: 1px solid #30363d; border-radius: 6px; padding: 6px 14px; text-decoration: none; font-size: 14px; cursor: pointer; }
+    .topbar a:hover,.topbar button:hover { background: #30363d; }
+    .topbar .title { flex:1; font-size: 18px; color: #58a6ff; font-weight: 600; }
+    .profile-icon { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg,#238636,#1f6feb); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; cursor: pointer; border: 2px solid #30363d; position: relative; }
+    .profile-dropdown { display: none; position: absolute; top: 44px; right: 0; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 8px; z-index: 100; min-width: 140px; }
+    .profile-dropdown.open { display: block; }
+    .profile-dropdown button { width: 100%; background: transparent; color: #e6edf3; border: none; padding: 8px 12px; text-align: left; border-radius: 4px; cursor: pointer; font-size: 14px; }
+    .profile-dropdown button:hover { background: #21262d; }
+    .page { flex:1; display: flex; align-items: center; justify-content: center; padding: 32px 16px; }
+
+    /* Login modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: flex; align-items: center; justify-content: center; z-index: 200; }
+    .modal { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 36px 40px; width: 100%; max-width: 360px; }
+    .modal h2 { margin: 0 0 6px; font-size: 20px; }
+    .modal .sub { color: #8b949e; font-size: 13px; margin: 0 0 20px; }
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 13px; color: #8b949e; margin-bottom: 5px; }
+    .field input,.field select { width: 100%; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 9px 12px; color: #e6edf3; font-size: 14px; }
+    .field input:focus,.field select:focus { outline: none; border-color: #58a6ff; }
+    .btn { border-radius: 6px; padding: 9px 20px; font-size: 14px; font-weight: 600; cursor: pointer; border: 1px solid; transition: background .15s; }
+    .btn-green { background: #238636; color: #fff; border-color: #2ea043; }
+    .btn-green:hover { background: #2ea043; }
+    .btn-green:disabled { opacity:.5; cursor:not-allowed; }
+    .btn-outline { background: transparent; color: #e6edf3; border-color: #30363d; }
+    .btn-outline:hover { background: #21262d; }
+    .btn-red { background: transparent; color: #f85149; border-color: #f85149; }
+    .btn-red:hover { background: #2d1b1b; }
+    .btn-block { width: 100%; }
+    .alt-link { text-align: center; margin-top: 14px; font-size: 13px; color: #8b949e; }
+    .alt-link a { color: #58a6ff; text-decoration: none; }
+    .msg-err { background: #2d1b1b; border: 1px solid #f85149; color: #f85149; border-radius: 6px; padding: 8px 12px; font-size: 13px; margin-bottom: 12px; }
+
+    /* Main queue card */
+    .queue-card { background: #161b22; border: 1px solid #30363d; border-radius: 16px; padding: 36px 40px; width: 100%; max-width: 520px; }
+    .queue-card h2 { margin: 0 0 6px; font-size: 22px; color: #f0f6fc; }
+    .queue-card .sub { color: #8b949e; font-size: 14px; margin: 0 0 28px; }
+    .format-row { display: flex; gap: 12px; margin-bottom: 20px; }
+    .format-btn { flex: 1; padding: 12px; border: 2px solid #30363d; border-radius: 8px; background: #0d1117; color: #8b949e; cursor: pointer; font-size: 15px; font-weight: 600; transition: all .15s; }
+    .format-btn.active { border-color: #58a6ff; color: #58a6ff; background: #1a2d3d; }
+    .divider { border: none; border-top: 1px solid #21262d; margin: 20px 0; }
+    .match-options { display: flex; flex-direction: column; gap: 10px; }
+    .match-btn { padding: 14px 20px; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; border: 2px solid; transition: all .15s; text-align: center; }
+    .match-btn-public { background: #238636; color: #fff; border-color: #2ea043; }
+    .match-btn-public:hover { background: #2ea043; }
+    .match-btn-private { background: #1f6feb; color: #fff; border-color: #388bfd; }
+    .match-btn-private:hover { background: #388bfd; }
+    .join-row { display: flex; gap: 8px; }
+    .join-row input { flex: 1; background: #0d1117; border: 2px solid #30363d; border-radius: 8px; padding: 10px 14px; color: #e6edf3; font-size: 15px; letter-spacing: 3px; text-transform: uppercase; }
+    .join-row input:focus { outline: none; border-color: #58a6ff; }
+    .join-row .btn { flex-shrink: 0; }
+    .section-label { font-size: 12px; color: #8b949e; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; font-weight: 600; }
+    .deck-missing { font-size: 13px; color: #f0883e; background: #2d1f0e; border: 1px solid #f0883e; border-radius: 6px; padding: 8px 12px; margin-bottom: 16px; }
+
+    /* Waiting state */
+    .waiting-box { text-align: center; padding: 20px 0; }
+    .waiting-box h3 { font-size: 22px; margin: 0 0 8px; color: #f0f6fc; }
+    .waiting-box .wsub { font-size: 14px; color: #8b949e; margin-bottom: 28px; }
+    .spinner { width: 48px; height: 48px; border: 4px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin 0.9s linear infinite; margin: 0 auto 20px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.4; } }
+    .searching-text { animation: pulse 1.5s ease-in-out infinite; }
+    .code-display { font-size: 40px; font-weight: 700; letter-spacing: 12px; color: #58a6ff; background: #0d1117; border: 2px solid #1f6feb; border-radius: 12px; padding: 20px 30px; display: inline-block; margin: 0 0 12px; font-family: monospace; }
+    .code-label { font-size: 13px; color: #8b949e; margin-bottom: 6px; }
+    .copy-btn { background: #21262d; color: #e6edf3; border: 1px solid #30363d; border-radius: 6px; padding: 8px 18px; font-size: 14px; cursor: pointer; margin-bottom: 20px; }
+    .copy-btn:hover { background: #30363d; }
+    .copy-btn.copied { color: #3fb950; border-color: #3fb950; }
+    .found-msg { font-size: 20px; font-weight: 700; color: #3fb950; margin-bottom: 8px; }
+    .found-msg .emoji { font-size: 28px; }
+  </style>
+</head>
+<body>
+<header class="topbar">
+  <a href="/">Home</a>
+  <a href="/is-back/deck-builder/">Deck Builder</a>
+  <div class="title">Rakuel Is Back – Match Queue</div>
+  <div style="position:relative;">
+    <div class="profile-icon" id="profile-icon">?</div>
+    <div class="profile-dropdown" id="profile-dd">
+      <button onclick="goProfile()">Profile</button>
+      <button onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+</header>
+
+<!-- Login modal (shown when not authenticated) -->
+<div class="modal-overlay" id="login-modal" style="display:none;">
+  <div class="modal">
+    <h2>Sign In Required</h2>
+    <p class="sub">You need to sign in to play matches.</p>
+    <div id="modal-msg"></div>
+    <form id="modal-login" novalidate>
+      <div class="field"><label>Username</label><input id="ml-user" type="text" autocomplete="username" /></div>
+      <div class="field"><label>Password</label><input id="ml-pass" type="password" autocomplete="current-password" /></div>
+      <button class="btn btn-green btn-block" type="submit">Sign In</button>
+    </form>
+    <div class="alt-link">No account? <a href="/is-back/register/">Register</a></div>
+  </div>
+</div>
+
+<div class="page">
+  <div class="queue-card" id="queue-main">
+    <div style="text-align:center;color:#8b949e;padding:40px;">Loading…</div>
+  </div>
+</div>
+
+<script>
+  const API = '../../api/is-back/';
+  const USER_API = '../../api/user/';
+  let authToken = localStorage.getItem('authToken');
+  let userId = parseInt(localStorage.getItem('userId') || '0');
+  let firstname = localStorage.getItem('firstname') || '?';
+  let format = 'bo1';
+  let queueInterval = null;
+  let allDecks = [];
+
+  // ─── Auth helpers ─────────────────────────────────────────────────────────────
+  function headers() { return { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }; }
+
+  function goProfile() { location.href = '/is-back/profile/'; }
+  function doLogout() {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('username');
+    localStorage.removeItem('firstname');
+    location.reload();
+  }
+
+  // Profile icon initials
+  const piEl = document.getElementById('profile-icon');
+  piEl.textContent = firstname[0].toUpperCase() || '?';
+  piEl.addEventListener('click', () => document.getElementById('profile-dd').classList.toggle('open'));
+  document.addEventListener('click', e => { if (!piEl.contains(e.target)) document.getElementById('profile-dd').classList.remove('open'); });
+
+  // ─── Login modal ──────────────────────────────────────────────────────────────
+  async function ensureAuth() {
+    if (authToken) return true;
+    document.getElementById('login-modal').style.display = 'flex';
+    return false;
+  }
+
+  document.getElementById('modal-login').addEventListener('submit', async e => {
+    e.preventDefault();
+    const msgEl = document.getElementById('modal-msg');
+    const btn = e.target.querySelector('button');
+    btn.disabled = true; btn.textContent = 'Signing in…';
+    msgEl.innerHTML = '';
+    try {
+      const res = await fetch(USER_API + 'authenticate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: document.getElementById('ml-user').value.trim(), password: document.getElementById('ml-pass').value }),
+      });
+      const data = await res.json();
+      if (!res.ok) { msgEl.innerHTML = `<div class="msg-err">${data.error || 'Incorrect credentials.'}</div>`; return; }
+      authToken = data.authToken;
+      userId = data.userId;
+      firstname = data.firstname || '?';
+      localStorage.setItem('authToken', authToken);
+      localStorage.setItem('userId', userId);
+      localStorage.setItem('username', document.getElementById('ml-user').value.trim());
+      localStorage.setItem('firstname', firstname);
+      piEl.textContent = firstname[0].toUpperCase();
+      document.getElementById('login-modal').style.display = 'none';
+      init();
+    } catch { msgEl.innerHTML = `<div class="msg-err">Network error.</div>`; }
+    finally { btn.disabled = false; btn.textContent = 'Sign In'; }
+  });
+
+  // ─── Deck loading ─────────────────────────────────────────────────────────────
+  async function loadDecks() {
+    if (!authToken) return [];
+    try {
+      const res = await fetch(API + 'decks', { headers: headers() });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.decks || []).filter(d => (d.totalCards || d.cardCount || 0) === 60);
+    } catch { return []; }
+  }
+
+  // ─── Main setup view ─────────────────────────────────────────────────────────
+  function renderSetup() {
+    const validDecks = allDecks;
+    const deckOpts = validDecks.map(d => `<option value="${d.id}">${d.name} (${d.totalCards || d.cardCount || 0} cards)</option>`).join('');
+    const deckWarn = validDecks.length === 0
+      ? `<div class="deck-missing">You have no valid 60-card decks. <a href="/is-back/deck-builder/" style="color:#58a6ff;">Build one first!</a></div>`
+      : '';
+
+    document.getElementById('queue-main').innerHTML = `
+      <h2>Find a Match</h2>
+      <p class="sub">Build your deck and challenge opponents.</p>
+
+      ${deckWarn}
+      <div class="field">
+        <div class="section-label">Select Deck</div>
+        <select id="deck-select">
+          ${validDecks.length ? deckOpts : '<option value="">No valid decks</option>'}
+        </select>
+      </div>
+
+      <div class="section-label" style="margin-top:4px;">Format</div>
+      <div class="format-row">
+        <button class="format-btn ${format==='bo1'?'active':''}" onclick="setFormat('bo1')">Best of 1</button>
+        <button class="format-btn ${format==='bo3'?'active':''}" onclick="setFormat('bo3')">Best of 3</button>
+      </div>
+
+      <hr class="divider" />
+
+      <div class="section-label">Match Type</div>
+      <div class="match-options">
+        <button class="match-btn match-btn-public" onclick="joinPublic()" ${validDecks.length?'':'disabled'}>🌍 Find Public Match</button>
+        <button class="match-btn match-btn-private" onclick="createPrivate()" ${validDecks.length?'':'disabled'}>🔒 Create Private Match</button>
+      </div>
+
+      <hr class="divider" />
+
+      <div class="section-label">Join Private Match</div>
+      <div class="join-row">
+        <input id="join-code" type="text" placeholder="Enter code" maxlength="8" />
+        <button class="btn btn-outline" onclick="joinPrivate()">Join</button>
+      </div>
+      <div id="join-err" style="font-size:13px;color:#f85149;margin-top:6px;"></div>
+    `;
+  }
+
+  function setFormat(f) { format = f; renderSetup(); }
+
+  // ─── Queue actions ────────────────────────────────────────────────────────────
+  function getDeckId() {
+    const el = document.getElementById('deck-select');
+    return el ? parseInt(el.value) : 0;
+  }
+
+  async function joinPublic() {
+    const deckId = getDeckId();
+    if (!deckId) return;
+    try {
+      const res = await fetch(API + 'matchQueue', {
+        method: 'POST', headers: headers(),
+        body: JSON.stringify({ deckId, format, type: 'public' }),
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || 'Could not join queue.'); return; }
+      if (data.matchId) { enterGame(data.matchId); return; }
+      renderWaiting('public', data.joinCode);
+    } catch { alert('Network error.'); }
+  }
+
+  async function createPrivate() {
+    const deckId = getDeckId();
+    if (!deckId) return;
+    try {
+      const res = await fetch(API + 'matchQueue', {
+        method: 'POST', headers: headers(),
+        body: JSON.stringify({ deckId, format, type: 'private' }),
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || 'Could not create match.'); return; }
+      if (data.matchId) { enterGame(data.matchId); return; }
+      renderWaiting('private', data.joinCode);
+    } catch { alert('Network error.'); }
+  }
+
+  async function joinPrivate() {
+    const code = (document.getElementById('join-code').value || '').trim().toUpperCase();
+    if (!code || code.length < 4) { document.getElementById('join-err').textContent = 'Enter a valid join code.'; return; }
+    const deckId = getDeckId();
+    if (!deckId) { document.getElementById('join-err').textContent = 'Select a deck first.'; return; }
+    try {
+      const res = await fetch(API + 'matchQueue?action=join', {
+        method: 'POST', headers: headers(),
+        body: JSON.stringify({ joinCode: code, deckId }),
+      });
+      const data = await res.json();
+      if (!res.ok) { document.getElementById('join-err').textContent = data.error || 'Could not join.'; return; }
+      if (data.matchId) enterGame(data.matchId);
+    } catch { document.getElementById('join-err').textContent = 'Network error.'; }
+  }
+
+  // ─── Waiting view ─────────────────────────────────────────────────────────────
+  function renderWaiting(type, joinCode) {
+    const isPrivate = type === 'private';
+    document.getElementById('queue-main').innerHTML = `
+      <div class="waiting-box">
+        ${isPrivate ? `
+          <div class="code-label">Share this code with your opponent:</div>
+          <div class="code-display" id="code-text">${joinCode || ''}</div><br>
+          <button class="copy-btn" id="copy-btn" onclick="copyCode('${joinCode}')">Copy Code</button>
+          <div class="searching-text" style="color:#8b949e;font-size:15px;margin-bottom:20px;">Waiting for opponent to join…</div>
+        ` : `
+          <div class="spinner"></div>
+          <h3 class="searching-text">Searching for opponent…</h3>
+          <p class="wsub">This may take a moment. Please wait.</p>
+        `}
+        <button class="btn btn-red" onclick="cancelQueue()">Cancel</button>
+      </div>`;
+    startPolling();
+  }
+
+  function copyCode(code) {
+    navigator.clipboard.writeText(code).then(() => {
+      const btn = document.getElementById('copy-btn');
+      if (btn) { btn.textContent = 'Copied!'; btn.classList.add('copied'); setTimeout(() => { btn.textContent = 'Copy Code'; btn.classList.remove('copied'); }, 2000); }
+    });
+  }
+
+  async function cancelQueue() {
+    stopPolling();
+    try { await fetch(API + 'matchQueue', { method: 'DELETE', headers: headers() }); } catch {}
+    renderSetup();
+  }
+
+  function startPolling() {
+    stopPolling();
+    queueInterval = setInterval(pollQueue, 2000);
+  }
+  function stopPolling() { if (queueInterval) { clearInterval(queueInterval); queueInterval = null; } }
+
+  async function pollQueue() {
+    try {
+      const res = await fetch(API + 'matchQueue', { headers: headers() });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.status === 'matched' && data.matchId) {
+        stopPolling();
+        const box = document.getElementById('queue-main');
+        if (box) box.innerHTML = `<div class="waiting-box"><div class="found-msg"><span class="emoji">🎮</span><br>Match found!<br>Entering game…</div></div>`;
+        setTimeout(() => enterGame(data.matchId), 1200);
+      }
+    } catch {}
+  }
+
+  function enterGame(matchId) { location.href = `/is-back/gameplay/?matchId=${matchId}`; }
+
+  // ─── Init ─────────────────────────────────────────────────────────────────────
+  async function init() {
+    if (!authToken) { document.getElementById('login-modal').style.display = 'flex'; return; }
+    allDecks = await loadDecks();
+    renderSetup();
+  }
+
+  init();
+</script>
+</body>
+</html>
