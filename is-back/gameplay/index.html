@@ -22,7 +22,7 @@
       background: rgba(0,0,0,.75); opacity: 0; pointer-events: none;
       transition: opacity .3s;
     }
-    #phase-overlay.show { opacity: 1; pointer-events: all; }
+    #phase-overlay.show { opacity: 1; pointer-events: none; }
     #phase-text {
       font-size: clamp(32px,6vw,72px); font-weight: 900; letter-spacing: 4px;
       text-transform: uppercase; text-align: center; text-shadow: 0 0 40px currentColor;
@@ -50,26 +50,27 @@
     #topbar .title { flex:1; font-size: 15px; color: var(--blue2); font-weight: 600; }
     .avatar-btn { width: 34px; height: 34px; border-radius: 50% !important; background: linear-gradient(135deg,var(--green),var(--blue)) !important; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; padding: 0 !important; border: 2px solid var(--border) !important; position: relative; }
 
-    #board { display: grid; grid-template-rowsNo: 1fr auto 1fr; gap: 0; overflow: hidden; padding: 8px 16px 8px 0; }
+    #board { display: grid; grid-template-rows: 1fr auto 1fr; gap: 0; overflow: hidden; padding: 8px 16px 8px 0; }
     #board-wrap { display: flex; gap: 12px; overflow: hidden; }
     #prize-panel { width: 60px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 6px; padding: 16px 8px; border-right: 1px solid var(--border); }
     .prize-slot { width: 44px; height: 62px; border-radius: 6px; border: 1px dashed var(--border); background: rgba(255,255,255,.02); display: flex; align-items: center; justify-content: center; font-size: 9px; color: var(--muted); position: relative; }
     .prize-slot img { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; }
     .prize-label { font-size: 9px; color: var(--muted); text-align: center; margin-bottom: 2px; writing-mode: vertical-lr; transform: rotate(180deg); }
-    #prize-my-count, #prize-opp-count { font-size: 10px; color: var(--muted); text-align: center; }
+
     #opp-area, #my-area { display: flex; flex-direction: column; gap: 6px; }
     #opp-area { padding-top: 8px; }
+    #my-area { padding-bottom: 8px; }
     #opp-info, #my-info { display: flex; align-items: center; gap: 10px; font-size: 13px; }
     .player-name { font-weight: 700; font-size: 14px; }
     .player-name.active { color: var(--green2); }
     .stat-badge { background: #21262d; border: 1px solid var(--border); border-radius: 20px; padding: 3px 10px; font-size: 12px; color: var(--muted); }
     .stat-badge span { color: var(--text); font-weight: 600; }
 
-    #opp-field, #my-field { display: flex; align-items: center; justify-content: center; gap: 28px; flex: 1; }
+    #opp-field, #my-field { display: flex; align-items: center; justify-content: center; gap: 56px; flex: 1; }
     .divider-line { border: none; border-top: 1px dashed var(--border); margin: 0; }
     .card-zone { position: relative; }
     .card-slot {
-      width: 80px; height: 112px; border-radius: 8px;
+      width: 104px; height: 146px; border-radius: 8px;
       border: 2px dashed var(--border); background: rgba(255,255,255,.03);
       display: flex; align-items: center; justify-content: center;
       cursor: pointer; transition: border-color .2s, background .2s;
@@ -156,15 +157,15 @@
       100% { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
     }
     .hand-card {
-      flex-shrink: 0; width: 70px; height: 98px; border-radius: 7px; border: 2px solid var(--border);
+      flex-shrink: 0; width: 92px; height: 129px; border-radius: 7px; border: 2px solid var(--border);
       cursor: pointer; position: relative; transition: transform .15s, border-color .15s;
       background: var(--bg);
     }
     .hand-card.dealing {
       animation: dealCard 0.42s cubic-bezier(0.22, 0.61, 0.36, 1) both;
     }
-    .hand-card:hover { transform: translateY(-6px); border-color: var(--blue2); z-index: 10; }
-    .hand-card.selected { border-color: var(--gold); transform: translateY(-10px); }
+    .hand-card:hover { transform: translateY(-12px) scale(1.48); border-color: var(--blue2); z-index: 10; }
+    .hand-card.selected { border-color: var(--gold); transform: translateY(-16px) scale(1.48); }
     .hand-card img { width: 100%; height: 100%; object-fit: cover; border-radius: 5px; }
     .hand-card .hc-power { position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%); background: #000c; color: #fff; font-size: 9px; padding: 1px 5px; border-radius: 8px; white-space: nowrap; }
     .hand-card .hc-type { position: absolute; top: 3px; left: 3px; width: 8px; height: 8px; border-radius: 50%; }
@@ -315,8 +316,8 @@
 
     /* Responsive */
     @media (max-width: 600px) {
-      .card-slot { width: 62px; height: 87px; }
-      .hand-card { width: 56px; height: 78px; }
+      .card-slot { width: 80px; height: 112px; }
+      .hand-card { width: 72px; height: 101px; }
       #log-panel { width: 220px; }
     }
   </style>
@@ -333,20 +334,13 @@
     <button class="avatar-btn" id="my-avatar" title="Surrender Match" onclick="showGameSurrenderConfirm()">?</button>
   </div>
 
-  <!-- Round result overlay -->
-  <div id="round-result-overlay">
-    <div id="round-result-inner"></div>
-  </div>
-
   <!-- Board wrapper (prize panel + main board) -->
   <div id="board-wrap">
   <!-- Prize panel -->
   <div id="prize-panel">
-    <div id="prize-opp-count" title="Opponent prize cards"></div>
     <div id="prize-opp-slots"></div>
     <div style="flex:1"></div>
     <div id="prize-my-slots"></div>
-    <div id="prize-my-count" title="Your prize cards"></div>
   </div>
 
   <!-- Board -->
@@ -355,6 +349,7 @@
     <div id="opp-area">
       <div id="opp-info">
         <div class="player-name" id="opp-name">Opponent</div>
+        <div class="stat-badge">Prizes: <span id="opp-prize-count">5</span></div>
         <div class="stat-badge">Hand: <span id="opp-hand">0</span></div>
         <div class="stat-badge">Deck: <span id="opp-deck">55</span></div>
         <div class="grave-pile" onclick="showGrave(1)" title="Opponent graveyard">
@@ -399,6 +394,7 @@
       </div>
       <div id="my-info">
         <div class="player-name" id="my-name">You</div>
+        <div class="stat-badge">Prizes: <span id="my-prize-count">5</span></div>
         <div class="stat-badge">Deck: <span id="my-deck">55</span></div>
         <div class="grave-pile" onclick="showGrave(0)" title="Your graveyard">
           🗑️
@@ -406,8 +402,6 @@
         </div>
       </div>
     </div>
-  </div>
-
   </div><!-- end #board -->
   </div><!-- end #board-wrap -->
 
@@ -429,6 +423,11 @@
     </div>
     <div id="action-btns" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
   </div>
+</div>
+
+<!-- Round result overlay (outside #app to avoid grid-slot issues) -->
+<div id="round-result-overlay">
+  <div id="round-result-inner"></div>
 </div>
 
 <!-- Log toggle -->
@@ -633,6 +632,7 @@ function handleDisconnect(fail = true) {
 
 // ── State processing ──────────────────────────────────────────────────────────
 function processState(state) {
+  try {
   state._cardsMap = allCards;
 
   // Fallback myIndex detection from players array
@@ -640,6 +640,8 @@ function processState(state) {
     myIndex = state.players.findIndex(p => p.userId === myUserId);
     if (myIndex === -1) myIndex = 0;
   }
+
+  console.log('[processState] phase=' + state.phase + ' turn=' + state.turn + ' myIndex=' + myIndex + ' diceRoll=' + JSON.stringify(state.players?.[myIndex]?.diceRoll));
 
   // Reset per-phase flags when phase changes
   if (state.phase !== lastPhase) {
@@ -699,6 +701,8 @@ function processState(state) {
   if (state.phase === 'game_over' || state._matchStatus === 'completed') {
     handleMatchComplete(state);
   }
+
+  } catch(e) { console.error('[processState error]', e); }
 }
 
 // ── Phase announcement ────────────────────────────────────────────────────────
@@ -740,9 +744,20 @@ function updatePlayerInfo(state, mi, oi) {
   document.getElementById('opp-name').className = `player-name${!isMyTurn ? ' active' : ''}`;
   document.getElementById('opp-name').textContent = opp.username || 'Opponent';
 
-  document.getElementById('my-deck').textContent    = me.deckCount   ?? '?';
-  document.getElementById('opp-deck').textContent   = opp.deckCount  ?? '?';
-  document.getElementById('opp-hand').textContent   = opp.handCount  ?? 0;
+  // Calculate deck counts as residual if not provided by server
+  const DECK_SIZE = 55;
+  const myHandCount  = (me.handIds  || []).length;
+  const myFieldCount = ['primary','left','right'].reduce((n, s) => n + (me.field?.[s]?.length  || 0), 0);
+  const myGraveCount = (me.graveyardIds || []).length;
+  const myPrizeCount = me.prizeCount ?? (me.prizeIds ? me.prizeIds.length : 5);
+  document.getElementById('my-deck').textContent = me.deckCount ?? Math.max(0, DECK_SIZE - myFieldCount - myGraveCount - myPrizeCount - myHandCount);
+
+  const oppHandCount  = opp.handCount ?? (Array.isArray(opp.handIds) ? opp.handIds.length : 0);
+  document.getElementById('opp-hand').textContent = oppHandCount;
+  const oppFieldCount = ['primary','left','right'].reduce((n, s) => n + (opp.field?.[s]?.length || 0), 0);
+  const oppGraveCount = (opp.graveyardIds || []).length;
+  const oppPrizeCount = opp.prizeCount ?? (opp.prizeIds ? opp.prizeIds.length : 5);
+  document.getElementById('opp-deck').textContent = opp.deckCount ?? Math.max(0, DECK_SIZE - oppFieldCount - oppGraveCount - oppPrizeCount - oppHandCount);
   document.getElementById('my-grave-count').textContent  = (me.graveyardIds  || []).length;
   document.getElementById('opp-grave-count').textContent = (opp.graveyardIds || []).length;
 
@@ -783,19 +798,13 @@ function renderSlot(el, stack, canInteract, owner) {
   if (top.faceDown || !card) {
     el.innerHTML = `<img src="${cardBack()}" alt="Face Down" /><div class="face-down-label">Face Down</div>`;
   } else {
-    const typeClass = `type-${(card.type||'').toLowerCase()}`;
-    const basePow = card.power;
     const boostedPow = gameState ? GameEngine.computeSlotPower(gameState, owner, slot, allCards) : null;
-    const showBoost = boostedPow !== null && boostedPow !== basePow;
-    const supportBadge = isSupport ? '<div class="support-badge">SUPPORT</div>' : '';
+    const showBoost = boostedPow !== null && boostedPow !== card.power;
     const boostBadge = showBoost ? `<div class="power-boost-badge">⚡${fmt(boostedPow)}</div>` : '';
     el.innerHTML = `
       <img src="${cardImg(card)}" alt="${stripBB(card.name)}" onerror="this.src=''" />
-      <div class="type-indicator ${typeClass}"></div>
-      <div class="power-badge">${fmt(basePow)}</div>
       ${boostBadge}
       ${stack.length > 1 ? `<div class="stack-count">×${stack.length}</div>` : ''}
-      ${supportBadge}
     `;
   }
   addTooltipListeners(el, top.cardId, top.faceDown, isMine);
@@ -855,7 +864,6 @@ function updateHand(state, mi) {
     const isRizz = card.keywords && card.keywords.some(k=>k&&k.toLowerCase()==='rizz') && oppHasFaceDown;
     const isSelected = selectedHandCardId === id;
     const isNew = newIds.has(id);
-    const typeClass = `type-${(card.type||'').toLowerCase()}`;
     let cls = 'hand-card';
     if (isSelected) cls += ' selected';
     if (isSOR && phase === 'start_of_round') cls += ' sor-card';
@@ -869,8 +877,6 @@ function updateHand(state, mi) {
            onmouseenter="showTooltip(event,${id})"
            onmouseleave="hideTooltip()">
         <img src="${cardImg(card)}" alt="${stripBB(card.name)}" onerror="this.src=''" />
-        <div class="hc-type ${typeClass}"></div>
-        <div class="hc-power">${fmt(card.power)}</div>
       </div>`;
   }).join('');
 
@@ -1110,16 +1116,24 @@ function clearSlotHighlights() {
 
 // ── Actions → API ─────────────────────────────────────────────────────────────
 async function sendAction(action, params = {}) {
+  console.log('[sendAction]', action, params);
   try {
     const res = await fetch(API + 'gameAction', {
       method: 'POST', headers: authHeaders(),
       body: JSON.stringify({ matchId, action, params }),
     });
     const data = await res.json();
-    if (!res.ok) { showPhaseMsg(data.error || 'Invalid action', '#f85149', 2000); return; }
+    if (!res.ok) {
+      console.error('[sendAction error]', action, data.error);
+      showPhaseMsg(data.error || 'Invalid action', '#f85149', 2000);
+      return;
+    }
     if (data.state) { lastVersion = -1; processState(data.state); }
     else { lastVersion = -1; await poll(); }
-  } catch { showPhaseMsg('Network error', '#f85149', 2000); }
+  } catch(e) {
+    console.error('[sendAction exception]', action, e);
+    showPhaseMsg('Network error', '#f85149', 2000);
+  }
 }
 
 function triggerOpponentPasses({ slot, cardId, keyword }) {
@@ -1417,8 +1431,8 @@ function updatePrizePanel(state, mi, oi) {
   const myCount  = me.prizeCount  ?? (me.prizeIds  ? me.prizeIds.length  : 5);
   const oppCount = opp.prizeCount ?? (opp.prizeIds ? opp.prizeIds.length : 5);
 
-  document.getElementById('prize-my-count').textContent  = `🏆 ${myCount}`;
-  document.getElementById('prize-opp-count').textContent = `🏆 ${oppCount}`;
+  document.getElementById('my-prize-count').textContent  = myCount;
+  document.getElementById('opp-prize-count').textContent = oppCount;
 
   // Draw face-down prize slots
   function renderPrizeSlots(containerId, count) {
