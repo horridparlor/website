@@ -121,6 +121,17 @@
     .stmt-details[open] > summary::before {
       transform: translateY(-50%) rotate(90deg);
     }
+    .stmt-details[open] > summary {
+      font-size: 0;
+      padding-top: 2px;
+      padding-bottom: 2px;
+      line-height: 1;
+      color: transparent;
+    }
+    .stmt-details[open] > summary::before {
+      font-size: 9px;
+      color: #00ffcc;
+    }
     .stmt-details > pre {
       margin: 6px 0 4px 16px;
     }
