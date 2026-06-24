@@ -1061,8 +1061,10 @@ function performAction(Database $database): string
 
     $matchId  = $database->getIntParam('matchId');
     $action   = $database->getStringParam('action');
-    $params   = $database->getRequestData();
-    $paramsArr = json_decode(json_encode($params), true) ?? [];
+    $raw      = $database->getRequestData();
+    $rawArr   = json_decode(json_encode($raw), true) ?? [];
+    // Frontend sends { matchId, action, params: { ... } } — unwrap the nested params
+    $paramsArr = isset($rawArr['params']) && is_array($rawArr['params']) ? $rawArr['params'] : $rawArr;
 
     if (!$matchId) return Database::responseBadRequest('matchId required');
     if (!$action)  return Database::responseBadRequest('action required');
