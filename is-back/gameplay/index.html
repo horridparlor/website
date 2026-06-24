@@ -97,10 +97,18 @@
     /* Hand */
     #hand-area { background: var(--bg2); border-top: 1px solid var(--border); padding: 8px 16px; }
     #hand-scroll { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0; scrollbar-width: thin; }
+    @keyframes dealCard {
+      0%   { transform: translateY(160px) rotate(18deg) scale(0.85); opacity: 0; }
+      55%  { opacity: 1; }
+      100% { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
+    }
     .hand-card {
       flex-shrink: 0; width: 70px; height: 98px; border-radius: 7px; border: 2px solid var(--border);
       cursor: pointer; position: relative; transition: transform .15s, border-color .15s;
       background: var(--bg);
+    }
+    .hand-card.dealing {
+      animation: dealCard 0.42s cubic-bezier(0.22, 0.61, 0.36, 1) both;
     }
     .hand-card:hover { transform: translateY(-6px); border-color: var(--blue2); z-index: 10; }
     .hand-card.selected { border-color: var(--gold); transform: translateY(-10px); }
@@ -436,6 +444,7 @@ let failCount    = 0;
 let nextRoundScheduled = false;
 let myRpsChoice  = null;
 let lastRpsResultKey = null;
+let prevHandIds  = new Set();
 
 function authHeaders() { return { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }; }
 function fmt(p) { return String(Number(p)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
@@ -662,9 +671,14 @@ function highlightPlayableSlots(state, mi, cardId) {
 function updateHand(state, mi) {
   const me = state.players[mi];
   if (!me || !me.handIds) return;
-  const isMyTurn = state.turn === mi;
   const phase = state.phase;
   const handScroll = document.getElementById('hand-scroll');
+
+  // Detect which cards are newly added
+  const currentIds = new Set(me.handIds);
+  const newIds = new Set([...currentIds].filter(id => !prevHandIds.has(id)));
+  prevHandIds = currentIds;
+
   handScroll.innerHTML = me.handIds.map(id => {
     const card = allCards[id];
     if (!card) return '';
@@ -672,12 +686,14 @@ function updateHand(state, mi) {
     const isCommunism = card.keywords && card.keywords.some(k=>k&&k.toLowerCase()==='communism');
     const isRizz = card.keywords && card.keywords.some(k=>k&&k.toLowerCase()==='rizz');
     const isSelected = selectedHandCardId === id;
+    const isNew = newIds.has(id);
     const typeClass = `type-${(card.type||'').toLowerCase()}`;
     let cls = 'hand-card';
     if (isSelected) cls += ' selected';
     if (isSOR && phase === 'start_of_round') cls += ' sor-card';
     if (isCommunism) cls += ' communism-card';
     if (isRizz) cls += ' rizz-card';
+    if (isNew) cls += ' dealing';
     return `
       <div class="${cls}" data-id="${id}" data-sor="${isSOR?1:0}"
            onclick="onHandCardClick(${id})"
@@ -689,6 +705,15 @@ function updateHand(state, mi) {
         <div class="hc-power">${fmt(card.power)}</div>
       </div>`;
   }).join('');
+
+  // Stagger new cards so they deal in sequence
+  if (newIds.size > 0) {
+    let i = 0;
+    handScroll.querySelectorAll('.hand-card.dealing').forEach(el => {
+      el.style.animationDelay = `${i * 90}ms`;
+      i++;
+    });
+  }
 }
 
 // ── Dice display ──────────────────────────────────────────────────────────────
