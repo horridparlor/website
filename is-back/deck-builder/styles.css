@@ -463,6 +463,27 @@ html, body { height: 100%; overflow: hidden; }
 .btn-save:hover:not(:disabled) { transform: scale(1.02); box-shadow: 0 0 24px rgba(0,255,204,0.7); }
 .btn-save:disabled { opacity: 0.35; cursor: not-allowed; transform: none; box-shadow: none; }
 
+.deck-io-row {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+.btn-io {
+  flex: 1;
+  padding: 0.4rem 0.3rem;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #aaa;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.btn-io:hover { border-color: #00ffcc; color: #00ffcc; }
+.btn-io-img { border-color: #444; color: #888; }
+.btn-io-img:hover { border-color: #a855f7; color: #a855f7; }
+
 /* ── Modals ──────────────────────────────────────────────────────────── */
 .modal-backdrop {
   position: fixed; inset: 0;

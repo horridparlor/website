@@ -6,6 +6,7 @@
   <title>Rakuel Is Back – Deck Builder</title>
   <link rel="stylesheet" href="../../styles.css" />
   <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 
@@ -143,6 +144,12 @@
       </div>
       <div class="validation-msg" id="validation-msg"></div>
       <button class="btn btn-save" id="btn-save" disabled>Save Deck</button>
+      <div class="deck-io-row">
+        <button class="btn btn-io" id="btn-export-txt" title="Export decklist as .txt">↓ .txt</button>
+        <button class="btn btn-io" id="btn-import-txt" title="Import decklist from .txt">↑ .txt</button>
+        <button class="btn btn-io btn-io-img" id="btn-export-img" title="Export card images as .zip">↓ Images</button>
+      </div>
+      <input type="file" id="import-file-input" accept=".txt" style="display:none" />
     </div>
   </div>
 </div>
@@ -172,6 +179,17 @@
     </div>
     <div class="modal-link" style="margin-top:1rem;">
       Don't have an account? <a href="../register/">Register here</a>
+    </div>
+  </div>
+</div>
+
+<!-- Import result modal -->
+<div class="modal-backdrop hidden" id="modal-import">
+  <div class="modal-box">
+    <h3 style="color:#00ffcc;margin:0 0 0.75rem;">Import Result</h3>
+    <div id="import-result-msg" style="font-size:0.85rem;max-height:300px;overflow-y:auto;"></div>
+    <div class="modal-confirm-actions">
+      <button class="btn btn-cancel" id="btn-import-close">Close</button>
     </div>
   </div>
 </div>
@@ -289,6 +307,14 @@
     confirmMsg:    document.getElementById('confirm-msg'),
     btnConfirmYes: document.getElementById('btn-confirm-yes'),
     btnConfirmNo:  document.getElementById('btn-confirm-no'),
+
+    btnExportTxt:    document.getElementById('btn-export-txt'),
+    btnImportTxt:    document.getElementById('btn-import-txt'),
+    btnExportImg:    document.getElementById('btn-export-img'),
+    importFileInput: document.getElementById('import-file-input'),
+    modalImport:     document.getElementById('modal-import'),
+    importResultMsg: document.getElementById('import-result-msg'),
+    btnImportClose:  document.getElementById('btn-import-close'),
   };
 
   /* ── Utilities ──────────────────────────────────────────────────── */
@@ -909,11 +935,136 @@
   [el.search].forEach(ctrl => ctrl.addEventListener('input', filterCards));
   [el.fType, el.fKeyword, el.fPowerMin, el.fPowerMax].forEach(ctrl => ctrl.addEventListener('change', filterCards));
 
+  /* ── Export / Import ────────────────────────────────────────────── */
+  const triggerDownloadBlob = (blob, filename) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportTxt = () => {
+    if (!currentDeck.cards.length) { showToast('Deck is empty', 'warn'); return; }
+    const lines = currentDeck.cards.map(dc => {
+      const card = allCards.find(c => c.id === dc.cardId);
+      return card ? `${dc.quantity}x ${removeBB(card.name)}` : null;
+    }).filter(Boolean);
+    triggerDownloadBlob(
+      new Blob([lines.join('\n')], { type: 'text/plain' }),
+      `${removeBB(currentDeck.name) || 'deck'}.txt`
+    );
+  };
+
+  const importTxt = (text) => {
+    const nameMap = {};
+    allCards.forEach(c => { nameMap[removeBB(c.name).toLowerCase().trim()] = c; });
+
+    const newCards = [];
+    const notFound = [];
+
+    text.split('\n').forEach(raw => {
+      const line = raw.trim();
+      if (!line || line.startsWith('#') || line.startsWith('//')) return;
+
+      let qty = 1, name = '';
+      let m = line.match(/^(\d+)x\s+(.+)$/i);
+      if (m) { qty = parseInt(m[1], 10); name = m[2].trim(); }
+      else {
+        m = line.match(/^(.+)\s+x(\d+)$/i);
+        if (m) { qty = parseInt(m[2], 10); name = m[1].trim(); }
+        else { name = line; }
+      }
+
+      const card = nameMap[name.toLowerCase().trim()];
+      if (!card) { notFound.push(line); return; }
+
+      const repl = hasReplicate(card);
+      const existing = newCards.find(dc => dc.cardId === card.id);
+      if (existing) {
+        if (repl) existing.quantity += qty;
+      } else {
+        newCards.push({ cardId: card.id, quantity: repl ? qty : 1 });
+      }
+    });
+
+    currentDeck.cards = newCards;
+    isDirty = true;
+    saveDraft();
+    updateDeckUI();
+    filterCards();
+
+    if (notFound.length) {
+      el.importResultMsg.innerHTML =
+        `<div style="color:#aaa;margin-bottom:0.5rem;">Imported ${newCards.length} card entr${newCards.length!==1?'ies':'y'}.</div>` +
+        `<div style="color:#ff9966;margin-bottom:0.3rem;">Not found (${notFound.length}):</div>` +
+        `<ul style="color:#ff6666;margin:0;padding-left:1.2rem;">${notFound.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>`;
+      el.modalImport.classList.remove('hidden');
+    } else {
+      showToast(`Imported ${newCards.length} card entr${newCards.length!==1?'ies':'y'}`, 'success');
+    }
+  };
+
+  const exportImages = async () => {
+    if (!currentDeck.cards.length) { showToast('Deck is empty', 'warn'); return; }
+    if (typeof JSZip === 'undefined') { showToast('ZIP library not loaded', 'error'); return; }
+
+    setLoading('Fetching images…');
+    try {
+      const zip = new JSZip();
+
+      // Card back
+      try {
+        const r = await fetch('../card-images/0%20-%20Card%20Back.png');
+        if (r.ok) zip.file('0 - Card Back.png', await r.blob());
+      } catch (_) {}
+
+      // Deck cards with duplicate copies
+      for (const dc of currentDeck.cards) {
+        const card = allCards.find(c => c.id === dc.cardId);
+        if (!card) continue;
+        const filename = `${cardImgName(card)}.png`;
+        try {
+          const r = await fetch(cardPath(card));
+          if (!r.ok) continue;
+          const blob = await r.blob();
+          zip.file(filename, blob);
+          for (let i = 2; i <= dc.quantity; i++) {
+            zip.file(`${filename}(${i})`, blob);
+          }
+        } catch (_) {}
+      }
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      triggerDownloadBlob(zipBlob, `${removeBB(currentDeck.name) || 'deck'}.zip`);
+      showToast('Images exported!', 'success');
+    } catch (e) {
+      showToast('Export failed: ' + e.message, 'error');
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  el.btnExportTxt.addEventListener('click', exportTxt);
+  el.btnImportTxt.addEventListener('click', () => el.importFileInput.click());
+  el.importFileInput.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => importTxt(ev.target.result);
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+  el.btnExportImg.addEventListener('click', exportImages);
+  el.btnImportClose.addEventListener('click', () => el.modalImport.classList.add('hidden'));
+
   /* ── Keyboard ───────────────────────────────────────────────────── */
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       el.modalLogin.classList.add('hidden');
       el.modalConfirm.classList.add('hidden');
+      el.modalImport.classList.add('hidden');
     }
   });
 
