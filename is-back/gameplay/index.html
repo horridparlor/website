@@ -558,9 +558,12 @@ let prevHandIds  = new Set();
 let prevPhaseTurn = null;
 let lastNaturalSelectionTs = 0;
 let lastCommunismTs = 0;
+let lastMagicPotionTs = 0;
 let phaseToastTimeout = null;
 let activePendingModalSig = null;
 let pendingActionInFlight = false;
+let magicPotionAnimating = false;
+let magicPotionQueue = [];
 
 function authHeaders() { return { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }; }
 function fmt(p) { return String(Number(p)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
@@ -738,6 +741,13 @@ function processState(state) {
     const who = userIdx === myIndex ? 'You' : (state.players?.[userIdx]?.username || 'Opponent');
     showPhaseToast(`${who} used Communism — bottom prize revealed`, '#d29922');
     acknowledgeNotification('communism', cTs);
+  }
+
+  const mpEvt = state.lastMagicPotionRoll;
+  if (mpEvt && mpEvt.ts && mpEvt.ts !== lastMagicPotionTs) {
+    lastMagicPotionTs = mpEvt.ts;
+    magicPotionQueue.push({ ...mpEvt, username: state.players?.[mpEvt.playerIndex]?.username || 'Player' });
+    runMagicPotionAnimationQueue();
   }
 
   // Win/complete
@@ -1256,6 +1266,51 @@ function updateDice(state, mi) {
   document.getElementById('dice-total').textContent = `= ${total}`;
 }
 
+function runMagicPotionAnimationQueue() {
+  if (magicPotionAnimating || !magicPotionQueue.length) return;
+  magicPotionAnimating = true;
+
+  const evt = magicPotionQueue.shift();
+  const d1El = document.getElementById('d1');
+  const d2El = document.getElementById('d2');
+  const totalEl = document.getElementById('dice-total');
+  const diceArea = document.getElementById('dice-area');
+  const prevDisplay = diceArea.style.display;
+  const prevD1 = d1El.textContent;
+  const prevD2 = d2El.textContent;
+  const prevTotal = totalEl.textContent;
+  const prevD2Display = d2El.style.display;
+
+  diceArea.style.display = 'flex';
+  d2El.style.display = 'none';
+  totalEl.textContent = 'Magic Potion...';
+
+  const start = Date.now();
+  const duration = 800;
+  const ticker = setInterval(() => {
+    d1El.textContent = String(Math.floor(Math.random() * 6) + 1);
+    d1El.classList.add('rolling');
+    if (Date.now() - start >= duration) {
+      clearInterval(ticker);
+      d1El.classList.remove('rolling');
+      d1El.textContent = String(evt.roll);
+      totalEl.textContent = `Magic Potion = ${evt.roll}`;
+      showPhaseToast(`${evt.username} rolled ${evt.roll} (Magic Potion)`, '#d29922');
+
+      setTimeout(() => {
+        d2El.style.display = prevD2Display;
+        d1El.textContent = prevD1;
+        d2El.textContent = prevD2;
+        totalEl.textContent = prevTotal;
+        diceArea.style.display = prevDisplay;
+        if (gameState) updateDice(gameState, myIndex);
+        magicPotionAnimating = false;
+        runMagicPotionAnimationQueue();
+      }, 1100);
+    }
+  }, 80);
+}
+
 // ── Action bar ────────────────────────────────────────────────────────────────
 function updateActionBar(state, mi) {
   const phase = state.phase;
@@ -1341,8 +1396,12 @@ function updateActionBar(state, mi) {
   if (phase === 'passing_phase') {
     // The responding player (not the one who passed) can trigger [Opponent passes] keywords
     const respondingIndex = 1 - (state.passerId ?? (1-mi));
+    const kws = GameEngine.getOpponentPassesKeywords(state, mi, allCards);
+    if (!kws.length) {
+      btns.innerHTML = '<span class="thinking-indicator">Resolving pass…</span>';
+      return;
+    }
     if (respondingIndex === mi) {
-      const kws = GameEngine.getOpponentPassesKeywords(state, mi, allCards);
       kws.forEach(k => {
         btns.appendChild(mkBtn(`⚡ ${k.keyword}`, 'action-btn btn-done', () => triggerOpponentPasses(k)));
       });

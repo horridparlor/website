@@ -75,6 +75,7 @@ function buildInitialGameState(array $p1, array $p2, array $p1DeckIds, array $p2
         'lastCommunismUsed' => null,
         'lastCommunismUser' => null,
         'communismAcks' => [0, 0],
+        'lastMagicPotionRoll' => null,
         'rpsChoices'    => [null, null],
         'rpsResult'     => null,
         'rpsRound'      => 1,

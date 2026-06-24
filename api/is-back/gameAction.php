@@ -230,6 +230,12 @@ class GameEngine
             switch (strtolower($kw)) {
                 case 'magic-potion':
                     $roll = rand(1, 6);
+                    $state['lastMagicPotionRoll'] = [
+                        'ts' => nextEventStamp(),
+                        'playerIndex' => $playerIndex,
+                        'cardId' => $cardId,
+                        'roll' => $roll,
+                    ];
                     $state['log'][] = $state['players'][$playerIndex]['username'] . ' rolled D6 for Magic Potion: ' . $roll;
                     if ($roll === 1) {
                         $this->removeTopFromStack($state, $playerIndex, $slot);
@@ -993,6 +999,39 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
     return 'Unknown keyword: ' . $keyword;
 }
 
+function getTriggerableOpponentPassesEffects(array &$state, int $responderIndex, int $passerId, GameEngine $engine): array
+{
+    $effects = [];
+    $responder = $state['players'][$responderIndex] ?? null;
+    if (!$responder) return $effects;
+
+    $passerTop = $engine->getTopCard($state['players'][$passerId]['field']['primary'] ?? []);
+
+    foreach (['primary', 'left', 'right'] as $slot) {
+        $myTop = $engine->getTopCard($responder['field'][$slot] ?? []);
+        if (!$myTop) continue;
+
+        if ($engine->hasKeyword($myTop['id'], 'facism')) {
+            // Facism only triggerable if passer has face-up weak type at <= 5000.
+            if ($passerTop && !$passerTop['faceDown']) {
+                $myType = strtolower($myTop['type']);
+                $weakType = WEAK_TYPE[$myType] ?? null;
+                if ($weakType && strtolower($passerTop['type']) === $weakType && (int)$passerTop['power'] <= 5000) {
+                    $effects[] = ['keyword' => 'facism', 'slot' => $slot];
+                }
+            }
+        }
+        if ($engine->hasKeyword($myTop['id'], 'herwood')) {
+            $effects[] = ['keyword' => 'herwood', 'slot' => $slot];
+        }
+        if ($engine->hasKeyword($myTop['id'], 'mikontalo')) {
+            $effects[] = ['keyword' => 'mikontalo', 'slot' => $slot];
+        }
+    }
+
+    return $effects;
+}
+
 function handleAcknowledgeNotification(array &$state, int $playerIndex, array $params): ?string
 {
     ensureNotificationState($state);
@@ -1038,8 +1077,15 @@ function handlePass(array &$state, int $playerIndex, array $params, GameEngine $
         return null;
     }
 
-    // Move to passing_phase first — opponent may use [Opponent passes] keywords
-    // before the pass is fully resolved.
+    // Move to passing phase only when there is at least one triggerable response.
+    $triggerable = getTriggerableOpponentPassesEffects($state, $oppIdx, $playerIndex, $engine);
+    if (empty($triggerable)) {
+        $state['passerId'] = $playerIndex;
+        resolvePassingPhase($state, $engine);
+        return null;
+    }
+
+    // Opponent has at least one triggerable [Opponent passes] effect.
     $state['phase']    = 'passing_phase';
     $state['passerId'] = $playerIndex;
     $state['log'][] = 'Passing phase — opponent may respond.';

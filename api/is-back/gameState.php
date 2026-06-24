@@ -73,6 +73,9 @@ function getGameState(Database $database): string
     if (!isset($state['communismAcks']) || !is_array($state['communismAcks'])) {
         $state['communismAcks'] = [0, 0];
     }
+    if (!array_key_exists('lastMagicPotionRoll', $state)) {
+        $state['lastMagicPotionRoll'] = null;
+    }
 
     // Redact opponent hidden info
     $state['players'][$opponentIndex]['handIds']  = array_fill(0, count($state['players'][$opponentIndex]['handIds']), null);
