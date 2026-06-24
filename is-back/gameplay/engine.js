@@ -100,10 +100,10 @@ const GameEngine = (() => {
       return { canEvolve: false, reason: 'Monarchy cannot be evolved' };
     }
 
-    // Sister Virus: can evolve into any Little Sister in graveyard
-    if (cardHasKeyword(currentCard, 'Sister Virus') && isPrimary) {
+    // Sister Virus: can evolve into any little-sister in graveyard (any slot)
+    if (cardHasKeyword(currentCard, 'sister-virus')) {
       const graveIds = playerState.graveyardIds || [];
-      if (graveIds.includes(newCardId) && cardHasKeyword(newCard, 'Little Sister')) {
+      if (graveIds.includes(newCardId) && cardHasKeyword(newCard, 'little-sister')) {
         return { canEvolve: true, mustFaceDown: false };
       }
     }
@@ -355,7 +355,7 @@ const GameEngine = (() => {
     const grave = playerState.graveyardIds || [];
     const littleSisters = grave.filter(id => {
       const c = allCardsMap[id];
-      return c && cardHasKeyword(c, 'Little Sister');
+      return c && cardHasKeyword(c, 'little-sister');
     });
     return littleSisters.length >= 7;
   }
@@ -366,6 +366,41 @@ const GameEngine = (() => {
     if (!prevTopCard) return false;
     // Trigger only if evolving from a non-elder-slime
     return !cardHasKeyword(prevTopCard, 'Elder-Slime');
+  }
+
+  // ─── Sister Virus helpers ─────────────────────────────────────────────────────
+  function hasSisterVirusOnField(playerState, allCardsMap) {
+    for (const slot of ['primary', 'left', 'right']) {
+      const top = topOfStack(playerState.field[slot]);
+      if (top && !top.faceDown && cardHasKeyword(allCardsMap[top.cardId], 'sister-virus')) return true;
+    }
+    return false;
+  }
+
+  function getLittleSistersInGrave(playerState, allCardsMap) {
+    return (playerState.graveyardIds || []).filter(id => cardHasKeyword(allCardsMap[id], 'little-sister'));
+  }
+
+  // ─── Boosted power for a slot (Democracy + future modifiers) ─────────────────
+  function computeSlotPower(state, playerIndex, slot, allCardsMap) {
+    const field = state.players[playerIndex].field;
+    const stack = field[slot] || [];
+    const top = stack[stack.length - 1];
+    if (!top || top.faceDown) return null;
+    const card = allCardsMap[top.cardId];
+    if (!card || card.power == null) return null;
+    let power = parseInt(card.power) || 0;
+    if (cardHasKeyword(card, 'democracy')) {
+      for (const s of ['left', 'right']) {
+        const suppStack = field[s] || [];
+        const suppTop = suppStack[suppStack.length - 1];
+        if (suppTop && !suppTop.faceDown) {
+          const suppCard = allCardsMap[suppTop.cardId];
+          if (suppCard) power += parseInt(suppCard.power) || 0;
+        }
+      }
+    }
+    return power;
   }
 
   // ─── Summary of available actions for current player ─────────────────────────
@@ -384,7 +419,7 @@ const GameEngine = (() => {
         if (!player.startOfRoundUsed) {
           const sorCards = (player.handIds || []).filter(id => {
             const c = allCardsMap[id];
-            return c && c.keywords && c.keywords.some(k => k && (k.toLowerCase() === 'greed' || k.toLowerCase() === 'natural selection'));
+            return c && c.keywords && c.keywords.some(k => k && (k.toLowerCase() === 'greed' || k.toLowerCase() === 'natural-selection'));
           });
           sorCards.forEach(id => actions.push({ type: 'useStartOfRound', cardId: id }));
         }
@@ -457,6 +492,9 @@ const GameEngine = (() => {
     elderSlimeTriggers,
     getAvailableActions,
     hasWizardOnPrimary,
+    hasSisterVirusOnField,
+    getLittleSistersInGrave,
+    computeSlotPower,
   };
 })();
 

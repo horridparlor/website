@@ -12,7 +12,7 @@
       --orange: #d29922; --red: #da3633; --gold: #f0c040;
       --rock: #2a4a2a; --rock-b: #3fb950; --paper: #1a2d4a; --paper-b: #58a6ff; --scissors: #4a2d0a; --scissors-b: #f0883e;
     }
-    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; overflow: hidden; }
+    html, body { height: 100%; background: #0a0f0d; color: var(--text); font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; overflow: hidden; }
 
     /* ── Phase overlay ── */
     #phase-overlay {
@@ -49,7 +49,13 @@
     #topbar .title { flex:1; font-size: 15px; color: var(--blue2); font-weight: 600; }
     .avatar-btn { width: 34px; height: 34px; border-radius: 50% !important; background: linear-gradient(135deg,var(--green),var(--blue)) !important; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; padding: 0 !important; border: 2px solid var(--border) !important; position: relative; }
 
-    #board { display: grid; grid-template-rows: 1fr auto 1fr; gap: 0; overflow: hidden; padding: 8px 16px; }
+    #board { display: grid; grid-template-rowsNo: 1fr auto 1fr; gap: 0; overflow: hidden; padding: 8px 16px 8px 0; }
+    #board-wrap { display: flex; gap: 12px; overflow: hidden; }
+    #prize-panel { width: 60px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 6px; padding: 16px 8px; border-right: 1px solid var(--border); }
+    .prize-slot { width: 44px; height: 62px; border-radius: 6px; border: 1px dashed var(--border); background: rgba(255,255,255,.02); display: flex; align-items: center; justify-content: center; font-size: 9px; color: var(--muted); position: relative; }
+    .prize-slot img { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; }
+    .prize-label { font-size: 9px; color: var(--muted); text-align: center; margin-bottom: 2px; writing-mode: vertical-lr; transform: rotate(180deg); }
+    #prize-my-count, #prize-opp-count { font-size: 10px; color: var(--muted); text-align: center; }
     #opp-area, #my-area { display: flex; flex-direction: column; gap: 6px; }
     #opp-info, #my-info { display: flex; align-items: center; gap: 10px; font-size: 13px; }
     .player-name { font-weight: 700; font-size: 14px; }
@@ -57,7 +63,7 @@
     .stat-badge { background: #21262d; border: 1px solid var(--border); border-radius: 20px; padding: 3px 10px; font-size: 12px; color: var(--muted); }
     .stat-badge span { color: var(--text); font-weight: 600; }
 
-    #opp-field, #my-field { display: flex; align-items: center; justify-content: center; gap: 12px; flex: 1; }
+    #opp-field, #my-field { display: flex; align-items: center; justify-content: center; gap: 28px; flex: 1; }
     .divider-line { border: none; border-top: 1px dashed var(--border); margin: 0; }
     .card-zone { position: relative; }
     .card-slot {
@@ -88,6 +94,51 @@
     .type-scissors { background: var(--scissors-b); }
 
     .primary-label { font-size: 10px; color: var(--muted); text-align: center; margin-top: 3px; }
+
+    /* Support card rotation */
+    .card-slot.support-left  { transform: rotate(90deg); }
+    .card-slot.support-right { transform: rotate(-90deg); }
+    /* Counter-rotate empty label and SUPPORT badge so text reads normally */
+    .card-slot.support-left  .slot-empty-label { display:inline-block; transform: rotate(-90deg); }
+    .card-slot.support-right .slot-empty-label { display:inline-block; transform: rotate(90deg); }
+    .support-badge {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      font-size: 9px; font-weight: 700; letter-spacing: 1px; color: var(--blue2);
+      background: rgba(0,0,0,.7); padding: 2px 6px; border-radius: 4px; white-space: nowrap;
+      pointer-events: none; z-index: 2;
+    }
+    .card-slot.support-left  .support-badge { transform: translate(-50%,-50%) rotate(-90deg); }
+    .card-slot.support-right .support-badge { transform: translate(-50%,-50%) rotate(90deg); }
+    .card-zone.support-zone { display: flex; align-items: center; }
+    .prize-slot { margin-bottom: 4px; }
+
+    /* Sister Virus highlight */
+    .card-slot.sister-trigger { border-color: #9b59b6 !important; box-shadow: 0 0 8px #9b59b666; cursor: pointer; }
+    /* Rizz card highlight */
+    .hand-card.rizz-active { border-color: var(--orange) !important; box-shadow: 0 0 8px var(--orange)66; }
+
+    /* End of round overlay */
+    #round-result-overlay {
+      position: fixed; inset: 0; z-index: 450; display: none;
+      align-items: center; justify-content: center;
+      pointer-events: none;
+    }
+    #round-result-overlay.show { display: flex; }
+    #round-result-inner {
+      font-size: clamp(36px,7vw,80px); font-weight: 900; letter-spacing: 4px;
+      text-transform: uppercase; text-align: center; text-shadow: 0 0 40px currentColor;
+      animation: roundResultIn .4s cubic-bezier(.22,.61,.36,1) both;
+    }
+    @keyframes roundResultIn {
+      from { opacity:0; transform: scale(.6) translateY(30px); }
+      to   { opacity:1; transform: scale(1) translateY(0); }
+    }
+    #round-result-overlay.fade-out #round-result-inner {
+      animation: roundResultOut .4s ease forwards;
+    }
+    @keyframes roundResultOut {
+      to { opacity:0; transform: scale(1.2); }
+    }
 
     /* Graveyard */
     .grave-pile { width: 50px; height: 70px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg2); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--muted); cursor: pointer; position: relative; }
@@ -227,6 +278,27 @@
     .rps-outcome.tie  { color: var(--orange); text-shadow: 0 0 30px var(--orange); }
     .rps-round-badge { margin-top: 8px; font-size: 12px; color: var(--muted); }
 
+    /* Boosted power badge */
+    .power-boost-badge {
+      position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
+      background: linear-gradient(135deg, #1f6feb, #388bfd);
+      color: #fff; font-size: 10px; font-weight: 700; padding: 2px 6px;
+      border-radius: 10px; white-space: nowrap; pointer-events: none;
+      box-shadow: 0 2px 6px rgba(31,111,235,0.5); z-index: 5;
+    }
+
+    /* Phase transition toast */
+    #phase-toast {
+      position: fixed; top: 60px; left: 50%; transform: translateX(-50%) translateY(-80px);
+      background: rgba(22,27,34,0.95); border: 1px solid var(--border);
+      border-radius: 24px; padding: 10px 28px; font-size: 15px; font-weight: 600;
+      color: var(--text); z-index: 800; pointer-events: none;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5); white-space: nowrap;
+      transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), opacity 0.35s;
+      opacity: 0;
+    }
+    #phase-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
     /* Opponent thinking */
     .thinking-indicator { font-size: 12px; color: var(--muted); animation: pulse 1.5s ease-in-out infinite; }
     @keyframes pulse { 0%,100%{opacity:1;}50%{opacity:.3;} }
@@ -248,23 +320,40 @@
   </style>
 </head>
 <body>
+<canvas id="bg-canvas" style="position:fixed;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none;"></canvas>
+<div id="phase-toast"></div>
 <div id="app">
   <!-- Topbar -->
   <div id="topbar">
     <a href="/">Home</a>
     <div class="title">Rakuel Is Back</div>
     <div id="match-format" style="font-size:12px;color:var(--muted);"></div>
-    <button class="avatar-btn" id="my-avatar" title="Surrender" onclick="showSurrenderConfirm()">?</button>
+    <button class="avatar-btn" id="my-avatar" title="Surrender Match" onclick="showGameSurrenderConfirm()">?</button>
+  </div>
+
+  <!-- Round result overlay -->
+  <div id="round-result-overlay">
+    <div id="round-result-inner"></div>
+  </div>
+
+  <!-- Board wrapper (prize panel + main board) -->
+  <div id="board-wrap">
+  <!-- Prize panel -->
+  <div id="prize-panel">
+    <div id="prize-opp-count" title="Opponent prize cards"></div>
+    <div id="prize-opp-slots"></div>
+    <div style="flex:1"></div>
+    <div id="prize-my-slots"></div>
+    <div id="prize-my-count" title="Your prize cards"></div>
   </div>
 
   <!-- Board -->
-  <div id="board">
+  <div id="board" style="flex:1;">
     <!-- Opponent -->
     <div id="opp-area">
       <div id="opp-info">
         <div class="player-name" id="opp-name">Opponent</div>
         <div class="stat-badge">Hand: <span id="opp-hand">0</span></div>
-        <div class="stat-badge">Prizes: <span id="opp-prizes">5</span></div>
         <div class="stat-badge">Deck: <span id="opp-deck">55</span></div>
         <div class="grave-pile" onclick="showGrave(1)" title="Opponent graveyard">
           🗑️
@@ -308,7 +397,6 @@
       </div>
       <div id="my-info">
         <div class="player-name" id="my-name">You</div>
-        <div class="stat-badge">Prizes: <span id="my-prizes">5</span></div>
         <div class="stat-badge">Deck: <span id="my-deck">55</span></div>
         <div class="grave-pile" onclick="showGrave(0)" title="Your graveyard">
           🗑️
@@ -317,6 +405,9 @@
       </div>
     </div>
   </div>
+
+  </div><!-- end #board -->
+  </div><!-- end #board-wrap -->
 
   <!-- Hand -->
   <div id="hand-area">
@@ -365,14 +456,26 @@
   </div>
 </div>
 
-<!-- Surrender modal -->
+<!-- Round surrender modal -->
 <div class="modal-overlay" id="surr-modal">
   <div class="modal-box">
     <h3>Surrender Round?</h3>
     <p>You will concede this round. Your opponent wins and draws a prize card.</p>
     <div class="modal-btns">
       <button class="m-cancel" onclick="closeSurr()">Cancel</button>
-      <button class="m-confirm" onclick="confirmSurrender()">Surrender</button>
+      <button class="m-confirm" onclick="confirmSurrender()">Surrender Round</button>
+    </div>
+  </div>
+</div>
+
+<!-- Game surrender modal -->
+<div class="modal-overlay" id="game-surr-modal">
+  <div class="modal-box">
+    <h3>Surrender Match?</h3>
+    <p>This will concede the entire match. You cannot take it back.</p>
+    <div class="modal-btns">
+      <button class="m-cancel" onclick="closeGameSurr()">Cancel</button>
+      <button class="m-confirm" onclick="confirmGameSurrender()">Surrender Match</button>
     </div>
   </div>
 </div>
@@ -442,9 +545,15 @@ let faceDownMode = false;
 let isConnected  = true;
 let failCount    = 0;
 let nextRoundScheduled = false;
+let lastRoundWinnerId = null;
+let roundResultShown = false;
+let diceAnimating = false;
 let myRpsChoice  = null;
 let lastRpsResultKey = null;
 let prevHandIds  = new Set();
+let prevPhaseTurn = null;
+let lastNaturalSelectionTs = 0;
+let phaseToastTimeout = null;
 
 function authHeaders() { return { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }; }
 function fmt(p) { return String(Number(p)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
@@ -533,6 +642,7 @@ function processState(state) {
   // Reset per-phase flags when phase changes
   if (state.phase !== lastPhase) {
     nextRoundScheduled = false;
+    if (state.phase !== 'end_of_round') roundResultShown = false;
   }
 
   gameState = state;
@@ -558,6 +668,30 @@ function processState(state) {
   updateHand(state, myIndex);
   updateDice(state, myIndex);
   updateActionBar(state, myIndex);
+  updatePrizePanel(state, myIndex, oppIndex);
+  updateRoundResult(state);
+
+  // Phase transition banners
+  const curPhaseTurn = state.phase + ':' + state.turn;
+  if (curPhaseTurn !== prevPhaseTurn && state.phase !== 'setup' && state.phase !== 'game_over') {
+    if (prevPhaseTurn !== null) {
+      if (state.phase === 'start_of_round') {
+        showPhaseToast(state.turn === myIndex ? 'Your turn — Start of Round' : "Opponent's Start of Round",
+          state.turn === myIndex ? '#4ade80' : '');
+      } else if (state.phase === 'main_phase') {
+        showPhaseToast(state.turn === myIndex ? 'Your Main Phase' : 'Opponent\'s Main Phase — Stand by',
+          state.turn === myIndex ? '#58a6ff' : '');
+      }
+    }
+    prevPhaseTurn = curPhaseTurn;
+  }
+
+  // Natural Selection animation
+  const nsTs = state.lastNaturalSelection ?? 0;
+  if (nsTs && nsTs !== lastNaturalSelectionTs) {
+    lastNaturalSelectionTs = nsTs;
+    showNaturalSelectionEffect();
+  }
 
   // Win/complete
   if (state.phase === 'game_over' || state._matchStatus === 'completed') {
@@ -604,8 +738,6 @@ function updatePlayerInfo(state, mi, oi) {
   document.getElementById('opp-name').className = `player-name${!isMyTurn ? ' active' : ''}`;
   document.getElementById('opp-name').textContent = opp.username || 'Opponent';
 
-  document.getElementById('my-prizes').textContent  = me.prizeCount  ?? 5;
-  document.getElementById('opp-prizes').textContent = opp.prizeCount ?? 5;
   document.getElementById('my-deck').textContent    = me.deckCount   ?? '?';
   document.getElementById('opp-deck').textContent   = opp.deckCount  ?? '?';
   document.getElementById('opp-hand').textContent   = opp.handCount  ?? 0;
@@ -618,28 +750,53 @@ function updatePlayerInfo(state, mi, oi) {
 
 // ── Field rendering ───────────────────────────────────────────────────────────
 function renderSlot(el, stack, canInteract, owner) {
+  const slot = el.dataset.slot;
+  const isSupport = slot === 'left' || slot === 'right';
+  const isMine = owner === myIndex;
+
   if (!stack || !stack.length) {
-    el.innerHTML = el.dataset.slot.charAt(0).toUpperCase() + el.dataset.slot.slice(1);
-    el.className = 'card-slot';
+    const name = slot.charAt(0).toUpperCase() + slot.slice(1);
+    el.innerHTML = `<span class="slot-empty-label">${name}</span>`;
+    let cls = 'card-slot';
+    if (isSupport) cls += slot === 'left' ? ' support-left' : ' support-right';
+    el.className = cls;
     return;
   }
   const top = stack[stack.length - 1];
   const card = allCards[top.cardId];
-  el.className = 'card-slot has-card';
+
+  let cls = 'card-slot has-card';
+  if (isSupport) cls += slot === 'left' ? ' support-left' : ' support-right';
+
+  // Sister Virus: highlight if triggerable
+  if (isMine && gameState && !top.faceDown && card && GameEngine.cardHasKeyword(card, 'sister-virus')) {
+    const me = gameState.players[myIndex];
+    if (me && GameEngine.getLittleSistersInGrave(me, allCards).length > 0) {
+      cls += ' sister-trigger';
+    }
+  }
+
+  el.className = cls;
 
   if (top.faceDown || !card) {
     el.innerHTML = `<img src="${cardBack()}" alt="Face Down" /><div class="face-down-label">Face Down</div>`;
   } else {
     const typeClass = `type-${(card.type||'').toLowerCase()}`;
-    const power = GameEngine.getEffectivePower(top.cardId, { field: { primary: el.dataset.slot==='primary'?stack:[], left: el.dataset.slot==='left'?stack:[], right: el.dataset.slot==='right'?stack:[] }, graveyardIds: [] }, allCards);
+    const basePow = card.power;
+    const boostedPow = gameState ? GameEngine.computeSlotPower(gameState, owner, slot, allCards) : null;
+    const showBoost = boostedPow !== null && boostedPow !== basePow;
+    const supportBadge = isSupport ? '<div class="support-badge">SUPPORT</div>' : '';
+    const boostBadge = showBoost ? `<div class="power-boost-badge">⚡${fmt(boostedPow)}</div>` : '';
     el.innerHTML = `
       <img src="${cardImg(card)}" alt="${stripBB(card.name)}" onerror="this.src=''" />
       <div class="type-indicator ${typeClass}"></div>
-      <div class="power-badge">${fmt(power)}</div>
+      <div class="power-badge">${fmt(basePow)}</div>
+      ${boostBadge}
       ${stack.length > 1 ? `<div class="stack-count">×${stack.length}</div>` : ''}
+      ${supportBadge}
     `;
   }
-  addTooltipListeners(el, top.cardId, top.faceDown, owner === myIndex);
+  addTooltipListeners(el, top.cardId, top.faceDown, isMine);
 }
 
 function updateField(state, mi, oi) {
@@ -682,9 +839,18 @@ function updateHand(state, mi) {
   handScroll.innerHTML = me.handIds.map(id => {
     const card = allCards[id];
     if (!card) return '';
-    const isSOR = card.keywords && card.keywords.some(k => k && (k.toLowerCase()==='greed'||k.toLowerCase()==='natural selection'));
+    const isSOR = card.keywords && card.keywords.some(k => k && (k.toLowerCase()==='greed'||k.toLowerCase()==='natural-selection'));
     const isCommunism = card.keywords && card.keywords.some(k=>k&&k.toLowerCase()==='communism');
-    const isRizz = card.keywords && card.keywords.some(k=>k&&k.toLowerCase()==='rizz');
+    // Rizz only highlights when opponent has a face-down card
+    const oppHasFaceDown = state.phase === 'main_phase' && state.turn === mi && (() => {
+      const opp = state.players[1-mi];
+      if (!opp) return false;
+      return ['primary','left','right'].some(s => {
+        const stk = opp.field[s];
+        return stk && stk.length > 0 && stk[stk.length-1].faceDown;
+      });
+    })();
+    const isRizz = card.keywords && card.keywords.some(k=>k&&k.toLowerCase()==='rizz') && oppHasFaceDown;
     const isSelected = selectedHandCardId === id;
     const isNew = newIds.has(id);
     const typeClass = `type-${(card.type||'').toLowerCase()}`;
@@ -762,13 +928,26 @@ function updateActionBar(state, mi) {
       wait.textContent = 'Waiting for opponent…';
       btns.appendChild(wait);
     } else if (!me.diceRoll) {
-      btns.appendChild(mkBtn('🎲 Roll Dice', 'action-btn btn-done', () => sendAction('rollDice')));
+      btns.appendChild(mkBtn('🎲 Roll Dice', 'action-btn btn-done', () => animateAndRollDice()));
     } else if (!me.startOfRoundUsed) {
-      btns.appendChild(mkBtn('Skip Start Effect', 'action-btn btn-done', () => sendAction('skipStartOfRound')));
-      const hint = document.createElement('span');
-      hint.style.cssText = 'font-size:12px;color:var(--muted);margin-left:8px;';
-      hint.textContent = 'or click an orange card in hand';
-      btns.appendChild(hint);
+      // Auto-skip if no eligible SOR cards
+      maybeAutoSkipSOR(state, mi);
+      const hasSorCard = (me.handIds || []).some(id => {
+        const c = allCards[id];
+        return c && c.keywords && c.keywords.some(k => k && (k.toLowerCase() === 'greed' || k.toLowerCase() === 'natural-selection'));
+      });
+      if (hasSorCard) {
+        btns.appendChild(mkBtn('Skip Start Effect', 'action-btn btn-done', () => sendAction('skipStartOfRound')));
+        const hint = document.createElement('span');
+        hint.style.cssText = 'font-size:12px;color:var(--muted);margin-left:8px;';
+        hint.textContent = 'or click an orange card in hand';
+        btns.appendChild(hint);
+      } else {
+        const wait = document.createElement('span');
+        wait.style.cssText = 'font-size:13px;color:var(--muted);';
+        wait.textContent = 'Auto-skipping…';
+        btns.appendChild(wait);
+      }
     } else {
       const wait = document.createElement('span');
       wait.style.cssText = 'font-size:13px;color:var(--muted);';
@@ -834,7 +1013,7 @@ function onHandCardClick(cardId) {
   // [Start of round] card usage
   if (phase === 'start_of_round' && isMyTurn && !gameState.players[myIndex].startOfRoundUsed) {
     const card = allCards[cardId];
-    if (card && card.keywords && card.keywords.some(k=>k&&(k.toLowerCase()==='greed'||k.toLowerCase()==='natural selection'))) {
+    if (card && card.keywords && card.keywords.some(k=>k&&(k.toLowerCase()==='greed'||k.toLowerCase()==='natural-selection'))) {
       sendAction('useStartOfRound', { cardId });
       return;
     }
@@ -848,7 +1027,20 @@ function onHandCardClick(cardId) {
       return;
     }
     if (card && GameEngine.cardHasKeyword(card, 'Rizz')) {
-      sendAction('useRizz', { cardId });
+      // Auto-target if opponent has exactly one face-down pile
+      const opp = gameState.players[1 - myIndex];
+      const faceDownSlots = opp ? ['primary','left','right'].filter(s => {
+        const stk = opp.field[s];
+        return stk && stk.length > 0 && stk[stk.length-1].faceDown;
+      }) : [];
+      if (faceDownSlots.length === 1) {
+        sendAction('useRizz', { cardId, targetSlot: faceDownSlots[0] });
+      } else if (faceDownSlots.length > 1) {
+        // TODO: prompt player to choose which slot to reveal
+        sendAction('useRizz', { cardId });
+      } else {
+        showPhaseMsg('Opponent has no face-down cards', '#d29922', 1500);
+      }
       return;
     }
   }
@@ -874,9 +1066,29 @@ function onHandCardRightClick(e, cardId) {
 }
 
 function onSlotClick(slot) {
-  const slotStack = gameState?.players[myIndex]?.field[slot] || [];
+  if (!gameState) return;
+  const slotStack = gameState.players[myIndex]?.field[slot] || [];
+  // Sister Virus: if top card has sister-virus and we have little sisters in grave
+  if (gameState.phase === 'main_phase' && gameState.turn === myIndex && slotStack.length > 0) {
+    const top = slotStack[slotStack.length - 1];
+    const topCard = allCards[top.cardId];
+    if (!top.faceDown && topCard && GameEngine.cardHasKeyword(topCard, 'sister-virus')) {
+      const me = gameState.players[myIndex];
+      const littleSisters = GameEngine.getLittleSistersInGrave(me, allCards);
+      if (littleSisters.length > 0) {
+        const lsCards = littleSisters.map(id => allCards[id]).filter(Boolean);
+        openKwModal(
+          'Sister Virus',
+          'Choose a Little Sister from your graveyard to evolve into.',
+          lsCards,
+          (chosenId) => sendAction('evolveCard', { cardId: chosenId, slot, faceDown: false })
+        );
+        return;
+      }
+    }
+  }
   // If a card is selected and it's our turn in main phase, try to play it
-  if (gameState && gameState.phase === 'main_phase' && gameState.turn === myIndex && selectedHandCardId) {
+  if (gameState.phase === 'main_phase' && gameState.turn === myIndex && selectedHandCardId) {
     const result = GameEngine.canPlayCard(gameState, myIndex, selectedHandCardId, slot, false);
     if (result.canPlay) {
       const action = slotStack.length > 0 ? 'evolveCard' : 'playCard';
@@ -904,7 +1116,7 @@ async function sendAction(action, params = {}) {
     const data = await res.json();
     if (!res.ok) { showPhaseMsg(data.error || 'Invalid action', '#f85149', 2000); return; }
     if (data.state) { lastVersion = -1; processState(data.state); }
-    else poll();
+    else { lastVersion = -1; await poll(); }
   } catch { showPhaseMsg('Network error', '#f85149', 2000); }
 }
 
@@ -1019,12 +1231,20 @@ function addTooltipListeners(el, cardId, faceDown, isMine = false) {
   el.addEventListener('mouseleave', hideTooltip);
 }
 
-// ── Surrender ──────────────────────────────────────────────────────────────────
+// ── Round surrender ─────────────────────────────────────────────────────────────
 function showSurrenderConfirm() { document.getElementById('surr-modal').classList.add('open'); }
 function closeSurr() { document.getElementById('surr-modal').classList.remove('open'); }
 async function confirmSurrender() {
   closeSurr();
   await sendAction('surrender');
+}
+
+// ── Game surrender ──────────────────────────────────────────────────────────────
+function showGameSurrenderConfirm() { document.getElementById('game-surr-modal').classList.add('open'); }
+function closeGameSurr() { document.getElementById('game-surr-modal').classList.remove('open'); }
+async function confirmGameSurrender() {
+  closeGameSurr();
+  await sendAction('gameSurrender');
 }
 
 // ── RPS ───────────────────────────────────────────────────────────────────────
@@ -1089,13 +1309,23 @@ function showRpsResult(state, result) {
   const outcomeEl = document.getElementById('rps-outcome');
   if (result.winner === 'tie') {
     outcomeEl.textContent = 'TIE!'; outcomeEl.className = 'rps-outcome tie';
-    document.getElementById('rps-round-badge').textContent = 'Choose again…';
+    document.getElementById('rps-round-badge').innerHTML = 'Choose again…';
   } else if (result.winner === myIndex) {
     outcomeEl.textContent = 'YOU WIN! 🎉'; outcomeEl.className = 'rps-outcome win';
-    document.getElementById('rps-round-badge').textContent = 'You go first!';
+    const badge = document.getElementById('rps-round-badge');
+    badge.innerHTML = `
+      <div id="rps-order-btns" style="margin-top:12px;display:flex;gap:12px;justify-content:center;">
+        <button id="rps-go-first" style="padding:10px 24px;background:#1f6feb;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;">Go First</button>
+        <button id="rps-go-last"  style="padding:10px 24px;background:#21262d;color:#cdd9e5;border:1px solid #444;border-radius:8px;font-size:15px;cursor:pointer;">Go Last</button>
+      </div>`;
+    const disableOrderBtns = () => {
+      document.querySelectorAll('#rps-order-btns button').forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
+    };
+    document.getElementById('rps-go-first').addEventListener('click', () => { disableOrderBtns(); sendAction('chooseOrder', { goFirst: true }); });
+    document.getElementById('rps-go-last').addEventListener('click',  () => { disableOrderBtns(); sendAction('chooseOrder', { goFirst: false }); });
   } else {
     outcomeEl.textContent = 'OPPONENT WINS'; outcomeEl.className = 'rps-outcome lose';
-    document.getElementById('rps-round-badge').textContent = 'They go first.';
+    document.getElementById('rps-round-badge').innerHTML = '<span style="color:var(--muted);font-size:13px;">Opponent is choosing turn order…</span>';
   }
 
   document.getElementById('rps-choices').classList.add('hidden');
@@ -1153,7 +1383,117 @@ function spawnParticles() {
   }
 }
 
-// Round result announcements (called when end_of_round resolves)
+// ── Round result overlay ──────────────────────────────────────────────────────
+function updateRoundResult(state) {
+  if (state.phase !== 'end_of_round') return;
+  if (roundResultShown) return;
+  if (state.roundWinnerId === undefined || state.roundWinnerId === null) return;
+  roundResultShown = true;
+
+  const iWon = state.roundWinnerId === myIndex;
+  const overlay = document.getElementById('round-result-overlay');
+  const inner   = document.getElementById('round-result-inner');
+  inner.textContent = iWon ? 'ROUND WON!' : 'ROUND LOST!';
+  inner.style.color = iWon ? '#3fb950' : '#f85149';
+  overlay.classList.add('show');
+  overlay.classList.remove('fade-out');
+
+  setTimeout(() => {
+    overlay.classList.add('fade-out');
+    setTimeout(() => {
+      overlay.classList.remove('show', 'fade-out');
+    }, 400);
+  }, 2000);
+}
+
+// ── Prize panel ────────────────────────────────────────────────────────────────
+function updatePrizePanel(state, mi, oi) {
+  const me  = state.players[mi];
+  const opp = state.players[oi];
+  if (!me || !opp) return;
+
+  const myCount  = me.prizeCount  ?? (me.prizeIds  ? me.prizeIds.length  : 5);
+  const oppCount = opp.prizeCount ?? (opp.prizeIds ? opp.prizeIds.length : 5);
+
+  document.getElementById('prize-my-count').textContent  = `🏆 ${myCount}`;
+  document.getElementById('prize-opp-count').textContent = `🏆 ${oppCount}`;
+
+  // Draw face-down prize slots
+  function renderPrizeSlots(containerId, count) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    el.innerHTML = '';
+    const show = Math.min(count, 5);
+    for (let i = 0; i < show; i++) {
+      const slot = document.createElement('div');
+      slot.className = 'prize-slot';
+      slot.innerHTML = `<img src="${cardBack()}" alt="Prize" />`;
+      el.appendChild(slot);
+    }
+  }
+  renderPrizeSlots('prize-my-slots',  myCount);
+  renderPrizeSlots('prize-opp-slots', oppCount);
+}
+
+// ── Dice rolling animation ─────────────────────────────────────────────────────
+async function animateAndRollDice() {
+  if (diceAnimating) return;
+  diceAnimating = true;
+
+  const d1El = document.getElementById('d1');
+  const d2El = document.getElementById('d2');
+  const totalEl = document.getElementById('dice-total');
+  document.getElementById('dice-area').style.display = 'flex';
+
+  const start = Date.now();
+  const duration = 900;
+  const tick = () => {
+    d1El.textContent = Math.floor(Math.random() * 6) + 1;
+    d2El.textContent = Math.floor(Math.random() * 6) + 1;
+    d1El.classList.add('rolling');
+    d2El.classList.add('rolling');
+    totalEl.textContent = '';
+    if (Date.now() - start < duration) {
+      setTimeout(tick, 80);
+    } else {
+      d1El.textContent = '?';
+      d2El.textContent = '?';
+      d1El.classList.remove('rolling');
+      d2El.classList.remove('rolling');
+      diceAnimating = false;
+      sendAction('rollDice');
+    }
+  };
+  tick();
+}
+
+// ── Auto-skip start of round if no eligible cards ─────────────────────────────
+let autoSkipScheduled = false;
+function maybeAutoSkipSOR(state, mi) {
+  if (state.phase !== 'start_of_round') return;
+  if (state.turn !== mi) return;
+  if (!state.players[mi].diceRoll) return;
+  if (state.players[mi].startOfRoundUsed) return;
+  if (autoSkipScheduled) return;
+
+  const me = state.players[mi];
+  const hasSorCard = (me.handIds || []).some(id => {
+    const c = allCards[id];
+    return c && c.keywords && c.keywords.some(k => k && (k.toLowerCase() === 'greed' || k.toLowerCase() === 'natural-selection'));
+  });
+
+  if (!hasSorCard) {
+    autoSkipScheduled = true;
+    setTimeout(() => {
+      autoSkipScheduled = false;
+      if (gameState && gameState.phase === 'start_of_round' && gameState.turn === myIndex && !gameState.players[myIndex].startOfRoundUsed) {
+        sendAction('skipStartOfRound');
+      }
+    }, 800);
+  }
+}
+
+// Round result announcements (legacy — kept for compatibility)
 function announceRoundResult(iWon) {
   const text  = iWon ? 'ROUND WON!' : 'ROUND LOST!';
   const color = iWon ? '#3fb950' : '#f85149';
@@ -1208,6 +1548,89 @@ document.getElementById('hand-scroll').addEventListener('mousedown', e => {
   const hc = e.target.closest('.hand-card');
   if (hc) hc.draggable = true;
 });
+
+// ── Phase toast ────────────────────────────────────────────────────────────────
+function showPhaseToast(msg, color) {
+  const el = document.getElementById('phase-toast');
+  if (!el) return;
+  clearTimeout(phaseToastTimeout);
+  el.textContent = msg;
+  el.style.color = color || 'var(--text)';
+  el.classList.add('show');
+  phaseToastTimeout = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// ── Natural Selection animation ────────────────────────────────────────────────
+function showNaturalSelectionEffect() {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = [
+    'position:fixed;inset:0;z-index:900;pointer-events:none;',
+    'display:flex;flex-direction:column;align-items:center;justify-content:center;',
+    'background:radial-gradient(ellipse at center, rgba(0,80,40,0.35) 0%, rgba(0,0,0,0.7) 70%);',
+    'animation:nsFadeOut 3s ease-out forwards;',
+  ].join('');
+  overlay.innerHTML = `
+    <div style="font-size:64px;animation:nsSpin 1.5s cubic-bezier(0.25,0.46,0.45,0.94) forwards;">🌀</div>
+    <div style="font-size:28px;font-weight:900;color:#4ade80;letter-spacing:4px;margin-top:16px;text-transform:uppercase;text-shadow:0 0 30px #4ade80;">Natural Selection</div>
+    <div style="font-size:14px;color:rgba(255,255,255,0.7);margin-top:10px;text-align:center;max-width:320px;">Each player may play only one card this round.<br>All cards played this round are face-down.</div>`;
+  if (!document.getElementById('ns-style')) {
+    const s = document.createElement('style');
+    s.id = 'ns-style';
+    s.textContent = [
+      '@keyframes nsSpin{0%{transform:rotate(0) scale(0.3);opacity:0}40%{transform:rotate(720deg) scale(1.3);opacity:1}100%{transform:rotate(1080deg) scale(1);opacity:1}}',
+      '@keyframes nsFadeOut{0%{opacity:0}15%{opacity:1}70%{opacity:1}100%{opacity:0}}',
+    ].join('');
+    document.head.appendChild(s);
+  }
+  document.body.appendChild(overlay);
+  setTimeout(() => overlay.remove(), 3000);
+}
+
+// ── Balatro background ─────────────────────────────────────────────────────────
+function initBg() {
+  const canvas = document.getElementById('bg-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const noiseSize = 128;
+  const noiseCanvas = document.createElement('canvas');
+  noiseCanvas.width = noiseCanvas.height = noiseSize;
+  const nc = noiseCanvas.getContext('2d');
+  const nd = nc.createImageData(noiseSize, noiseSize);
+  for (let i = 0; i < nd.data.length; i += 4) {
+    const v = Math.floor(Math.random() * 255);
+    nd.data[i] = nd.data[i+1] = nd.data[i+2] = v; nd.data[i+3] = 255;
+  }
+  nc.putImageData(nd, 0, 0);
+  const noisePattern = ctx.createPattern(noiseCanvas, 'repeat');
+  const blobs = [
+    { ox: 0.25, oy: 0.30, r: 0.50, color: '#1a7a5a', sx: 1.0, sy: 0.8 },
+    { ox: 0.80, oy: 0.65, r: 0.45, color: '#1a4a8a', sx: 0.9, sy: 1.1 },
+    { ox: 0.55, oy: 0.45, r: 0.60, color: '#165c38', sx: 1.1, sy: 0.9 },
+    { ox: 0.12, oy: 0.75, r: 0.38, color: '#2a1570', sx: 0.8, sy: 1.0 },
+  ];
+  let t = 0;
+  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  window.addEventListener('resize', resize); resize();
+  function draw() {
+    const w = canvas.width, h = canvas.height;
+    ctx.fillStyle = '#0a0f0d'; ctx.fillRect(0, 0, w, h);
+    for (const b of blobs) {
+      const bx = w * (b.ox + Math.sin(t * 0.00018 * b.sx) * 0.06);
+      const by = h * (b.oy + Math.cos(t * 0.00014 * b.sy) * 0.06);
+      const r  = Math.min(w, h) * b.r;
+      const g  = ctx.createRadialGradient(bx, by, 0, bx, by, r);
+      g.addColorStop(0, b.color + 'aa'); g.addColorStop(1, b.color + '00');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    }
+    ctx.globalAlpha = 0.06; ctx.fillStyle = noisePattern; ctx.fillRect(0, 0, w, h); ctx.globalAlpha = 1;
+    const vig = ctx.createRadialGradient(w/2, h/2, 0, w/2, h/2, Math.max(w, h) * 0.75);
+    vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.65)');
+    ctx.fillStyle = vig; ctx.fillRect(0, 0, w, h);
+    t += 16; requestAnimationFrame(draw);
+  }
+  draw();
+}
+initBg();
 </script>
 </body>
 </html>

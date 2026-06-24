@@ -182,7 +182,7 @@ class GameEngine
         $card = $this->getCard($cardId);
         foreach ($card['keywords'] as $kw) {
             switch (strtolower($kw)) {
-                case 'magic potion':
+                case 'magic-potion':
                     $roll = rand(1, 6);
                     $state['log'][] = $state['players'][$playerIndex]['username'] . ' rolled D6 for Magic Potion: ' . $roll;
                     if ($roll === 1) {
@@ -202,11 +202,10 @@ class GameEngine
                         $pendingEffects[] = ['type' => 'necromancy', 'cardId' => $cardId, 'zombies' => array_values($zombiesInGrave)];
                     }
                     break;
-                case 'makkarajärvi':
-                case 'makkara':
+                case 'makkarajarvi':
                     $pendingEffects[] = ['type' => 'makkarajarvi', 'cardId' => $cardId];
                     break;
-                case 'sähkötalo':
+                case 'sahkotalo':
                     $pendingEffects[] = ['type' => 'sahkotalo', 'cardId' => $cardId];
                     break;
             }
@@ -332,6 +331,7 @@ function handleRollDice(array &$state, int $playerIndex, array $params, GameEngi
 function handlePlayStartOfRound(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
 {
     if ($state['phase'] !== 'start_of_round') return 'Not in start-of-round phase';
+    if ($state['turn'] !== $playerIndex) return 'Not your turn';
     if ($state['players'][$playerIndex]['startOfRoundUsed']) return 'Already used start-of-round';
     if ($state['players'][$playerIndex]['diceRoll'] === null) return 'Must roll dice first';
 
@@ -344,7 +344,7 @@ function handlePlayStartOfRound(array &$state, int $playerIndex, array $params, 
     $card = $engine->getCard($cardId);
     $kwLower = array_map('strtolower', $card['keywords']);
 
-    if (!in_array('greed', $kwLower) && !in_array('natural selection', $kwLower)) {
+    if (!in_array('greed', $kwLower) && !in_array('natural-selection', $kwLower)) {
         return 'Card has no [Start of round] keyword';
     }
 
@@ -367,10 +367,12 @@ function handlePlayStartOfRound(array &$state, int $playerIndex, array $params, 
         $state['log'][] = $state['players'][$playerIndex]['username'] . ' used Greed! Dice result +2 → ' . $effective . '.';
     }
 
-    if (in_array('natural selection', $kwLower)) {
+    if (in_array('natural-selection', $kwLower)) {
         $state['naturalSelection'] = true;
         $state['naturalSelectionPlays'] = [0, 0];
+        $state['lastNaturalSelection'] = time();
         $state['log'][] = $state['players'][$playerIndex]['username'] . ' used Natural Selection! Each player may only play one more card this round, face-down.';
+        $state['log'][] = '⚠️ Natural Selection: each player may play one card this round, face-down!';
     }
 
     maybeStartMainPhase($state, $engine);
@@ -524,14 +526,14 @@ function handleEvolveCard(array &$state, int $playerIndex, array $params, GameEn
     $isAutocracy = $engine->hasKeyword($cardId, 'autocracy');
 
     // Check Sister Virus (can evolve into Little Sister from grave)
-    $isSisterVirus = $engine->hasKeyword($currentTop['id'], 'sister virus');
+    $isSisterVirus = $engine->hasKeyword($currentTop['id'], 'sister-virus');
 
     if ($isWizard) {
         $faceDown = true; // Wizard always plays face-down
     } else if ($isSisterVirus) {
         // Target must be in graveyard and have Little Sister title
         if (!in_array($cardId, $p['graveyardIds'])) return 'Sister Virus: target must be in your graveyard';
-        if (!$engine->hasKeyword($cardId, 'little sister')) return 'Sister Virus: target must have Little Sister title';
+        if (!$engine->hasKeyword($cardId, 'little-sister')) return 'Sister Virus: target must have Little Sister title';
         // Remove from graveyard
         $gIdx = array_search($cardId, $p['graveyardIds']);
         array_splice($p['graveyardIds'], $gIdx, 1);
@@ -602,7 +604,7 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
             if (!$cardId || !in_array($cardId, $p['graveyardIds'])) return 'Card not in graveyard';
             // Reshuffle all Little Sisters from graveyard into deck
             $littleSisters = array_filter($p['graveyardIds'], function($cid) use ($engine) {
-                return $engine->hasKeyword($cid, 'little sister');
+                return $engine->hasKeyword($cid, 'little-sister');
             });
             if (empty($littleSisters)) return 'No Little Sisters in graveyard';
             $p['graveyardIds'] = array_values(array_filter($p['graveyardIds'], function($cid) use ($littleSisters) {
@@ -814,6 +816,15 @@ function handleSurrender(array &$state, int $playerIndex, array $params, GameEng
     $state['phase']         = 'end_of_round';
     $state['roundWinnerId'] = 1 - $playerIndex;
     $state['log'][] = $state['players'][$playerIndex]['username'] . ' surrendered.';
+    return null;
+}
+
+function handleGameSurrender(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
+{
+    $state['players'][$playerIndex]['surrendered'] = true;
+    $state['phase']      = 'game_over';
+    $state['gameWinner'] = 1 - $playerIndex;
+    $state['log'][] = $state['players'][$playerIndex]['username'] . ' surrendered the match!';
     return null;
 }
 
@@ -1053,15 +1064,32 @@ function handleSubmitRPS(array &$state, int $playerIndex, array $params, GameEng
             $state['rpsRound']   = ($state['rpsRound'] ?? 1) + 1;
             $state['log'][] = 'RPS tie! Choose again.';
         } elseif ($beats[$c0] === $c1) {
-            $state['rpsResult'] = ['p0' => $c0, 'p1' => $c1, 'winner' => 0, 'round' => (int)($state['rpsRound'] ?? 1)];
-            $engine->startNewRound($state, 0);
-            $state['log'][] = $state['players'][0]['username'] . ' wins RPS and goes first!';
+            $state['rpsResult']        = ['p0' => $c0, 'p1' => $c1, 'winner' => 0, 'round' => (int)($state['rpsRound'] ?? 1)];
+            $state['rpsAwaitingOrder'] = true;
+            $state['rpsWinner']        = 0;
+            $state['log'][] = $state['players'][0]['username'] . ' wins RPS! Choosing turn order…';
         } else {
-            $state['rpsResult'] = ['p0' => $c0, 'p1' => $c1, 'winner' => 1, 'round' => (int)($state['rpsRound'] ?? 1)];
-            $engine->startNewRound($state, 1);
-            $state['log'][] = $state['players'][1]['username'] . ' wins RPS and goes first!';
+            $state['rpsResult']        = ['p0' => $c0, 'p1' => $c1, 'winner' => 1, 'round' => (int)($state['rpsRound'] ?? 1)];
+            $state['rpsAwaitingOrder'] = true;
+            $state['rpsWinner']        = 1;
+            $state['log'][] = $state['players'][1]['username'] . ' wins RPS! Choosing turn order…';
         }
     }
+    return null;
+}
+
+function handleChooseOrder(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
+{
+    if ($state['phase'] !== 'setup') return 'Not in setup phase';
+    if (!($state['rpsAwaitingOrder'] ?? false)) return 'No turn order choice pending';
+    if (($state['rpsWinner'] ?? -1) !== $playerIndex) return 'Not your choice';
+
+    $goFirst = $params['goFirst'] ?? true;
+    $firstPlayer = $goFirst ? $playerIndex : (1 - $playerIndex);
+    $state['rpsAwaitingOrder'] = false;
+    $state['rpsOrderChosen']   = $firstPlayer;
+    $state['log'][] = $state['players'][$playerIndex]['username'] . ' chose to go ' . ($goFirst ? 'first' : 'second') . '.';
+    $engine->startNewRound($state, $firstPlayer);
     return null;
 }
 
@@ -1114,6 +1142,7 @@ function performAction(Database $database): string
     $error = match($action) {
         // Setup / RPS
         'submitRPS'                => handleSubmitRPS($state, $playerIndex, $paramsArr, $engine),
+        'chooseOrder'              => handleChooseOrder($state, $playerIndex, $paramsArr, $engine),
         'ready'                    => null, // no-op (replaced by RPS)
         // Start of round
         'rollDice'                 => handleRollDice($state, $playerIndex, $paramsArr, $engine),
@@ -1129,6 +1158,7 @@ function performAction(Database $database): string
         'useRizz'                  => handleUseKeyword($state, $playerIndex, array_merge($paramsArr, ['keyword' => 'rizz']), $engine),
         'pass'                     => handlePass($state, $playerIndex, $paramsArr, $engine),
         'surrender'                => handleSurrender($state, $playerIndex, $paramsArr, $engine),
+        'gameSurrender'            => handleGameSurrender($state, $playerIndex, $paramsArr, $engine),
         // Passing phase
         'opponentPassesResponse',
         'triggerOpponentPasses'    => handleOpponentPassesResponse($state, $playerIndex, $paramsArr, $engine),
