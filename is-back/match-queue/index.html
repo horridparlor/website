@@ -122,6 +122,7 @@
   let firstname = localStorage.getItem('firstname') || '?';
   let format = 'bo1';
   let queueInterval = null;
+  let heartbeatInterval = null;
   let allDecks = [];
 
   // ─── Auth helpers ─────────────────────────────────────────────────────────────
@@ -304,6 +305,7 @@
         <button class="btn btn-red" onclick="cancelQueue()">Cancel</button>
       </div>`;
     startPolling();
+    startHeartbeat();
   }
 
   function copyCode(code) {
@@ -315,6 +317,7 @@
 
   async function cancelQueue() {
     stopPolling();
+    stopHeartbeat();
     try { await fetch(API + 'matchQueue', { method: 'DELETE', headers: headers() }); } catch {}
     renderSetup();
   }
@@ -324,6 +327,14 @@
     queueInterval = setInterval(pollQueue, 2000);
   }
   function stopPolling() { if (queueInterval) { clearInterval(queueInterval); queueInterval = null; } }
+
+  function startHeartbeat() {
+    stopHeartbeat();
+    heartbeatInterval = setInterval(async () => {
+      try { await fetch(API + 'matchQueue', { method: 'POST', headers: headers(), body: JSON.stringify({ action: 'heartbeat' }) }); } catch {}
+    }, 5000);
+  }
+  function stopHeartbeat() { if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; } }
 
   async function pollQueue() {
     try {
@@ -339,7 +350,7 @@
     } catch {}
   }
 
-  function enterGame(matchId) { location.href = `/is-back/gameplay/?matchId=${matchId}`; }
+  function enterGame(matchId) { stopPolling(); stopHeartbeat(); location.href = `/is-back/gameplay/?matchId=${matchId}`; }
 
   // ─── Init ─────────────────────────────────────────────────────────────────────
   async function init() {
