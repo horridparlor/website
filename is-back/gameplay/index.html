@@ -354,7 +354,7 @@
         <div class="stat-badge">Prizes: <span id="opp-prize-count">5</span></div>
         <div class="stat-badge">Hand: <span id="opp-hand">0</span></div>
         <div class="stat-badge">Deck: <span id="opp-deck">55</span></div>
-        <div class="grave-pile" onclick="showGrave(1)" title="Opponent graveyard">
+        <div class="grave-pile" onclick="showOppGrave()" title="Opponent graveyard">
           🗑️
           <span class="grave-count" id="opp-grave-count">0</span>
         </div>
@@ -362,15 +362,15 @@
       </div>
       <div id="opp-field">
         <div class="card-zone">
-          <div class="card-slot" id="opp-left"  data-owner="1" data-slot="left"   onclick="showStack(1,'left')">Left</div>
+          <div class="card-slot" id="opp-left"  data-owner="1" data-slot="left"   onclick="showOppStack('left')">Left</div>
           <div class="primary-label">Support</div>
         </div>
         <div class="card-zone">
-          <div class="card-slot" id="opp-primary" data-owner="1" data-slot="primary" onclick="showStack(1,'primary')">Primary</div>
+          <div class="card-slot" id="opp-primary" data-owner="1" data-slot="primary" onclick="showOppStack('primary')">Primary</div>
           <div class="primary-label">Primary</div>
         </div>
         <div class="card-zone">
-          <div class="card-slot" id="opp-right" data-owner="1" data-slot="right"  onclick="showStack(1,'right')">Right</div>
+          <div class="card-slot" id="opp-right" data-owner="1" data-slot="right"  onclick="showOppStack('right')">Right</div>
           <div class="primary-label">Support</div>
         </div>
       </div>
@@ -398,7 +398,7 @@
         <div class="player-name" id="my-name">You</div>
         <div class="stat-badge">Prizes: <span id="my-prize-count">5</span></div>
         <div class="stat-badge">Deck: <span id="my-deck">55</span></div>
-        <div class="grave-pile" onclick="showGrave(0)" title="Your graveyard">
+        <div class="grave-pile" onclick="showMyGrave()" title="Your graveyard">
           🗑️
           <span class="grave-count" id="my-grave-count">0</span>
         </div>
@@ -1428,26 +1428,23 @@ function updateActionBar(state, mi) {
     if (state.roundWinnerId === undefined || state.roundWinnerId === null) {
       const roundMsg = document.createElement('span');
       roundMsg.style.cssText = 'font-size:14px;font-weight:600;color:var(--orange);';
-      roundMsg.textContent = 'Revealing face-down primary card(s)…';
+      const revealDriver = (state.passerId ?? 0) === mi;
+      roundMsg.textContent = revealDriver
+        ? 'Revealing face-down primary card(s)…'
+        : 'Waiting for primary reveal…';
       btns.appendChild(roundMsg);
 
-      const revealSig = getPrimaryRevealProgressSig(state);
-      const stillHidden = ['primary'].some(() => {
-        const myPrimary = state.players?.[mi]?.field?.primary || [];
-        const oppPrimary = state.players?.[1 - mi]?.field?.primary || [];
-        const myFaceDown = !!(myPrimary.length && myPrimary[myPrimary.length - 1].faceDown);
-        const oppFaceDown = !!(oppPrimary.length && oppPrimary[oppPrimary.length - 1].faceDown);
-        return myFaceDown || oppFaceDown;
-      });
-
-      if (stillHidden && revealScheduledSig !== revealSig) {
-        revealScheduledSig = revealSig;
-        setTimeout(() => {
-          if (!gameState || gameState.phase !== 'end_of_round') return;
-          if (gameState.roundWinnerId !== undefined && gameState.roundWinnerId !== null) return;
-          if (getPrimaryRevealProgressSig(gameState) !== revealSig) return;
-          sendAction('revealFaceDown');
-        }, 1200);
+      if (revealDriver) {
+        const revealSig = getPrimaryRevealProgressSig(state);
+        if (revealScheduledSig !== revealSig) {
+          revealScheduledSig = revealSig;
+          setTimeout(() => {
+            if (!gameState || gameState.phase !== 'end_of_round') return;
+            if (gameState.roundWinnerId !== undefined && gameState.roundWinnerId !== null) return;
+            if (getPrimaryRevealProgressSig(gameState) !== revealSig) return;
+            sendAction('revealFaceDown');
+          }, 1000);
+        }
       }
       return;
     }
@@ -1640,6 +1637,19 @@ function closeKwModal() {
 }
 
 // ── Graveyard popup ───────────────────────────────────────────────────────────
+function getViewPlayerIndex(role) {
+  if (myIndex === -1) return role === 'opp' ? 1 : 0;
+  return role === 'opp' ? (1 - myIndex) : myIndex;
+}
+
+function showMyGrave() {
+  showGrave(getViewPlayerIndex('me'));
+}
+
+function showOppGrave() {
+  showGrave(getViewPlayerIndex('opp'));
+}
+
 function showGrave(playerIndex) {
   if (!gameState) return;
   const p = gameState.players[playerIndex];
@@ -1649,6 +1659,10 @@ function showGrave(playerIndex) {
 }
 
 // ── Stack popup ───────────────────────────────────────────────────────────────
+function showOppStack(slot) {
+  showStack(getViewPlayerIndex('opp'), slot);
+}
+
 function showStack(playerIndex, slot) {
   if (!gameState) return;
   const p = gameState.players[playerIndex];
