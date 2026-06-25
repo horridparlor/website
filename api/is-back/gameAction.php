@@ -1470,14 +1470,16 @@ function enterRevealPhase(array &$state, GameEngine $engine): void
     $state['revealPhaseRevealedCardId'] = $oppCardId;
     $state['revealPhaseDivineWin']      = $divineWin;
 
+    $msgs = ['', ''];
     if ($divineWin) {
-        $state['revealPhaseMessage'] = $state['players'][$oppIdx]['username'] . "'s " . $oppCardName
-            . ' has Divine — it defeats the face-down card. '
-            . $state['players'][$oppIdx]['username'] . ' wins the round!';
+        $msgs[$oppIdx]   = 'Your ' . $oppCardName . ' has Divine — it defeats the face-down card. You win the round!';
+        $msgs[$passerId] = 'Opponent\'s ' . $oppCardName . ' has Divine — it defeats your face-down card. Opponent wins the round!';
         $state['log'][] = $oppCardName . ' has Divine — defeats the passing player\'s face-down card!';
     } else {
-        $state['revealPhaseMessage'] = $state['players'][$oppIdx]['username'] . ' revealed: ' . $oppCardName . '.';
+        $msgs[$oppIdx]   = 'You revealed: ' . $oppCardName . '.';
+        $msgs[$passerId] = 'Opponent revealed: ' . $oppCardName . '.';
     }
+    $state['revealPhaseMessages'] = $msgs;
 
     $state['log'][] = $state['players'][$oppIdx]['username'] . ' revealed their primary card: ' . $oppCardName . '.';
 }
@@ -1510,7 +1512,10 @@ function maybeFinishRevealPhase(array &$state, GameEngine $engine): void
             $state['revealPhaseStep']           = 'passer_revealed';
             $state['revealPhaseRevealedCardId'] = $passerCardId;
             $state['revealPhaseDivineWin']      = false;
-            $state['revealPhaseMessage']        = $state['players'][$passerId]['username'] . ' revealed: ' . $passerCardName . '.';
+            $pMsgs = ['', ''];
+            $pMsgs[$passerId] = 'You revealed: ' . $passerCardName . '.';
+            $pMsgs[$oppIdx]   = 'Opponent revealed: ' . $passerCardName . '.';
+            $state['revealPhaseMessages']       = $pMsgs;
             $state['log'][] = $state['players'][$passerId]['username'] . ' revealed their primary card: ' . $passerCardName . '.';
             return;
         }

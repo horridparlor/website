@@ -1881,7 +1881,7 @@ function triggerOpponentPasses({ slot, cardId, keyword }) {
 // ── Reveal phase modal ────────────────────────────────────────────────────────
 function showRevealPhaseModal(state) {
   const stamp  = state.revealPhaseStamp ?? 0;
-  const msg    = state.revealPhaseMessage ?? '';
+  const msg    = state.revealPhaseMessages?.[myIndex] ?? state.revealPhaseMessage ?? '';
   const cardId = state.revealPhaseRevealedCardId ?? null;
   const card   = cardId ? allCards[cardId] : null;
 
