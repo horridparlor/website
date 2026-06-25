@@ -318,6 +318,26 @@
     btnImportClose:  document.getElementById('btn-import-close'),
   };
 
+  /* ── URL filter persistence ─────────────────────────────────────── */
+  const controlsToURL = () => {
+    const params = new URLSearchParams();
+    if (el.search.value)    params.set('search',   el.search.value);
+    if (el.fType.value)     params.set('type',     el.fType.value);
+    if (el.fKeyword.value)  params.set('keyword',  el.fKeyword.value);
+    if (el.fPowerMin.value) params.set('powerMin', el.fPowerMin.value);
+    if (el.fPowerMax.value) params.set('powerMax', el.fPowerMax.value);
+    history.replaceState(null, '', params.toString() ? '?' + params.toString() : window.location.pathname);
+  };
+
+  const applyURLToControls = () => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('search'))   el.search.value      = params.get('search');
+    if (params.has('type'))     el.fType.value        = params.get('type');
+    if (params.has('keyword'))  el.fKeyword.value     = params.get('keyword');
+    if (params.has('powerMin')) el.fPowerMin.value    = params.get('powerMin');
+    if (params.has('powerMax')) el.fPowerMax.value    = params.get('powerMax');
+  };
+
   /* ── Utilities ──────────────────────────────────────────────────── */
   const norm = s => (s||'').toLowerCase();
   const esc  = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -942,16 +962,17 @@
   });
 
   el.btnResetFilters.addEventListener('click', () => {
-    el.search.value   = '';
-    el.fType.value    = '';
-    el.fKeyword.value = '';
+    el.search.value    = '';
+    el.fType.value     = '';
+    el.fKeyword.value  = '';
     el.fPowerMin.value = '';
     el.fPowerMax.value = '';
+    controlsToURL();
     filterCards();
   });
 
-  [el.search].forEach(ctrl => ctrl.addEventListener('input', filterCards));
-  [el.fType, el.fKeyword, el.fPowerMin, el.fPowerMax].forEach(ctrl => ctrl.addEventListener('change', filterCards));
+  [el.search].forEach(ctrl => ctrl.addEventListener('input', () => { controlsToURL(); filterCards(); }));
+  [el.fType, el.fKeyword, el.fPowerMin, el.fPowerMax].forEach(ctrl => ctrl.addEventListener('change', () => { controlsToURL(); filterCards(); }));
 
   /* ── Export / Import ────────────────────────────────────────────── */
   const triggerDownloadBlob = (blob, filename) => {
@@ -1094,6 +1115,7 @@
     try {
       await loadCards();
       await loadKeywords();
+      applyURLToControls();
       filterCards();
     } catch (e) {
       showToast('Failed to load cards', 'error');

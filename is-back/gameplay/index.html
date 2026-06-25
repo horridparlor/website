@@ -1344,6 +1344,7 @@ function updatePlayerInfo(state, mi, oi) {
   document.getElementById('my-name').className = `player-name${isMyTurn ? ' active' : ''}`;
   document.getElementById('opp-name').className = `player-name${!isMyTurn ? ' active' : ''}`;
   document.getElementById('opp-name').textContent = opp.username || 'Opponent';
+  if (me.username) document.getElementById('my-avatar').textContent = me.username[0].toUpperCase();
 
   // Calculate deck counts as residual if not provided by server
   const DECK_SIZE = 55;
