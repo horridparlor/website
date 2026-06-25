@@ -949,15 +949,37 @@ function openRizzResponseModal(state) {
 
 function chooseSupportSlotAndRespond(zombieId, state) {
   const me = state.players[myIndex];
-  const free = ['left', 'right'].filter(s => !((me.field?.[s] || []).length));
-  if (free.length <= 1) {
-    resolvePendingKeyword({ keyword: 'necromancy_respond', zombieId, slot: free[0] || 'left' });
+
+  function slotValid(slot) {
+    const stack = me.field?.[slot] || [];
+    if (!stack.length) return true;
+    return GameEngine.canEvolveSlot(state, myIndex, zombieId, slot);
+  }
+
+  const leftOk  = slotValid('left');
+  const rightOk = slotValid('right');
+
+  if (!leftOk && !rightOk) {
+    // No valid slot — skip placement
+    resolvePendingKeyword({ keyword: 'necromancy_respond' });
     return;
   }
-  openKwModalCustom('Necromancy', 'Choose which supporting slot to use.', [], [
-    { label: 'Left', className: 'm-confirm', onClick: () => resolvePendingKeyword({ keyword: 'necromancy_respond', zombieId, slot: 'left' }) },
-    { label: 'Right', className: 'm-confirm', onClick: () => resolvePendingKeyword({ keyword: 'necromancy_respond', zombieId, slot: 'right' }) },
-  ]);
+
+  const buttons = [
+    { label: 'Left',  className: leftOk  ? 'm-confirm' : 'm-cancel', disabled: !leftOk,
+      onClick: () => { if (leftOk)  resolvePendingKeyword({ keyword: 'necromancy_respond', zombieId, slot: 'left'  }); } },
+    { label: 'Right', className: rightOk ? 'm-confirm' : 'm-cancel', disabled: !rightOk,
+      onClick: () => { if (rightOk) resolvePendingKeyword({ keyword: 'necromancy_respond', zombieId, slot: 'right' }); } },
+    { label: 'Skip', className: 'm-cancel',
+      onClick: () => resolvePendingKeyword({ keyword: 'necromancy_respond' }) },
+  ];
+
+  const zombie = allCards[zombieId];
+  const desc = `Place ${zombie ? zombie.name : 'zombie'} in a supporting slot. ${
+    !leftOk ? '(Left occupied — must be bigger)' : !rightOk ? '(Right occupied — must be bigger)' : ''
+  }`.trim();
+
+  openKwModalCustom('Necromancy', desc, [], buttons);
 }
 
 function openNecromancyModal(effect, state) {
@@ -966,9 +988,18 @@ function openNecromancyModal(effect, state) {
     resolvePendingKeyword({ keyword: 'necromancy_respond' });
     return;
   }
-  openKwModalCustom('Necromancy', 'Play a Zombie from your graveyard as supporting, or skip.', zombies, [
+  openKwModalCustom('Necromancy', 'Choose a Zombie from your graveyard to play as supporting, or skip.', zombies, [
     { label: 'Skip', className: 'm-cancel', onClick: () => resolvePendingKeyword({ keyword: 'necromancy_respond' }) },
-  ], (zombieId) => chooseSupportSlotAndRespond(zombieId, state));
+  ], null);
+  // Override card clicks: close this modal first, then open slot selection
+  window._kwModalCallback = null;
+  document.querySelectorAll('#kw-modal-cards .modal-card-item').forEach(el => {
+    el.onclick = () => {
+      const zombieId = Number(el.dataset.id);
+      closeKwModal();
+      chooseSupportSlotAndRespond(zombieId, state);
+    };
+  });
 }
 
 function openMakkarajarviModal(state) {
@@ -1208,7 +1239,7 @@ function updatePlayerInfo(state, mi, oi) {
 }
 
 // ── Field rendering ───────────────────────────────────────────────────────────
-function renderSlot(el, stack, canInteract, owner) {
+function renderSlot(el, stack, canInteract, owner, forceReveal = false) {
   const slot = el.dataset.slot;
   const isSupport = slot === 'left' || slot === 'right';
   const isMine = owner === myIndex;
@@ -1223,6 +1254,7 @@ function renderSlot(el, stack, canInteract, owner) {
   }
   const top = stack[stack.length - 1];
   const card = allCards[top.cardId];
+  const showFaceDown = top.faceDown && !forceReveal;
 
   let cls = 'card-slot has-card';
   if (isSupport) cls += slot === 'left' ? ' support-left' : ' support-right';
@@ -1237,19 +1269,21 @@ function renderSlot(el, stack, canInteract, owner) {
 
   el.className = cls;
 
-  if (top.faceDown || !card) {
+  if (showFaceDown || !card) {
     el.innerHTML = `<img src="${cardBack()}" alt="Face Down" /><div class="face-down-label">Face Down</div>`;
   } else {
     const boostedPow = gameState ? GameEngine.computeSlotPower(gameState, owner, slot, allCards) : null;
     const showBoost = boostedPow !== null && boostedPow !== card.power;
     const boostBadge = showBoost ? `<div class="power-boost-badge">⚡${fmt(boostedPow)}</div>` : '';
+    const wasDown = top.faceDown && forceReveal;
     el.innerHTML = `
       <img src="${cardImg(card)}" alt="${stripBB(card.name)}" onerror="this.src=''" />
       ${boostBadge}
       ${stack.length > 1 ? `<div class="stack-count">×${stack.length}</div>` : ''}
+      ${wasDown ? `<div class="face-down-label">Was face-down</div>` : ''}
     `;
   }
-  addTooltipListeners(el, top.cardId, top.faceDown, isMine);
+  addTooltipListeners(el, top.cardId, showFaceDown, isMine);
 }
 
 function updateField(state, mi, oi) {
@@ -1257,10 +1291,13 @@ function updateField(state, mi, oi) {
   const opp = state.players[oi];
   if (!me || !opp) return;
   const isMyTurn = state.turn === mi && state.phase === 'main_phase';
+  const revealPrimary = state.phase === 'end_of_round' &&
+    state.roundWinnerId !== undefined && state.roundWinnerId !== null;
 
   for (const slot of ['primary','left','right']) {
-    renderSlot(document.getElementById(`my-${slot}`),  me.field[slot],  isMyTurn, mi);
-    renderSlot(document.getElementById(`opp-${slot}`), opp.field[slot], false,    oi);
+    const reveal = revealPrimary && slot === 'primary';
+    renderSlot(document.getElementById(`my-${slot}`),  me.field[slot],  isMyTurn, mi, reveal);
+    renderSlot(document.getElementById(`opp-${slot}`), opp.field[slot], false,    oi, reveal);
   }
 
   // Highlight playable slots
