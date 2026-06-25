@@ -805,26 +805,33 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
         }
         case 'cultism': {
             $p = &$state['players'][$playerIndex];
-            // Must be in graveyard and card has Cultism
-            if (!$cardId || !in_array($cardId, $p['graveyardIds'])) return 'Card not in graveyard';
-            // Reshuffle all Little Sisters from graveyard into deck
-            $littleSisters = array_filter($p['graveyardIds'], function($cid) use ($engine) {
-                return $engine->hasKeyword($cid, 'little-sister');
-            });
-            if (empty($littleSisters)) return 'No Little Sisters in graveyard';
-            $p['graveyardIds'] = array_values(array_filter($p['graveyardIds'], function($cid) use ($littleSisters) {
-                return !in_array($cid, $littleSisters);
-            }));
-            foreach ($littleSisters as $lsId) {
-                $p['deckIds'][] = $lsId;
+            // Cultism card must be in graveyard
+            $cultismInGrave = false;
+            foreach ($p['graveyardIds'] as $cid) {
+                if ($engine->hasKeyword($cid, 'Cultism')) { $cultismInGrave = true; break; }
+            }
+            if (!$cultismInGrave) return 'No Cultism card in graveyard';
+            // Validate selected Little Sisters
+            $selectedIds = array_map('intval', $params['selectedIds'] ?? []);
+            if (count($selectedIds) !== 7) return 'Must select exactly 7 Little Sisters';
+            foreach ($selectedIds as $sid) {
+                if (!in_array($sid, $p['graveyardIds'])) return 'Selected card not in graveyard';
+                if (!$engine->hasKeyword($sid, 'little-sister')) return 'Selected card is not a Little Sister';
+            }
+            // Move selected Little Sisters from graveyard to deck and shuffle
+            $p['graveyardIds'] = array_values(array_diff($p['graveyardIds'], $selectedIds));
+            foreach ($selectedIds as $sid) {
+                $p['deckIds'][] = $sid;
             }
             shuffle($p['deckIds']);
-            // Draw a prize card
+            // Draw a prize card if available
             if (!empty($p['prizeIds'])) {
                 $prize = array_shift($p['prizeIds']);
                 $p['handIds'][] = $prize;
                 $p['prizeCount'] = count($p['prizeIds']);
                 $state['log'][] = $p['username'] . ' used Cultism! Drew a prize card.';
+            } else {
+                $state['log'][] = $p['username'] . ' used Cultism! Reshuffled 7 Little Sisters into deck.';
             }
             return null;
         }
@@ -1641,6 +1648,7 @@ function performAction(Database $database): string
         'acknowledgeNotification'  => handleAcknowledgeNotification($state, $playerIndex, $paramsArr),
         'playCommunism'            => handleUseKeyword($state, $playerIndex, array_merge($paramsArr, ['keyword' => 'communism']), $engine),
         'useRizz'                  => handleUseKeyword($state, $playerIndex, array_merge($paramsArr, ['keyword' => 'rizz']), $engine),
+        'activateCultism'          => handleUseKeyword($state, $playerIndex, array_merge($paramsArr, ['keyword' => 'cultism']), $engine),
         'pass'                     => handlePass($state, $playerIndex, $paramsArr, $engine),
         'surrender'                => handleSurrender($state, $playerIndex, $paramsArr, $engine),
         'gameSurrender'            => handleGameSurrender($state, $playerIndex, $paramsArr, $engine),

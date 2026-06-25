@@ -376,11 +376,23 @@ const GameEngine = (() => {
   // ─── Check if Cultism can be activated from grave ─────────────────────────────
   function canActivateCultism(playerState, allCardsMap) {
     const grave = playerState.graveyardIds || [];
+    const hasCultism = grave.some(id => {
+      const c = allCardsMap[id];
+      return c && cardHasKeyword(c, 'Cultism');
+    });
+    if (!hasCultism) return false;
     const littleSisters = grave.filter(id => {
       const c = allCardsMap[id];
       return c && cardHasKeyword(c, 'little-sister');
     });
     return littleSisters.length >= 7;
+  }
+
+  function getCultismCardInGrave(playerState, allCardsMap) {
+    return (playerState.graveyardIds || []).find(id => {
+      const c = allCardsMap[id];
+      return c && cardHasKeyword(c, 'Cultism');
+    }) ?? null;
   }
 
   // ─── Elder-Slime trigger check ────────────────────────────────────────────────
@@ -513,6 +525,7 @@ const GameEngine = (() => {
     buildCardsMap,
     canPlayCommunism,
     canActivateCultism,
+    getCultismCardInGrave,
     elderSlimeTriggers,
     getAvailableActions,
     hasWizardOnPrimary,

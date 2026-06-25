@@ -13,7 +13,7 @@
       --orange: #d29922; --red: #da3633; --gold: #f0c040;
       --rock: #2a4a2a; --rock-b: #3fb950; --paper: #1a2d4a; --paper-b: #58a6ff; --scissors: #4a2d0a; --scissors-b: #f0883e;
     }
-    html, body { height: 100%; background: #0a0f0d; color: var(--text); font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; overflow: hidden; }
+    html, body { height: 100%; background: #08090a; color: var(--text); font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; overflow: hidden; }
 
     /* ── Phase overlay ── */
     #phase-overlay {
@@ -102,9 +102,16 @@
     /* Support card rotation */
     .card-slot.support-left  { transform: rotate(90deg); }
     .card-slot.support-right { transform: rotate(-90deg); }
-    /* Counter-rotate empty label and SUPPORT badge so text reads normally */
-    .card-slot.support-left  .slot-empty-label { display:inline-block; transform: rotate(-90deg); }
-    .card-slot.support-right .slot-empty-label { display:inline-block; transform: rotate(90deg); }
+    /* Keep empty support labels upright and as crisp as possible inside rotated slots */
+    .card-slot.support-left  .slot-empty-label,
+    .card-slot.support-right .slot-empty-label {
+      display: flex; width: 100%; height: 100%; align-items: center; justify-content: center;
+      font-size: 11px; letter-spacing: 0.4px; text-rendering: geometricPrecision;
+      -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+      transform-origin: center center; backface-visibility: hidden;
+    }
+    .card-slot.support-left  .slot-empty-label { transform: rotate(-90deg); }
+    .card-slot.support-right .slot-empty-label { transform: rotate(90deg); }
     .support-badge {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
       font-size: 9px; font-weight: 700; letter-spacing: 1px; color: var(--blue2);
@@ -148,6 +155,7 @@
     /* Graveyard */
     .grave-pile { width: 50px; height: 70px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg2); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--muted); cursor: pointer; position: relative; }
     .grave-pile:hover { border-color: var(--muted); }
+    .grave-pile.cultism-trigger { border-color: #9b59b6 !important; box-shadow: 0 0 8px #9b59b666; }
     .grave-count { position: absolute; top: -6px; right: -6px; background: var(--border); color: var(--text); border-radius: 10px; font-size: 10px; padding: 1px 5px; }
 
     /* Hand */
@@ -229,6 +237,7 @@
     #stack-cards { display: flex; gap: 10px; flex-wrap: wrap; }
     #stack-cards .sc-card { width: 80px; }
     #stack-cards .sc-card img { width: 80px; height: 112px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
+    #stack-cards .sc-card.cultism-trigger img { border-color: #9b59b6; box-shadow: 0 0 8px #9b59b666; }
     #stack-cards .sc-label { font-size: 10px; color: var(--muted); text-align: center; margin-top: 3px; }
     #stack-close { margin-top: 14px; background: #21262d; border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 7px 20px; cursor: pointer; }
 
@@ -398,7 +407,7 @@
         <div class="player-name" id="my-name">You</div>
         <div class="stat-badge">Prizes: <span id="my-prize-count">5</span></div>
         <div class="stat-badge">Deck: <span id="my-deck">55</span></div>
-        <div class="grave-pile" onclick="showMyGrave()" title="Your graveyard">
+        <div class="grave-pile" id="my-grave-pile" onclick="showMyGrave()" title="Your graveyard">
           🗑️
           <span class="grave-count" id="my-grave-count">0</span>
         </div>
@@ -1312,6 +1321,13 @@ function updateField(state, mi, oi) {
   if (isMyTurn && selectedHandCardId) {
     highlightPlayableSlots(state, mi, selectedHandCardId);
   }
+
+  // Cultism grave-pile highlight
+  const myGravePile = document.getElementById('my-grave-pile');
+  if (myGravePile) {
+    const canCultism = isMyTurn && GameEngine.canActivateCultism(me, allCards);
+    myGravePile.classList.toggle('cultism-trigger', canCultism);
+  }
 }
 
 function highlightPlayableSlots(state, mi, cardId) {
@@ -1779,8 +1795,74 @@ function showGrave(playerIndex) {
   if (!gameState) return;
   const p = gameState.players[playerIndex];
   if (!p) return;
+  const isMine = playerIndex === myIndex;
+  const canCultism = isMine &&
+    gameState.phase === 'main_phase' &&
+    gameState.turn === myIndex &&
+    GameEngine.canActivateCultism(p, allCards);
+  const cultismCardId = canCultism ? GameEngine.getCultismCardInGrave(p, allCards) : null;
   const cards = (p.graveyardIds || []).map(id => allCards[id]).filter(Boolean);
-  showStackPopup(`${playerIndex===myIndex?'Your':'Opponent\'s'} Graveyard (${cards.length})`, cards.map(c=>({cardId:c.id,faceDown:false})));
+  showStackPopup(
+    `${isMine ? 'Your' : 'Opponent\'s'} Graveyard (${cards.length})`,
+    cards.map(c => ({ cardId: c.id, faceDown: false })),
+    isMine,
+    cultismCardId
+  );
+}
+
+function openCultismModal(me) {
+  const grave = me.graveyardIds || [];
+  const cultismCardId = GameEngine.getCultismCardInGrave(me, allCards);
+  const littleSisterIds = grave.filter(id => {
+    const c = allCards[id];
+    return c && GameEngine.cardHasKeyword(c, 'little-sister');
+  });
+  const cards = littleSisterIds.map(id => allCards[id]).filter(Boolean);
+  const selectedIds = new Set();
+  const required = 7;
+
+  function updateCultismModal() {
+    document.getElementById('kw-modal-desc').textContent =
+      `Choose 7 Little Sisters to reshuffle into your deck (${selectedIds.size}/7).`;
+    const okBtn = document.getElementById('cultism-ok');
+    if (okBtn) okBtn.disabled = selectedIds.size !== required;
+    document.querySelectorAll('#kw-modal-cards .modal-card-item').forEach(el => {
+      const id = Number(el.dataset.id);
+      el.classList.toggle('selected', selectedIds.has(id));
+    });
+  }
+
+  openKwModalCustom(
+    'Cultism',
+    `Choose 7 Little Sisters to reshuffle into your deck (0/7).`,
+    cards,
+    [{ label: 'Cancel', className: 'm-cancel', onClick: closeKwModal }],
+    null
+  );
+
+  window._kwModalCallback = null;
+  document.querySelectorAll('#kw-modal-cards .modal-card-item').forEach(el => {
+    el.onclick = () => {
+      const id = Number(el.dataset.id);
+      if (selectedIds.has(id)) {
+        selectedIds.delete(id);
+      } else if (selectedIds.size < required) {
+        selectedIds.add(id);
+      }
+      updateCultismModal();
+    };
+  });
+
+  const okBtn = document.createElement('button');
+  okBtn.id = 'cultism-ok';
+  okBtn.className = 'm-confirm';
+  okBtn.textContent = 'OK';
+  okBtn.disabled = true;
+  okBtn.addEventListener('click', () => {
+    closeKwModal();
+    sendAction('activateCultism', { cardId: cultismCardId, selectedIds: [...selectedIds] });
+  });
+  document.getElementById('kw-modal-btns').appendChild(okBtn);
 }
 
 // ── Stack popup ───────────────────────────────────────────────────────────────
@@ -1798,17 +1880,28 @@ function showStack(playerIndex, slot) {
   const label = isMine ? 'Your' : (p.username || 'Opponent\'s');
   showStackPopup(`${label} ${slot} (${stack.length} card${stack.length>1?'s':''})`, stack, isMine);
 }
-function showStackPopup(title, stack, isMine = false) {
+function showStackPopup(title, stack, isMine = false, cultismCardId = null) {
   document.getElementById('stack-title').textContent = title;
-  document.getElementById('stack-cards').innerHTML = [...stack].reverse().map((entry, i) => {
+  const container = document.getElementById('stack-cards');
+  container.innerHTML = [...stack].reverse().map((entry, i) => {
     const card = allCards[entry.cardId];
     const isActive = i === 0;
     const hidden = entry.faceDown && !isMine;
-    return `<div class="sc-card">
+    const isCultism = cultismCardId !== null && entry.cardId === cultismCardId;
+    return `<div class="sc-card${isCultism ? ' cultism-trigger' : ''}" ${isCultism ? `data-cultism="${cultismCardId}"` : ''} style="${isCultism ? 'cursor:pointer;' : ''}">
       <img src="${hidden||!card ? cardBack() : cardImg(card)}" alt="" />
       <div class="sc-label">${isActive?'▶ Active':''} ${hidden?'(face-down)':card?stripBB(card.name):''}</div>
     </div>`;
   }).join('');
+  if (cultismCardId !== null) {
+    container.querySelectorAll('.sc-card.cultism-trigger').forEach(el => {
+      el.addEventListener('click', () => {
+        closeStack();
+        const me = gameState && gameState.players[myIndex];
+        if (me) openCultismModal(me);
+      });
+    });
+  }
   document.getElementById('stack-popup').classList.add('open');
 }
 function closeStack() { document.getElementById('stack-popup').classList.remove('open'); }
@@ -2224,45 +2317,71 @@ function showNaturalSelectionEffect() {
   setTimeout(() => overlay.remove(), 3000);
 }
 
-// ── Balatro background ─────────────────────────────────────────────────────────
+// ── Animated dark texture background ───────────────────────────────────────────
 function initBg() {
   const canvas = document.getElementById('bg-canvas');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
-  const noiseSize = 128;
+  const noiseSize = 96;
   const noiseCanvas = document.createElement('canvas');
   noiseCanvas.width = noiseCanvas.height = noiseSize;
   const nc = noiseCanvas.getContext('2d');
   const nd = nc.createImageData(noiseSize, noiseSize);
   for (let i = 0; i < nd.data.length; i += 4) {
-    const v = Math.floor(Math.random() * 255);
+    const v = Math.floor(120 + Math.random() * 90);
     nd.data[i] = nd.data[i+1] = nd.data[i+2] = v; nd.data[i+3] = 255;
   }
   nc.putImageData(nd, 0, 0);
   const noisePattern = ctx.createPattern(noiseCanvas, 'repeat');
   const blobs = [
-    { ox: 0.25, oy: 0.30, r: 0.50, color: '#1a7a5a', sx: 1.0, sy: 0.8 },
-    { ox: 0.80, oy: 0.65, r: 0.45, color: '#1a4a8a', sx: 0.9, sy: 1.1 },
-    { ox: 0.55, oy: 0.45, r: 0.60, color: '#165c38', sx: 1.1, sy: 0.9 },
-    { ox: 0.12, oy: 0.75, r: 0.38, color: '#2a1570', sx: 0.8, sy: 1.0 },
+    { ox: 0.20, oy: 0.24, r: 0.52, color: 'rgba(255,255,255,0.065)', sx: 0.9, sy: 0.7 },
+    { ox: 0.78, oy: 0.30, r: 0.46, color: 'rgba(0,0,0,0.16)', sx: 1.1, sy: 0.8 },
+    { ox: 0.60, oy: 0.72, r: 0.58, color: 'rgba(255,255,255,0.045)', sx: 0.8, sy: 1.1 },
+    { ox: 0.08, oy: 0.68, r: 0.36, color: 'rgba(0,0,0,0.20)', sx: 1.0, sy: 0.9 },
+    { ox: 0.46, oy: 0.48, r: 0.44, color: 'rgba(255,255,255,0.030)', sx: 1.3, sy: 1.0 },
+  ];
+  const bands = [
+    { angle: -0.35, gap: 140, drift: 0.00022, alpha: 0.055 },
+    { angle: 0.18, gap: 95, drift: 0.00031, alpha: 0.040 },
   ];
   let t = 0;
   function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
   window.addEventListener('resize', resize); resize();
   function draw() {
     const w = canvas.width, h = canvas.height;
-    ctx.fillStyle = '#0a0f0d'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#08090a'; ctx.fillRect(0, 0, w, h);
+
+    for (const band of bands) {
+      ctx.save();
+      ctx.translate(w / 2, h / 2);
+      ctx.rotate(band.angle);
+      ctx.globalCompositeOperation = 'screen';
+      for (let i = -8; i <= 8; i++) {
+        const offset = i * band.gap + Math.sin(t * band.drift + i * 0.85) * band.gap * 0.22;
+        const bandHeight = Math.max(28, band.gap * 0.42);
+        const grad = ctx.createLinearGradient(-w, offset - bandHeight, w, offset + bandHeight);
+        grad.addColorStop(0, 'rgba(255,255,255,0)');
+        grad.addColorStop(0.5, `rgba(255,255,255,${band.alpha})`);
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(-w, offset - bandHeight, w * 2, bandHeight * 2);
+      }
+      ctx.restore();
+    }
+
     for (const b of blobs) {
       const bx = w * (b.ox + Math.sin(t * 0.00018 * b.sx) * 0.06);
       const by = h * (b.oy + Math.cos(t * 0.00014 * b.sy) * 0.06);
       const r  = Math.min(w, h) * b.r;
       const g  = ctx.createRadialGradient(bx, by, 0, bx, by, r);
-      g.addColorStop(0, b.color + 'aa'); g.addColorStop(1, b.color + '00');
+      g.addColorStop(0, b.color);
+      g.addColorStop(0.55, b.color.replace(/0\.(\d+)/, '0.01'));
+      g.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
     }
-    ctx.globalAlpha = 0.06; ctx.fillStyle = noisePattern; ctx.fillRect(0, 0, w, h); ctx.globalAlpha = 1;
+    ctx.globalAlpha = 0.055; ctx.fillStyle = noisePattern; ctx.fillRect(0, 0, w, h); ctx.globalAlpha = 1;
     const vig = ctx.createRadialGradient(w/2, h/2, 0, w/2, h/2, Math.max(w, h) * 0.75);
-    vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.65)');
+    vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.72)');
     ctx.fillStyle = vig; ctx.fillRect(0, 0, w, h);
     t += 16; requestAnimationFrame(draw);
   }
