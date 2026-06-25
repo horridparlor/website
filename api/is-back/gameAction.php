@@ -10,8 +10,9 @@ include(__DIR__ . "/gameHelper.php");
 // Card type that beats another: beater => loser
 // Rock beats Scissors, Paper beats Rock, Scissors beats Paper
 const BEATS = ['rock' => 'scissors', 'paper' => 'rock', 'scissors' => 'paper'];
-// Weak type of each card: what it loses to, and what it itself beats (its own weak type in Facism context = the type it beats)
-const WEAK_TYPE = ['rock' => 'scissors', 'paper' => 'rock', 'scissors' => 'paper'];
+// Weak type of each card: the type that BEATS it (what each card is weak against)
+// Rock is weak to Paper, Paper is weak to Scissors, Scissors is weak to Rock
+const WEAK_TYPE = ['rock' => 'paper', 'paper' => 'scissors', 'scissors' => 'rock'];
 
 class GameEngine
 {
@@ -746,8 +747,8 @@ function handleEvolveCard(array &$state, int $playerIndex, array $params, GameEn
         if (!$isAutocracy && (int)$newCard['power'] <= (int)$oldCard['power']) {
             return 'New card must have higher power to evolve (unless target has Autocracy)';
         }
-        if ($isAutocracy && (int)$newCard['power'] >= (int)$oldCard['power']) {
-            return 'Autocracy allows devolve only (lower power required)';
+        if ($isAutocracy && (int)$newCard['power'] === (int)$oldCard['power']) {
+            return 'Autocracy requires different power (higher or lower)';
         }
         // Check Monarchy: cannot evolve
         if ($engine->hasKeyword($currentTop['id'], 'monarchy')) return 'Monarchy: cannot evolve this card';
