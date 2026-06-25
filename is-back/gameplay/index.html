@@ -67,37 +67,37 @@
     .stat-badge { background: #21262d; border: 1px solid var(--border); border-radius: 20px; padding: 3px 10px; font-size: 12px; color: var(--muted); }
     .stat-badge span { color: var(--text); font-weight: 600; }
 
-    #opp-field, #my-field { display: flex; align-items: center; justify-content: center; gap: 56px; flex: 1; }
+    #opp-field, #my-field { display: flex; align-items: center; justify-content: center; gap: 67px; flex: 1; }
     .divider-line { border: none; border-top: 1px dashed var(--border); margin: 0; }
     .card-zone { position: relative; }
     .card-slot {
-      width: 104px; height: 146px; border-radius: 8px;
+      width: 125px; height: 175px; border-radius: 8px;
       border: 2px dashed var(--border); background: rgba(255,255,255,.03);
       display: flex; align-items: center; justify-content: center;
       cursor: pointer; transition: border-color .2s, background .2s;
-      position: relative; font-size: 11px; color: var(--muted); text-align: center;
+      position: relative; font-size: 13px; color: var(--muted); text-align: center;
     }
     .card-slot.droptarget { border-color: var(--green2); background: rgba(46,160,67,.12); }
     .card-slot.can-play  { border-color: var(--blue2); cursor: pointer; }
     .card-slot.can-play:hover { background: rgba(56,139,253,.15); }
     .card-slot.has-card  { border-style: solid; border-color: var(--border); }
     .card-slot img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; display: block; }
-    .card-slot .face-down-label { position: absolute; bottom: 4px; left: 0; right: 0; text-align: center; font-size: 9px; color: var(--muted); pointer-events: none; }
-    .card-slot .stack-count { position: absolute; top: 3px; right: 5px; background: #000a; color: #fff; font-size: 10px; padding: 1px 5px; border-radius: 10px; }
+    .card-slot .face-down-label { position: absolute; bottom: 4px; left: 0; right: 0; text-align: center; font-size: 11px; color: var(--muted); pointer-events: none; }
+    .card-slot .stack-count { position: absolute; top: 3px; right: 5px; background: #000a; color: #fff; font-size: 12px; padding: 1px 5px; border-radius: 10px; }
     .card-slot .power-badge {
       position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
-      background: #000c; color: #fff; font-size: 10px; padding: 1px 6px; border-radius: 8px;
+      background: #000c; color: #fff; font-size: 12px; padding: 1px 6px; border-radius: 8px;
       white-space: nowrap;
     }
     .card-slot .type-indicator {
       position: absolute; top: 3px; left: 3px;
-      width: 10px; height: 10px; border-radius: 50%;
+      width: 12px; height: 12px; border-radius: 50%;
     }
     .type-rock    { background: var(--rock-b); }
     .type-paper   { background: var(--paper-b); }
     .type-scissors { background: var(--scissors-b); }
 
-    .primary-label { font-size: 10px; color: var(--muted); text-align: center; margin-top: 3px; }
+    .primary-label { font-size: 12px; color: var(--muted); text-align: center; margin-top: 8px; }
 
     /* Support card rotation */
     .card-slot.support-left  { transform: rotate(90deg); }
@@ -106,7 +106,7 @@
     .card-slot.support-left  .slot-empty-label,
     .card-slot.support-right .slot-empty-label {
       display: flex; width: 100%; height: 100%; align-items: center; justify-content: center;
-      font-size: 11px; letter-spacing: 0.4px; text-rendering: geometricPrecision;
+      font-size: 13px; letter-spacing: 0.4px; text-rendering: geometricPrecision;
       -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
       transform-origin: center center; backface-visibility: hidden;
     }
@@ -114,7 +114,7 @@
     .card-slot.support-right .slot-empty-label { transform: rotate(90deg); }
     .support-badge {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-      font-size: 9px; font-weight: 700; letter-spacing: 1px; color: var(--blue2);
+      font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--blue2);
       background: rgba(0,0,0,.7); padding: 2px 6px; border-radius: 4px; white-space: nowrap;
       pointer-events: none; z-index: 2;
     }
@@ -182,6 +182,13 @@
     .prize-fly-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .prize-mega-star { position: fixed; left: -80px; pointer-events: none; z-index: 1100; font-size: 52px; filter: drop-shadow(0 0 16px gold) drop-shadow(0 0 32px #ff0); animation: megaStarFly 1.6s cubic-bezier(.4,0,.2,1) forwards; }
     @keyframes megaStarFly { 0%{transform:translateX(0) scale(.4) rotate(-30deg);opacity:0;} 8%{transform:translateX(5vw) scale(1.4) rotate(0deg);opacity:1;} 88%{transform:translateX(90vw) scale(1.1) rotate(320deg);opacity:1;} 100%{transform:translateX(108vw) scale(.6) rotate(380deg);opacity:0;} }
+    /* ── Card fly animations (discard + greed) ── */
+    @keyframes cardSlide { 0%{transform:translateX(110vw) rotate(10deg);opacity:0;} 8%{opacity:1;} 85%{opacity:1;transform:translateX(-5vw) rotate(-3deg);} 100%{transform:translateX(-25vw) rotate(-6deg);opacity:0;} }
+    .card-fly       { position:fixed; top:86px; pointer-events:none; z-index:1200; width:74px; height:104px; border-radius:8px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,.8); animation:cardSlide 2.2s cubic-bezier(.4,0,.2,1) forwards; }
+    .greed-card-fly { position:fixed; top:86px; pointer-events:none; z-index:1200; width:74px; height:104px; border-radius:8px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,.8), 0 0 18px gold; animation:cardSlide 2.2s cubic-bezier(.4,0,.2,1) forwards; }
+    .card-fly img, .greed-card-fly img { width:100%; height:100%; object-fit:cover; display:block; }
+    @keyframes coinFall { 0%{opacity:1;transform:translate(0,0) rotate(0deg);} 100%{opacity:0;transform:translate(var(--cx,0px),var(--cy,80px)) rotate(var(--cr,180deg));} }
+    .greed-coin { position:fixed; pointer-events:none; z-index:1201; font-size:18px; animation:coinFall var(--cd,.8s) ease-in forwards; }
     .hand-card:hover { transform: translateY(-12px) scale(1.48); border-color: var(--blue2); z-index: 10; }
     .hand-card.selected { border-color: var(--gold); transform: translateY(-16px) scale(1.48); }
     .hand-card img { width: 100%; height: 100%; object-fit: cover; border-radius: 5px; }
@@ -367,7 +374,14 @@
   <!-- Topbar -->
   <div id="topbar">
     <a href="/">Home</a>
-    <div class="title">Rakuel Is Back</div>
+    <div style="flex:1;display:flex;align-items:center;gap:14px;">
+      <div class="title" style="flex:none;">Rakuel Is Back</div>
+      <div id="opp-dice-area" class="dice-display">
+        <div class="die" id="od1">0</div>
+        <div class="die" id="od2">0</div>
+        <div class="dice-total" id="opp-dice-total" style="color:var(--muted);">= 0</div>
+      </div>
+    </div>
     <div id="match-format" style="font-size:12px;color:var(--muted);"></div>
     <button class="avatar-btn" id="my-avatar" title="Surrender Match" onclick="showGameSurrenderConfirm()">?</button>
   </div>
@@ -617,6 +631,12 @@ let magicPotionQueue = [];
 let passResolveScheduledKey = null;
 let facismResolveScheduledSig = null;
 let lastRevealPhaseStamp = 0;
+let prevOppDiceRoll = undefined; // undefined = first load, null = no roll yet this round
+let oppDiceAnimating = false;
+let lastGreedTs = 0;
+let seenDiscardAnimIds = new Set();
+let discardAnimQueue = [];
+let discardAnimRunning = false;
 
 function authHeaders() { return { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }; }
 function fmt(p) { return String(Number(p)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
@@ -757,6 +777,7 @@ function processState(state) {
   updateField(state, myIndex, oppIndex);
   updateHand(state, myIndex);
   updateDice(state, myIndex);
+  updateOppDice(state, myIndex);
   updateActionBar(state, myIndex);
   updatePrizePanel(state, myIndex, oppIndex);
   updateRoundResult(state);
@@ -815,6 +836,21 @@ function processState(state) {
   } else if (document.getElementById('reveal-phase-modal').classList.contains('open')) {
     closeRevealPhaseModal();
   }
+
+  const greedEvt = state.lastGreed;
+  if (greedEvt && greedEvt.ts && greedEvt.ts !== lastGreedTs) {
+    lastGreedTs = greedEvt.ts;
+    showGreedAnimation(greedEvt.cardId);
+  }
+
+  const oppIdx2 = 1 - myIndex;
+  for (const anim of (state.discardAnims ?? [])) {
+    if (!seenDiscardAnimIds.has(anim.id) && anim.playerIndex === oppIdx2) {
+      seenDiscardAnimIds.add(anim.id);
+      discardAnimQueue.push(anim);
+    }
+  }
+  if (discardAnimQueue.length && !discardAnimRunning) runDiscardAnimQueue();
 
   const facEvt = state.lastFacismDestroy;
   if (facEvt && facEvt.ts && facEvt.ts !== lastFacismDestroyTs) {
@@ -1527,6 +1563,110 @@ function updateDice(state, mi) {
   document.getElementById('d2').textContent = me.diceRoll[1];
   const effective = Number(me.diceRoll.effective ?? (me.diceRoll[0] + me.diceRoll[1] + (me.diceBonus || 0)));
   document.getElementById('dice-total').textContent = `= ${effective}`;
+}
+
+function updateOppDice(state, mi) {
+  const opp = state.players[1 - mi];
+  if (!opp) return;
+  const roll = opp.diceRoll ?? null;
+
+  if (prevOppDiceRoll === null && roll !== null) {
+    // Opponent just rolled this round — animate then show result
+    prevOppDiceRoll = roll;
+    animateOppDice(roll, opp.diceBonus || 0);
+  } else if (!oppDiceAnimating) {
+    if (!roll) {
+      document.getElementById('od1').textContent = '0';
+      document.getElementById('od2').textContent = '0';
+      document.getElementById('opp-dice-total').textContent = '= 0';
+    } else {
+      document.getElementById('od1').textContent = roll[0];
+      document.getElementById('od2').textContent = roll[1];
+      const effective = Number(roll.effective ?? (roll[0] + roll[1] + (opp.diceBonus || 0)));
+      document.getElementById('opp-dice-total').textContent = `= ${effective}`;
+    }
+    prevOppDiceRoll = roll;
+  }
+}
+
+function animateOppDice(finalRoll, bonus) {
+  oppDiceAnimating = true;
+  const d1El = document.getElementById('od1');
+  const d2El = document.getElementById('od2');
+  const totalEl = document.getElementById('opp-dice-total');
+  const start = Date.now();
+  const duration = 900;
+  const tick = () => {
+    d1El.textContent = Math.floor(Math.random() * 6) + 1;
+    d2El.textContent = Math.floor(Math.random() * 6) + 1;
+    d1El.classList.add('rolling');
+    d2El.classList.add('rolling');
+    totalEl.textContent = '= ?';
+    if (Date.now() - start < duration) {
+      setTimeout(tick, 80);
+    } else {
+      d1El.classList.remove('rolling');
+      d2El.classList.remove('rolling');
+      d1El.textContent = finalRoll[0];
+      d2El.textContent = finalRoll[1];
+      const effective = Number(finalRoll.effective ?? (finalRoll[0] + finalRoll[1] + bonus));
+      totalEl.textContent = `= ${effective}`;
+      oppDiceAnimating = false;
+    }
+  };
+  tick();
+}
+
+// ── Card fly queue (discard animations) ───────────────────────────────────────
+function runDiscardAnimQueue() {
+  if (!discardAnimQueue.length) { discardAnimRunning = false; return; }
+  discardAnimRunning = true;
+  const anim = discardAnimQueue.shift();
+  showCardFlyAnim(anim.cardId);
+  setTimeout(runDiscardAnimQueue, 2400);
+}
+
+function showCardFlyAnim(cardId) {
+  const card = allCards[cardId];
+  if (!card) return;
+  const el = document.createElement('div');
+  el.className = 'card-fly';
+  el.innerHTML = `<img src="${cardImg(card)}" alt="" />`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2400);
+}
+
+// ── Greed card fly animation ───────────────────────────────────────────────────
+function showGreedAnimation(cardId) {
+  const card = allCards[cardId];
+  if (!card) return;
+
+  const flyCard = document.createElement('div');
+  flyCard.className = 'greed-card-fly';
+  flyCard.innerHTML = `<img src="${cardImg(card)}" alt="" />`;
+  document.body.appendChild(flyCard);
+
+  // Spawn coins at intervals while the card slides across
+  let spawned = 0;
+  const coinTimer = setInterval(() => {
+    spawned++;
+    if (spawned > 14) { clearInterval(coinTimer); return; }
+    const rect = flyCard.getBoundingClientRect();
+    if (!rect.width) return;
+    const coin = document.createElement('div');
+    coin.className = 'greed-coin';
+    coin.textContent = '🪙';
+    coin.style.left = `${rect.left + rect.width * Math.random()}px`;
+    coin.style.top  = `${rect.top  + rect.height * (0.2 + Math.random() * 0.5)}px`;
+    coin.style.setProperty('--cx', `${(Math.random() - 0.5) * 70}px`);
+    coin.style.setProperty('--cy', `${60 + Math.random() * 80}px`);
+    coin.style.setProperty('--cr', `${(Math.random() - 0.5) * 360}deg`);
+    coin.style.setProperty('--cd', `${0.55 + Math.random() * 0.5}s`);
+    document.body.appendChild(coin);
+    setTimeout(() => coin.remove(), 1200);
+  }, 130);
+
+  setTimeout(() => { flyCard.remove(); clearInterval(coinTimer); }, 2400);
 }
 
 function runMagicPotionAnimationQueue() {

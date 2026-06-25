@@ -306,6 +306,7 @@ class GameEngine
                     while (!empty($state['players'][$oppIdx]['handIds'])) {
                         $last = array_pop($state['players'][$oppIdx]['handIds']);
                         $state['players'][$oppIdx]['graveyardIds'][] = $last;
+                        pushDiscardAnim($state, (int)$last, $oppIdx, 'elder_slime');
                         $discarded++;
                     }
                     $state['log'][] = $state['players'][$oppIdx]['username'] . " discarded $discarded card(s) (Elder-Slime).";
@@ -423,6 +424,16 @@ function ensureNotificationState(array &$state): void
 function nextEventStamp(): int
 {
     return (int) floor(microtime(true) * 1000);
+}
+
+function pushDiscardAnim(array &$state, int $cardId, int $playerIndex, string $cause): void
+{
+    if (!isset($state['discardAnims'])) $state['discardAnims'] = [];
+    $state['_daCnt'] = ($state['_daCnt'] ?? 0) + 1;
+    $state['discardAnims'][] = ['id' => $state['_daCnt'], 'cardId' => $cardId, 'playerIndex' => $playerIndex, 'cause' => $cause];
+    if (count($state['discardAnims']) > 20) {
+        $state['discardAnims'] = array_slice($state['discardAnims'], -20);
+    }
 }
 
 function clearRoundScopedFlags(array &$state): void
@@ -557,6 +568,7 @@ function handlePlayStartOfRound(array &$state, int $playerIndex, array $params, 
         $effective = min(12, max(2, $roll['total'] + $bonus));
         $state['players'][$playerIndex]['diceRoll']['effective'] = $effective;
         $state['log'][] = $state['players'][$playerIndex]['username'] . ' used Greed! Dice result +2 → ' . $effective . '.';
+        $state['lastGreed'] = ['ts' => nextEventStamp(), 'playerIndex' => $playerIndex, 'cardId' => $cardId, 'effective' => $effective];
     }
 
     if (in_array('natural-selection', $kwLower)) {
@@ -848,6 +860,7 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
                 'awaitingOpp'  => true,
             ]]);
             $engine->discardFromHand($state, $playerIndex, $cardId);
+            pushDiscardAnim($state, $cardId, $playerIndex, 'rizz');
             $state['log'][] = $state['players'][$playerIndex]['username'] . ' used Rizz! Opponent may discard to negate.';
             return null;
         }
@@ -861,6 +874,7 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
             $negateCardId = (int)($params['negateCardId'] ?? 0);
             if ($negate && $negateCardId && in_array($negateCardId, $state['players'][$playerIndex]['handIds'])) {
                 $engine->discardFromHand($state, $playerIndex, $negateCardId);
+                pushDiscardAnim($state, $negateCardId, $playerIndex, 'rizz');
                 $state['log'][] = $state['players'][$playerIndex]['username'] . ' negated Rizz.';
             } else {
                 // Rizz resolves: reveal one face-down card of opponent
@@ -946,7 +960,10 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
             $p = &$state['players'][$playerIndex];
             $discarded = 0;
             foreach (array_slice($discardIds, 0, 2) as $dId) {
-                if ($engine->discardFromHand($state, $playerIndex, (int)$dId)) $discarded++;
+                if ($engine->discardFromHand($state, $playerIndex, (int)$dId)) {
+                    pushDiscardAnim($state, (int)$dId, $playerIndex, 'sahkotalo');
+                    $discarded++;
+                }
             }
 
             // Build selectable support tops from actual board state.
@@ -1050,6 +1067,7 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
             $discarded = 0;
             foreach ($discardIds as $dId) {
                 if ($engine->discardFromHand($state, $playerIndex, (int)$dId)) {
+                    pushDiscardAnim($state, (int)$dId, $playerIndex, 'elder_slime');
                     $discarded++;
                 }
             }
@@ -1072,6 +1090,7 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
             if (!$discardId || !in_array($discardId, $handIds)) return 'Must discard a card from hand';
 
             $engine->discardFromHand($state, $playerIndex, $discardId);
+            pushDiscardAnim($state, $discardId, $playerIndex, 'mikontalo');
             $state['log'][] = $state['players'][$playerIndex]['username'] . ' discarded a card (Mikontalo).';
             $passerId = (int)($pending['passerId'] ?? (1 - $playerIndex));
             consumePendingEffect($state);
