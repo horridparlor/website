@@ -1065,7 +1065,7 @@ function openMikontaloDiscardModal(state) {
   );
 }
 
-function openElderSlimeDiscardModal(effect, state, selected = []) {
+function openElderSlimeDiscardModal(effect, state) {
   const me = state.players[myIndex];
   const required = Math.max(1, Number(effect.discardCount || 2));
   const handIds = me.handIds || [];
@@ -1074,20 +1074,53 @@ function openElderSlimeDiscardModal(effect, state, selected = []) {
     return;
   }
 
-  const remaining = handIds.filter(id => !selected.includes(id));
-  if (selected.length >= required || !remaining.length) {
-    resolvePendingKeyword({ keyword: 'elder_slime_discard_respond', discardIds: selected.slice(0, required) });
-    return;
+  const cards = handIds.map(id => allCards[id]).filter(Boolean);
+  const selectedIds = new Set();
+
+  function updateModal() {
+    document.getElementById('kw-modal-desc').textContent =
+      `Choose ${required} card(s) to discard (${selectedIds.size}/${required}).`;
+    const okBtn = document.getElementById('elder-slime-ok');
+    if (okBtn) okBtn.disabled = selectedIds.size !== required;
+    document.querySelectorAll('#kw-modal-cards .modal-card-item').forEach(el => {
+      const id = Number(el.dataset.id);
+      el.classList.toggle('selected', selectedIds.has(id));
+    });
   }
 
-  const cards = remaining.map(id => allCards[id]).filter(Boolean);
+  const okBtn = document.createElement('button');
+  okBtn.id = 'elder-slime-ok';
+  okBtn.className = 'm-confirm';
+  okBtn.textContent = 'OK';
+  okBtn.disabled = true;
+  okBtn.addEventListener('click', () => {
+    closeKwModal();
+    resolvePendingKeyword({ keyword: 'elder_slime_discard_respond', discardIds: [...selectedIds] });
+  });
+
   openKwModalCustom(
     'Elder-Slime',
-    `Choose ${required} card(s) to discard (${selected.length}/${required}).`,
+    `Choose ${required} card(s) to discard (0/${required}).`,
     cards,
     [],
-    (cardId) => openElderSlimeDiscardModal(effect, state, [...selected, cardId])
+    null
   );
+
+  // Override card clicks to toggle selection instead of closing
+  window._kwModalCallback = null;
+  document.querySelectorAll('#kw-modal-cards .modal-card-item').forEach(el => {
+    el.onclick = () => {
+      const id = Number(el.dataset.id);
+      if (selectedIds.has(id)) {
+        selectedIds.delete(id);
+      } else if (selectedIds.size < required) {
+        selectedIds.add(id);
+      }
+      updateModal();
+    };
+  });
+
+  document.getElementById('kw-modal-btns').appendChild(okBtn);
 }
 
 function openCommunismDrawModal(state) {
@@ -1461,7 +1494,10 @@ function updateActionBar(state, mi) {
       responderKws.forEach(k => {
         btns.appendChild(mkBtn(`⚡ ${k.keyword}`, 'action-btn btn-done', () => triggerOpponentPasses(k)));
       });
-      btns.appendChild(mkBtn('Confirm End', 'action-btn btn-pass', () => sendAction('confirmEndOfRound')));
+      const hasMandatory = responderKws.some(k => k.keyword.toLowerCase() === 'facism');
+      if (!hasMandatory) {
+        btns.appendChild(mkBtn('Confirm End', 'action-btn btn-pass', () => sendAction('confirmEndOfRound')));
+      }
     } else {
       btns.innerHTML = '<span class="thinking-indicator">Opponent is responding…</span>';
     }
