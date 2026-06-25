@@ -719,8 +719,8 @@
     } else if (total > 60) {
       el.statTotal.className       = 'cnt over';
       el.progressBar.className     = 'progress-bar over';
-      el.validationMsg.textContent = `${total - 60} cards over the limit (max 60)`;
-      el.btnSave.disabled          = true;
+      el.validationMsg.textContent = dupes.length ? 'Some non-Replicate cards appear more than once!' : `${total - 60} cards over the 60-card limit (not tournament legal)`;
+      el.btnSave.disabled          = !authToken || dupes.length > 0;
     } else {
       el.statTotal.className       = 'cnt warn';
       el.progressBar.className     = 'progress-bar warn';

@@ -168,7 +168,7 @@ function manageDeck(Database $database): string
         $cards = is_array($rawCards) ? $rawCards : json_decode((string)$rawCards, true);
         if (!is_array($cards)) return Database::responseBadRequest('cards must be an array');
 
-        // Validate: total ≤ 60, no dupes for non-replicate cards
+        // Validate: total ≤ 999, no dupes for non-replicate cards
         $total = 0;
         $seen  = [];
         foreach ($cards as $entry) {
@@ -198,7 +198,7 @@ function manageDeck(Database $database): string
             $seen[$cardId] = true;
             $total += $qty;
         }
-        if ($total > 60) return Database::responseBadRequest('Deck exceeds 60 cards');
+        if ($total > 999) return Database::responseBadRequest('Deck exceeds 999 cards');
 
         // Replace all cards
         $database->query('DELETE FROM isBack_deckCard WHERE deckId = :id', [
@@ -258,7 +258,7 @@ function manageDeck(Database $database): string
             ['id' => ['value' => $id, 'type' => \PDO::PARAM_INT]]
         );
         $total = (int)$totRow[0]['total'];
-        if ($total >= 60) return Database::responseBadRequest('Deck is already at 60 cards');
+        if ($total >= 999) return Database::responseBadRequest('Deck is already at 999 cards');
 
         $existing = $database->query(
             'SELECT id, quantity FROM isBack_deckCard WHERE deckId = :deckId AND cardId = :cardId',
