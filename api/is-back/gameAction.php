@@ -222,7 +222,7 @@ class GameEngine
         return $oppIdx;
     }
 
-    public function applyWhenPlayed(array &$state, int $playerIndex, string $slot, int $cardId): array
+    public function applyWhenPlayed(array &$state, int $playerIndex, string $slot, int $cardId, bool $isFaceDown = false): array
     {
         $pendingEffects = [];
         $card = $this->getCard($cardId);
@@ -255,10 +255,14 @@ class GameEngine
                     }
                     break;
                 case 'makkarajarvi':
-                    $pendingEffects[] = ['type' => 'makkarajarvi', 'playerIndex' => $playerIndex, 'cardId' => $cardId];
+                    if ($slot === 'primary' && !$isFaceDown) {
+                        $pendingEffects[] = ['type' => 'makkarajarvi', 'playerIndex' => $playerIndex, 'cardId' => $cardId];
+                    }
                     break;
                 case 'sahkotalo':
-                    $pendingEffects[] = ['type' => 'sahkotalo', 'playerIndex' => $playerIndex, 'cardId' => $cardId];
+                    if ($slot === 'primary' && !$isFaceDown) {
+                        $pendingEffects[] = ['type' => 'sahkotalo', 'playerIndex' => $playerIndex, 'cardId' => $cardId];
+                    }
                     break;
             }
         }
@@ -425,6 +429,29 @@ function clearRoundScopedFlags(array &$state): void
     $state['naturalSelection'] = false;
     $state['naturalSelectionPlays'] = [0, 0];
     unset($state['revealQueueNextAt']);
+}
+
+function hasFaceDownInPrimary(array $state, int $playerIndex): bool
+{
+    $stack = $state['players'][$playerIndex]['field']['primary'] ?? [];
+    foreach ($stack as $entry) {
+        if (!empty($entry['faceDown'])) return true;
+    }
+    return false;
+}
+
+function revealNextFaceDownInPrimary(array &$state, int $playerIndex): bool
+{
+    $stack = &$state['players'][$playerIndex]['field']['primary'];
+    if (!is_array($stack) || empty($stack)) return false;
+
+    for ($i = count($stack) - 1; $i >= 0; $i--) {
+        if (!empty($stack[$i]['faceDown'])) {
+            $stack[$i]['faceDown'] = false;
+            return true;
+        }
+    }
+    return false;
 }
 
 // ── Action handlers ────────────────────────────────────────────────────────
@@ -631,7 +658,7 @@ function handlePlayCard(array &$state, int $playerIndex, array $params, GameEngi
     $state['log'][] = $p['username'] . ' played ' . ($faceDown ? 'a face-down card' : $card['name']) . ' to ' . $slot . '.';
 
     if (!$faceDown) {
-        $pending = $engine->applyWhenPlayed($state, $playerIndex, $slot, $cardId);
+        $pending = $engine->applyWhenPlayed($state, $playerIndex, $slot, $cardId, $faceDown);
         if ($pending) enqueuePendingEffects($state, $pending);
     }
 
@@ -715,7 +742,7 @@ function handleEvolveCard(array &$state, int $playerIndex, array $params, GameEn
 
     if (!$faceDown) {
         $engine->applyWhenEvolves($state, $playerIndex, $slot, $cardId, $currentTop['id']);
-        $pending = $engine->applyWhenPlayed($state, $playerIndex, $slot, $cardId);
+        $pending = $engine->applyWhenPlayed($state, $playerIndex, $slot, $cardId, $faceDown);
         if ($pending) enqueuePendingEffects($state, $pending);
     }
 
@@ -1219,20 +1246,17 @@ function resolvePassingPhase(array &$state, GameEngine $engine): void
 {
     $passerId = $state['passerId'];
     $oppIdx = 1 - $passerId;
-    $passerTop = $engine->getTopCard($state['players'][$passerId]['field']['primary']);
-    $oppTop = $engine->getTopCard($state['players'][$oppIdx]['field']['primary']);
+
+    // If either primary stack still has hidden cards, resolve through end_of_round reveal queue.
+    if (hasFaceDownInPrimary($state, $passerId) || hasFaceDownInPrimary($state, $oppIdx)) {
+        clearRoundScopedFlags($state);
+        $state['phase'] = 'end_of_round';
+        return;
+    }
+
     $winner   = $engine->checkWinRound($state, $passerId);
 
     if ($winner === $passerId) {
-        // Divine vs face-down is an immediate round win.
-        if ($oppTop && $oppTop['faceDown'] && $passerTop && !$passerTop['faceDown'] && $engine->hasKeyword($passerTop['id'], 'divine')) {
-            clearRoundScopedFlags($state);
-            $state['phase'] = 'end_of_round';
-            $state['roundWinnerId'] = $passerId;
-            $state['log'][] = $state['players'][$passerId]['username'] . ' wins: Divine defeats a face-down primary.';
-            return;
-        }
-
         // Otherwise the passer is currently ahead; opponent gets another main phase.
         $state['phase'] = 'main_phase';
         $state['turn']  = $oppIdx;
@@ -1273,46 +1297,35 @@ function handleRevealFaceDown(array &$state, int $playerIndex, array $params, Ga
     $passerId = $state['passerId'] ?? 0;
     $oppIdx   = 1 - $passerId;
 
-    $oppTop = $engine->getTopCard($state['players'][$oppIdx]['field']['primary']);
-    $passerTop = $engine->getTopCard($state['players'][$passerId]['field']['primary']);
-    if (!$oppTop || !$passerTop) {
+    $passerPrimary = $state['players'][$passerId]['field']['primary'] ?? [];
+    $oppPrimary = $state['players'][$oppIdx]['field']['primary'] ?? [];
+    if (empty($passerPrimary) || empty($oppPrimary)) {
         $winner = $engine->checkWinRound($state, $passerId);
         $state['roundWinnerId'] = $winner ?? $oppIdx;
+        unset($state['revealQueueNextAt']);
         return null;
     }
 
-    // Step 1: reveal non-passing player first, unless passer has active Divine.
-    if ($oppTop['faceDown']) {
-        if (!$passerTop['faceDown'] && $engine->hasKeyword($passerTop['id'], 'divine')) {
-            $state['roundWinnerId'] = $passerId;
-            $state['log'][] = $state['players'][$passerId]['username'] . ' wins with Divine. The opponent\'s face-down primary is never revealed.';
-            return null;
-        }
-
-        $topIdx = count($state['players'][$oppIdx]['field']['primary']) - 1;
-        $state['players'][$oppIdx]['field']['primary'][$topIdx]['faceDown'] = false;
-        $state['log'][] = $state['players'][$oppIdx]['username'] . ' revealed their primary card.';
+    // Reveal queue order: passing player first, then opponent, one card per step.
+    if (revealNextFaceDownInPrimary($state, $passerId)) {
+        $state['log'][] = $state['players'][$passerId]['username'] . ' revealed one primary card.';
         $state['revealQueueNextAt'] = $nowMs + 1000;
         return null;
     }
 
-    // Step 2: if passer is face-down and opponent now has Divine, passer never reveals.
-    if ($passerTop['faceDown'] && !$oppTop['faceDown'] && $engine->hasKeyword($oppTop['id'], 'divine')) {
-        $state['roundWinnerId'] = $oppIdx;
-        $state['log'][] = $state['players'][$oppIdx]['username'] . ' wins with Divine. The passing player\'s face-down primary is never revealed.';
-        return null;
-    }
-
-    // Step 3: reveal passer if still face-down.
-    if ($passerTop['faceDown']) {
-        $topIdx = count($state['players'][$passerId]['field']['primary']) - 1;
-        $state['players'][$passerId]['field']['primary'][$topIdx]['faceDown'] = false;
-        $state['log'][] = $state['players'][$passerId]['username'] . ' revealed their primary card.';
+    if (revealNextFaceDownInPrimary($state, $oppIdx)) {
+        $state['log'][] = $state['players'][$oppIdx]['username'] . ' revealed one primary card.';
         $state['revealQueueNextAt'] = $nowMs + 1000;
         return null;
     }
 
-    // Step 4: both relevant primaries are face-up -> finalize winner.
+    // Safety: do not declare winner until all primary face-down cards are revealed.
+    if (hasFaceDownInPrimary($state, $passerId) || hasFaceDownInPrimary($state, $oppIdx)) {
+        $state['revealQueueNextAt'] = $nowMs + 1000;
+        return null;
+    }
+
+    // All primary cards are face-up -> finalize winner.
     $winner = $engine->checkWinRound($state, $passerId);
     $state['roundWinnerId'] = $winner ?? $oppIdx;
     $state['log'][] = 'Primary reveal complete.';

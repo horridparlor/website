@@ -773,9 +773,14 @@ function getCurrentPendingEffect(state) {
 function getPrimaryRevealProgressSig(state) {
   const mePrimary = state.players?.[myIndex]?.field?.primary || [];
   const oppPrimary = state.players?.[1 - myIndex]?.field?.primary || [];
-  const myFaceDown = !!(mePrimary.length && mePrimary[mePrimary.length - 1].faceDown);
-  const oppFaceDown = !!(oppPrimary.length && oppPrimary[oppPrimary.length - 1].faceDown);
-  return JSON.stringify({ roundWinnerId: state.roundWinnerId ?? null, myFaceDown, oppFaceDown, passerId: state.passerId ?? null });
+  const myFaceDownCount = mePrimary.reduce((n, e) => n + (e?.faceDown ? 1 : 0), 0);
+  const oppFaceDownCount = oppPrimary.reduce((n, e) => n + (e?.faceDown ? 1 : 0), 0);
+  return JSON.stringify({
+    roundWinnerId: state.roundWinnerId ?? null,
+    myFaceDownCount,
+    oppFaceDownCount,
+    passerId: state.passerId ?? null,
+  });
 }
 
 function isPendingResponder(effect, mi) {
