@@ -814,12 +814,15 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
             // Validate selected Little Sisters
             $selectedIds = array_map('intval', $params['selectedIds'] ?? []);
             if (count($selectedIds) !== 7) return 'Must select exactly 7 Little Sisters';
+            $remaining = $p['graveyardIds'];
             foreach ($selectedIds as $sid) {
-                if (!in_array($sid, $p['graveyardIds'])) return 'Selected card not in graveyard';
                 if (!$engine->hasKeyword($sid, 'little-sister')) return 'Selected card is not a Little Sister';
+                $pos = array_search($sid, $remaining);
+                if ($pos === false) return 'Selected card not in graveyard';
+                array_splice($remaining, $pos, 1); // consume one copy
             }
             // Move selected Little Sisters from graveyard to deck and shuffle
-            $p['graveyardIds'] = array_values(array_diff($p['graveyardIds'], $selectedIds));
+            $p['graveyardIds'] = array_values($remaining);
             foreach ($selectedIds as $sid) {
                 $p['deckIds'][] = $sid;
             }

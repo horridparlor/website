@@ -1813,45 +1813,58 @@ function showGrave(playerIndex) {
 function openCultismModal(me) {
   const grave = me.graveyardIds || [];
   const cultismCardId = GameEngine.getCultismCardInGrave(me, allCards);
-  const littleSisterIds = grave.filter(id => {
-    const c = allCards[id];
-    return c && GameEngine.cardHasKeyword(c, 'little-sister');
+  // Build entries keyed by graveyard index so duplicate card IDs stay independent
+  const lsEntries = [];
+  grave.forEach((cardId, graveIdx) => {
+    const c = allCards[cardId];
+    if (c && GameEngine.cardHasKeyword(c, 'little-sister')) {
+      lsEntries.push({ graveIdx, cardId, card: c });
+    }
   });
-  const cards = littleSisterIds.map(id => allCards[id]).filter(Boolean);
-  const selectedIds = new Set();
+  const selectedIndices = new Set();
   const required = 7;
 
   function updateCultismModal() {
     document.getElementById('kw-modal-desc').textContent =
-      `Choose 7 Little Sisters to reshuffle into your deck (${selectedIds.size}/7).`;
+      `Choose 7 Little Sisters to reshuffle into your deck (${selectedIndices.size}/7).`;
     const okBtn = document.getElementById('cultism-ok');
-    if (okBtn) okBtn.disabled = selectedIds.size !== required;
+    if (okBtn) okBtn.disabled = selectedIndices.size !== required;
     document.querySelectorAll('#kw-modal-cards .modal-card-item').forEach(el => {
-      const id = Number(el.dataset.id);
-      el.classList.toggle('selected', selectedIds.has(id));
+      el.classList.toggle('selected', selectedIndices.has(Number(el.dataset.graveIdx)));
     });
   }
 
-  openKwModalCustom(
-    'Cultism',
-    `Choose 7 Little Sisters to reshuffle into your deck (0/7).`,
-    cards,
-    [{ label: 'Cancel', className: 'm-cancel', onClick: closeKwModal }],
-    null
-  );
-
+  // Build modal structure manually so each entry uses graveIdx as its unique key
+  document.getElementById('kw-modal-title').textContent = 'Cultism';
+  document.getElementById('kw-modal-desc').textContent = `Choose 7 Little Sisters to reshuffle into your deck (0/7).`;
+  const list = document.getElementById('kw-modal-cards');
+  list.innerHTML = lsEntries.map(({ graveIdx, card }) => `
+    <div class="modal-card-item" data-grave-idx="${graveIdx}">
+      <img src="${cardImg(card)}" alt="${stripBB(card.name)}" onerror="this.src=''" />
+      <div class="mci-name">${stripBB(card.name)}</div>
+    </div>`).join('');
+  const btns = document.getElementById('kw-modal-btns');
+  btns.innerHTML = '';
   window._kwModalCallback = null;
-  document.querySelectorAll('#kw-modal-cards .modal-card-item').forEach(el => {
-    el.onclick = () => {
-      const id = Number(el.dataset.id);
-      if (selectedIds.has(id)) {
-        selectedIds.delete(id);
-      } else if (selectedIds.size < required) {
-        selectedIds.add(id);
+  document.getElementById('kw-modal').classList.add('open');
+
+  list.querySelectorAll('.modal-card-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const graveIdx = Number(el.dataset.graveIdx);
+      if (selectedIndices.has(graveIdx)) {
+        selectedIndices.delete(graveIdx);
+      } else if (selectedIndices.size < required) {
+        selectedIndices.add(graveIdx);
       }
       updateCultismModal();
-    };
+    });
   });
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'm-cancel';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', closeKwModal);
+  btns.appendChild(cancelBtn);
 
   const okBtn = document.createElement('button');
   okBtn.id = 'cultism-ok';
@@ -1860,9 +1873,12 @@ function openCultismModal(me) {
   okBtn.disabled = true;
   okBtn.addEventListener('click', () => {
     closeKwModal();
-    sendAction('activateCultism', { cardId: cultismCardId, selectedIds: [...selectedIds] });
+    const selectedCardIds = lsEntries
+      .filter(e => selectedIndices.has(e.graveIdx))
+      .map(e => e.cardId);
+    sendAction('activateCultism', { cardId: cultismCardId, selectedIds: selectedCardIds });
   });
-  document.getElementById('kw-modal-btns').appendChild(okBtn);
+  btns.appendChild(okBtn);
 }
 
 // ── Stack popup ───────────────────────────────────────────────────────────────
