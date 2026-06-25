@@ -471,7 +471,8 @@ function findFacismDestroyTarget(array &$state, string $destroyType, GameEngine 
     foreach ([0, 1] as $targetPlayerIndex) {
         foreach (['primary', 'left', 'right'] as $slot) {
             $top = $engine->getTopCard($state['players'][$targetPlayerIndex]['field'][$slot] ?? []);
-            if ($top && strtolower((string)($top['type'] ?? '')) === $destroyType) {
+            if (!$top || !empty($top['faceDown'])) continue;
+            if (strtolower((string)($top['type'] ?? '')) === $destroyType) {
                 return ['playerIndex' => $targetPlayerIndex, 'slot' => $slot, 'cardId' => (int)$top['id']];
             }
         }
@@ -1059,11 +1060,19 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
                 return null;
             }
 
+            $facismPasserId = (int)($pending['passerId'] ?? (1 - $playerIndex));
             $destroyType = strtolower((string)($pending['destroyType'] ?? ''));
             $target = findFacismDestroyTarget($state, $destroyType, $engine);
             if (!$target) {
                 $state['log'][] = 'Facism finished destroying all ' . $destroyType . ' tops.';
                 consumePendingEffect($state);
+                // Re-evaluate: if passer is no longer winning, negate the pass.
+                $winner = $engine->checkWinRound($state, $facismPasserId);
+                if ($winner === null || $winner !== $facismPasserId) {
+                    $state['phase'] = 'main_phase';
+                    $state['turn']  = $facismPasserId;
+                    $state['log'][] = 'Facism negated the pass — ' . $state['players'][$facismPasserId]['username'] . ' continues their turn.';
+                }
                 return null;
             }
 
@@ -1093,6 +1102,13 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
             if (!$nextTarget) {
                 $state['log'][] = 'Facism finished destroying all ' . $destroyType . ' tops.';
                 consumePendingEffect($state);
+                // Re-evaluate: if passer is no longer winning, negate the pass.
+                $winner = $engine->checkWinRound($state, $facismPasserId);
+                if ($winner === null || $winner !== $facismPasserId) {
+                    $state['phase'] = 'main_phase';
+                    $state['turn']  = $facismPasserId;
+                    $state['log'][] = 'Facism negated the pass — ' . $state['players'][$facismPasserId]['username'] . ' continues their turn.';
+                }
                 return null;
             }
 
