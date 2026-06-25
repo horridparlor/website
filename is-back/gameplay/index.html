@@ -816,13 +816,15 @@ function isPendingResponder(effect, mi) {
   }
 }
 
-async function resolvePendingKeyword(params) {
+async function resolvePendingKeyword(params, options = {}) {
+  const closeModal = options.closeModal !== false;
   pendingActionInFlight = true;
-  closeKwModal();
+  if (closeModal) closeKwModal();
   try {
     await sendAction('useKeyword', params);
   } finally {
     pendingActionInFlight = false;
+    if (gameState) processPendingEffects(gameState);
   }
 }
 
@@ -831,6 +833,7 @@ function processPendingEffects(state) {
   const modalOpen = document.getElementById('kw-modal').classList.contains('open');
 
   if (!effect) {
+    if (modalOpen && activePendingModalSig) closeKwModal();
     activePendingModalSig = null;
     pendingActionInFlight = false;
     facismResolveScheduledSig = null;
@@ -1170,13 +1173,13 @@ function openCommunismDrawModal(state) {
       label: 'Draw from your deck',
       className: 'm-confirm',
       disabled: !myCanDraw,
-      onClick: () => resolvePendingKeyword({ keyword: 'communism_draw_respond', drawFrom: 'self' }),
+      onClick: () => resolvePendingKeyword({ keyword: 'communism_draw_respond', drawFrom: 'self' }, { closeModal: false }),
     },
     {
       label: 'Draw from opponent deck',
       className: 'm-confirm',
       disabled: !oppCanDraw,
-      onClick: () => resolvePendingKeyword({ keyword: 'communism_draw_respond', drawFrom: 'opponent' }),
+      onClick: () => resolvePendingKeyword({ keyword: 'communism_draw_respond', drawFrom: 'opponent' }, { closeModal: false }),
     },
   ];
 
