@@ -159,8 +159,8 @@
     .grave-count { position: absolute; top: -6px; right: -6px; background: var(--border); color: var(--text); border-radius: 10px; font-size: 10px; padding: 1px 5px; }
 
     /* Hand */
-    #hand-area { background: var(--bg2); border-top: 1px solid var(--border); padding: 8px 16px; overflow: visible; }
-    #hand-scroll { display: flex; gap: 8px; overflow-x: auto; overflow-y: visible; padding: 4px 0; scrollbar-width: thin; }
+    #hand-area { background: var(--bg2); border-top: 1px solid var(--border); padding: 8px 16px; }
+    #hand-scroll { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0; scrollbar-width: thin; }
     @keyframes dealCard {
       0%   { transform: translateY(160px) rotate(18deg) scale(0.85); opacity: 0; }
       55%  { opacity: 1; }
@@ -174,7 +174,7 @@
     .hand-card.dealing {
       animation: dealCard 0.42s cubic-bezier(0.22, 0.61, 0.36, 1) both;
     }
-    .hand-card:hover { transform: scale(4); transform-origin: bottom center; border-color: var(--blue2); z-index: 50; }
+    .hand-card:hover { transform: translateY(-12px) scale(1.48); border-color: var(--blue2); z-index: 10; }
     .hand-card.selected { border-color: var(--gold); transform: translateY(-16px) scale(1.48); }
     .hand-card img { width: 100%; height: 100%; object-fit: cover; border-radius: 5px; }
     .hand-card .hc-power { position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%); background: #000c; color: #fff; font-size: 9px; padding: 1px 5px; border-radius: 8px; white-space: nowrap; }
@@ -229,10 +229,11 @@
     /* Stack popup */
     #stack-popup {
       position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 300;
-      display: none; align-items: center; justify-content: center;
+      display: none; align-items: flex-start; justify-content: center;
+      padding: 5vh 16px; overflow-y: auto;
     }
     #stack-popup.open { display: flex; }
-    #stack-inner { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; max-width: 800px; width: 100%; }
+    #stack-inner { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; max-width: 800px; width: 100%; max-height: 90vh; overflow-y: auto; }
     #stack-inner h3 { font-size: 16px; margin-bottom: 12px; }
     #stack-cards { display: flex; gap: 10px; flex-wrap: wrap; }
     #stack-cards .sc-card { width: 160px; }
@@ -242,9 +243,9 @@
     #stack-close { margin-top: 14px; background: #21262d; border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 7px 20px; cursor: pointer; }
 
     /* Modal */
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 350; display: none; align-items: center; justify-content: center; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 350; display: none; align-items: flex-start; justify-content: center; padding: 5vh 16px; overflow-y: auto; }
     .modal-overlay.open { display: flex; }
-    .modal-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 24px 28px; max-width: 700px; width: 100%; }
+    .modal-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 24px 28px; max-width: 700px; width: 100%; max-height: 90vh; overflow-y: auto; }
     .modal-box h3 { font-size: 17px; margin-bottom: 8px; }
     .modal-box p { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
     .modal-box .modal-btns { display: flex; gap: 10px; justify-content: flex-end; }
@@ -253,7 +254,7 @@
     .modal-box .m-confirm:hover { opacity:.85; }
     .modal-box .m-cancel { background: transparent; color: var(--text); border-color: var(--border); }
     .modal-box .m-cancel:hover { background: #21262d; }
-    .modal-card-list { display: flex; flex-wrap: wrap; gap: 8px; max-height: 520px; overflow-y: auto; margin-bottom: 12px; }
+    .modal-card-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
     .modal-card-item { width: 140px; cursor: pointer; border: 2px solid transparent; border-radius: 6px; }
     .modal-card-item:hover { border-color: var(--blue2); }
     .modal-card-item.selected { border-color: var(--gold); }
@@ -2129,10 +2130,12 @@ function showTooltip(e, cardId) {
 }
 function moveTooltip(e) {
   const tt = document.getElementById('card-tooltip');
+  const margin = 16;
   let x = e.clientX + 14, y = e.clientY - 10;
-  if (x + 440 > window.innerWidth)  x = e.clientX - 450;
-  if (y + 620 > window.innerHeight) y = window.innerHeight - 630;
-  if (y < 0) y = 0;
+  if (x + 440 > window.innerWidth - margin)  x = e.clientX - 450;
+  if (x < margin) x = margin;
+  if (y + 620 > window.innerHeight - margin) y = window.innerHeight - 620 - margin;
+  if (y < margin) y = margin;
   tt.style.left = x + 'px'; tt.style.top = y + 'px';
 }
 function hideTooltip() {
