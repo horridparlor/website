@@ -85,6 +85,15 @@ function getGameState(Database $database): string
     if (!array_key_exists('lastGreed', $state)) {
         $state['lastGreed'] = null;
     }
+    if (!isset($state['lastGreedAcks']) || !is_array($state['lastGreedAcks'])) {
+        $state['lastGreedAcks'] = [0, 0];
+    }
+    if (!array_key_exists('lastPrizeDraw', $state)) {
+        $state['lastPrizeDraw'] = null;
+    }
+    if (!isset($state['lastPrizeDrawAcks']) || !is_array($state['lastPrizeDrawAcks'])) {
+        $state['lastPrizeDrawAcks'] = [0, 0];
+    }
     if (!isset($state['discardAnims'])) {
         $state['discardAnims'] = [];
     }

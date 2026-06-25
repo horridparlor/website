@@ -617,6 +617,8 @@ let myRpsChoice  = null;
 let lastRpsResultKey = null;
 let prevHandIds  = new Set();
 let prevMyPrizeCount = null;
+let prevOppPrizeCount = null;
+let lastPrizeDrawTs = 0;
 let lastNewHandCardIds = new Set();
 let prevPhaseTurn = null;
 let lastNaturalSelectionTs = 0;
@@ -838,9 +840,28 @@ function processState(state) {
   }
 
   const greedEvt = state.lastGreed;
-  if (greedEvt && greedEvt.ts && greedEvt.ts !== lastGreedTs) {
-    lastGreedTs = greedEvt.ts;
-    showGreedAnimation(greedEvt.cardId);
+  if (greedEvt && greedEvt.ts) {
+    const greedAck = state.lastGreedAcks?.[myIndex] ?? 0;
+    if (greedEvt.ts !== lastGreedTs && greedEvt.ts !== greedAck) {
+      lastGreedTs = greedEvt.ts;
+      showGreedAnimation(greedEvt.cardId);
+      acknowledgeNotification('greed', greedEvt.ts);
+    }
+  }
+
+  const prizeDrawEvt = state.lastPrizeDraw;
+  if (prizeDrawEvt && prizeDrawEvt.ts) {
+    const pdAck = state.lastPrizeDrawAcks?.[myIndex] ?? 0;
+    if (prizeDrawEvt.ts !== lastPrizeDrawTs && prizeDrawEvt.ts !== pdAck) {
+      lastPrizeDrawTs = prizeDrawEvt.ts;
+      if (prizeDrawEvt.playerIndex !== myIndex) {
+        // Opponent drew a prize — animate from their prize slot
+        const slotsEl = document.getElementById('prize-opp-slots');
+        const slot = slotsEl ? slotsEl.querySelector('.prize-slot') : null;
+        if (slot) animateOppPrizeDraw(slot.getBoundingClientRect(), prizeDrawEvt.remaining);
+      }
+      acknowledgeNotification('prize_draw', prizeDrawEvt.ts);
+    }
   }
 
   const oppIdx2 = 1 - myIndex;
@@ -1446,7 +1467,7 @@ function renderSlot(el, stack, canInteract, owner, forceReveal = false) {
   el.className = cls;
 
   if (showFaceDown || !card) {
-    el.innerHTML = `<img src="${cardBack()}" alt="Face Down" /><div class="face-down-label">Face Down</div>`;
+    el.innerHTML = `<img src="${cardBack()}" alt="Face Down" />`;
   } else {
     const boostedPow = gameState ? GameEngine.computeSlotPower(gameState, owner, slot, allCards) : null;
     const showBoost = boostedPow !== null && boostedPow !== card.power;
@@ -2786,6 +2807,63 @@ function animatePrizeDraw(fromRect, remainingAfter, drawnCardId) {
     else flyCard.remove();
   }
 
+  requestAnimationFrame(frame);
+}
+
+function animateOppPrizeDraw(fromRect, remainingAfter) {
+  const isLast   = remainingAfter === 0;
+  const duration = isLast ? 1150 : 780;
+  const starCount = Math.round(10 + Math.pow(5 - remainingAfter, 1.65) * 10);
+  const cx = fromRect.left + fromRect.width / 2;
+  const cy = fromRect.top  + fromRect.height / 2;
+
+  spawnPrizeStars(cx, cy, starCount, isLast);
+  if (isLast) {
+    spawnMegaStars();
+    setTimeout(() => spawnPrizeStars(cx, cy, 32, true), 320);
+  }
+
+  const fw = fromRect.width, fh = fromRect.height;
+  const sx = fromRect.left, sy = fromRect.top;
+  // Fly upward and off-screen (into opponent's hidden hand)
+  const ex = sx + 40, ey = -fh - 30;
+  const cp1x = sx - 20, cp1y = sy - 80;
+  const cp2x = ex + 30, cp2y = ey + 60;
+
+  const flyCard = document.createElement('div');
+  flyCard.className = 'prize-fly-card';
+  flyCard.style.cssText = `left:${sx}px;top:${sy}px;width:${fw}px;height:${fh}px;`;
+  const img = document.createElement('img');
+  img.src = cardBack();
+  flyCard.appendChild(img);
+  document.body.appendChild(flyCard);
+
+  const t0 = performance.now();
+  function cbez(t, p0, p1, p2, p3) {
+    const u = 1 - t;
+    return u*u*u*p0 + 3*u*u*t*p1 + 3*u*t*t*p2 + t*t*t*p3;
+  }
+  function frame(now) {
+    const t  = Math.min((now - t0) / duration, 1);
+    const bx = cbez(t, sx, cp1x, cp2x, ex);
+    const by = cbez(t, sy, cp1y, cp2y, ey);
+    const flipPhase = (t * (isLast ? 3 : 1)) % 1;
+    const flipWidth = Math.abs(Math.cos(flipPhase * Math.PI)) * fw;
+    const xOff = (fw - flipWidth) / 2;
+    const scaleBoost = 1 + Math.sin(t * Math.PI) * (isLast ? 0.55 : 0.22);
+    const opacity = t > 0.78 ? 1 - (t - 0.78) / 0.22 : 1;
+    flyCard.style.left    = (bx + xOff) + 'px';
+    flyCard.style.top     = by + 'px';
+    flyCard.style.width   = (flipWidth * scaleBoost) + 'px';
+    flyCard.style.height  = (fh * scaleBoost) + 'px';
+    flyCard.style.opacity = opacity;
+    if (isLast) {
+      const glow = Math.sin(t * Math.PI) * 22;
+      flyCard.style.boxShadow = `0 6px 28px rgba(0,0,0,.6),0 0 ${Math.round(glow)}px gold,0 0 ${Math.round(glow*2)}px rgba(255,215,0,.45)`;
+    }
+    if (t < 1) requestAnimationFrame(frame);
+    else flyCard.remove();
+  }
   requestAnimationFrame(frame);
 }
 

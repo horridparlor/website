@@ -569,6 +569,7 @@ function handlePlayStartOfRound(array &$state, int $playerIndex, array $params, 
         $state['players'][$playerIndex]['diceRoll']['effective'] = $effective;
         $state['log'][] = $state['players'][$playerIndex]['username'] . ' used Greed! Dice result +2 → ' . $effective . '.';
         $state['lastGreed'] = ['ts' => nextEventStamp(), 'playerIndex' => $playerIndex, 'cardId' => $cardId, 'effective' => $effective];
+        $state['lastGreedAcks'] = [0, 0];
     }
 
     if (in_array('natural-selection', $kwLower)) {
@@ -1241,6 +1242,28 @@ function handleAcknowledgeNotification(array &$state, int $playerIndex, array $p
         return null;
     }
 
+    if ($kind === 'prize_draw') {
+        $current = (int)($state['lastPrizeDraw']['ts'] ?? 0);
+        if ($current && $stamp === $current) {
+            if (!isset($state['lastPrizeDrawAcks']) || !is_array($state['lastPrizeDrawAcks'])) {
+                $state['lastPrizeDrawAcks'] = [0, 0];
+            }
+            $state['lastPrizeDrawAcks'][$playerIndex] = $stamp;
+        }
+        return null;
+    }
+
+    if ($kind === 'greed') {
+        $current = (int)($state['lastGreed']['ts'] ?? 0);
+        if ($current && $stamp === $current) {
+            if (!isset($state['lastGreedAcks']) || !is_array($state['lastGreedAcks'])) {
+                $state['lastGreedAcks'] = [0, 0];
+            }
+            $state['lastGreedAcks'][$playerIndex] = $stamp;
+        }
+        return null;
+    }
+
     return 'Unknown notification kind';
 }
 
@@ -1644,6 +1667,8 @@ function handleDrawPrize(array &$state, int $playerIndex, array $params, Databas
     $p['handIds'][]  = $prize;
     $p['prizeCount'] = count($p['prizeIds']);
     $state['log'][] = $p['username'] . ' drew a prize card. ' . $p['prizeCount'] . ' remaining.';
+    $state['lastPrizeDraw'] = ['ts' => nextEventStamp(), 'playerIndex' => $winnerId, 'remaining' => $p['prizeCount']];
+    $state['lastPrizeDrawAcks'] = [0, 0];
 
     // Check win condition
     if (empty($p['prizeIds'])) {
@@ -1679,6 +1704,8 @@ function autoResolveEndOfRound(array &$state, GameEngine $engine): void
     $p['handIds'][]  = $prize;
     $p['prizeCount'] = count($p['prizeIds']);
     $state['log'][] = $p['username'] . ' drew a prize card. ' . $p['prizeCount'] . ' remaining.';
+    $state['lastPrizeDraw'] = ['ts' => nextEventStamp(), 'playerIndex' => $winnerId, 'remaining' => $p['prizeCount']];
+    $state['lastPrizeDrawAcks'] = [0, 0];
     if (empty($p['prizeIds'])) {
         $state['log'][] = $p['username'] . ' has 0 prize cards left!';
     }
