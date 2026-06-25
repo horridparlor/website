@@ -281,6 +281,14 @@ const RULES_SECTIONS = [
   <li><strong>Choosing to fail</strong>: the top 3 cards of your deck are hidden information — your opponent cannot see them. You are therefore permitted to look at the cards and declare that none of them can be devolved into, returning them in order, even if one of them actually could be used. Your opponent has no way to verify this.</li>
 </ul>`,
       },
+      {
+        id: 'pass-turn-effects-losing-state',
+        title: '8.5 Pass-Turn Effects and the Losing-State Re-evaluation',
+        content: `<p>When a player passes while losing, the round would normally resolve against them. However, if the opponent activates an <strong>[Opponent passes]</strong> effect, the game state is re-evaluated after that effect fully resolves. If the passer is still in a losing state, their turn is restored and they may continue playing. Even a failed effect is enough to trigger this re-evaluation.</p>
+<p>If the passer is in a winning state when they pass, the pass finalizes regardless of whether any pass-turn effects are used.</p>
+<p><strong>Example:</strong> You pass while losing. Your opponent has Herwood, whose keyword reads: <em>[Opponent passes] Look at the top 3 cards of your deck, and devolve this into 1 of them. If you do, add the other 2 into your hand.</em> The opponent activates Herwood but the top 3 cards offer nothing to devolve into, so they return the cards and declare failure. The game re-evaluates — you are still losing — so your turn is restored.</p>
+<p><strong>Preventing infinite loops:</strong> A pass-turn effect that failed may not be activated again unless the board state has genuinely changed since the last failure. If the passer's turn is restored, and they pass again without having changed anything on the field, the opponent cannot re-use the same effect that already failed — the board is identical and the result would be identical. Only if something actually changed (a card was played, evolved, discarded, etc.) does the effect become available to use again.</p>`,
+      },
     ],
   },
   {
