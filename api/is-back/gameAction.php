@@ -714,8 +714,8 @@ function handleEvolveCard(array &$state, int $playerIndex, array $params, GameEn
     $newCard = $engine->getCard($cardId);
     $oldCard = $engine->getCard($currentTop['id']);
 
-    // Check Wizard on current primary (allows any evolve, but must be face-down)
-    $isWizard = ($slot === 'primary') && $engine->hasKeyword($currentTop['id'], 'wizard');
+    // Wizard on the current top card allows any evolve, but the evolved card must be face-down.
+    $isWizard = $engine->hasKeyword($currentTop['id'], 'wizard');
 
     // Check Autocracy on new card (allows devolve)
     $isAutocracy = $engine->hasKeyword($cardId, 'autocracy');

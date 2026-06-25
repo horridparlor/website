@@ -18,6 +18,12 @@ const GameEngine = (() => {
     return TYPE_BEATS[cardType.toLowerCase()] || null;
   }
 
+  function typeBeatenBy(cardType) {
+    // The type that beats this card's type (reverse lookup)
+    const t = cardType.toLowerCase();
+    return Object.keys(TYPE_BEATS).find(k => TYPE_BEATS[k] === t) || null;
+  }
+
   // ─── Card helpers ─────────────────────────────────────────────────────────────
   function cardHasKeyword(card, kw) {
     if (!card || !card.keywords) return false;
@@ -276,13 +282,14 @@ const GameEngine = (() => {
           if (!kw) continue;
           const kwLow = kw.toLowerCase();
           if (kwLow === 'facism') {
-            // Trigger if opponent has a face-up target type on top of any stack at <= 5000.
-            const weak = weakTypeFor(card.type.toLowerCase());
-            const hasTriggerTarget = ['primary', 'left', 'right'].some(oppSlot => {
+            // Trigger if opponent has a face-up card of the type that BEATS the Facism card
+            // (e.g. Paper Facism triggers on Scissors, not Rock) at <= 5000 power on any stack.
+            const threatType = typeBeatenBy(card.type.toLowerCase());
+            const hasTriggerTarget = threatType && ['primary', 'left', 'right'].some(oppSlot => {
               const oppTop = topOfStack(opp.field[oppSlot]);
               if (!oppTop || oppTop.faceDown) return false;
               const oppTopCard = allCardsMap[oppTop.cardId];
-              if (!oppTopCard || oppTopCard.type.toLowerCase() !== weak) return false;
+              if (!oppTopCard || oppTopCard.type.toLowerCase() !== threatType) return false;
               return Number(oppTopCard.power || 0) <= 5000;
             });
             if (hasTriggerTarget) {
@@ -484,6 +491,7 @@ const GameEngine = (() => {
   return {
     compareTypes,
     weakTypeFor,
+    typeBeatenBy,
     cardHasKeyword,
     topOfStack,
     getEffectivePower,

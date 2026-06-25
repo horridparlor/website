@@ -892,18 +892,23 @@ function openFacismResolveFlow(effect) {
   facismResolveScheduledSig = sig;
 
   const nextAt = Number(effect.nextAt || 0);
-  const delay = Math.max(0, nextAt - Date.now());
-  const typeRaw = String(effect.destroyType || 'card');
-  const typeLabel = typeRaw ? (typeRaw.charAt(0).toUpperCase() + typeRaw.slice(1)) : 'Card';
-  showPhaseToast(`Facism resolving: destroy ${typeLabel} tops`, '#f85149', Math.max(900, delay + 300));
+  const delay  = Math.max(0, nextAt - Date.now());
+  const typeRaw   = String(effect.destroyType || 'card');
+  const typeLabel = typeRaw.charAt(0).toUpperCase() + typeRaw.slice(1);
+  const cascade   = Number(effect.wave || 1);
+  const msg = cascade > 1
+    ? `⚡ Facism — destroying ${typeLabel} (cascade wave ${cascade})`
+    : `⚡ Facism — destroying ${typeLabel} from all fields`;
+  showPhaseToast(msg, '#f85149', Math.max(1400, delay + 500));
 
   setTimeout(() => {
     if (!gameState) return;
     const pendingNow = getCurrentPendingEffect(gameState);
     if (!pendingNow || (pendingNow.type || '').toLowerCase() !== 'facism_resolve') return;
     if (Number(pendingNow.playerIndex ?? -1) !== myIndex) return;
+    if (JSON.stringify(pendingNow) !== sig) return; // different wave, let its own timeout fire
     resolvePendingKeyword({ keyword: 'facism_resolve_respond' });
-  }, delay || 10);
+  }, Math.max(delay, 800));
 }
 
 function getTopFaceDownSlots(player) {
