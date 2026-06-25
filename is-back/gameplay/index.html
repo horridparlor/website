@@ -174,6 +174,14 @@
     .hand-card.dealing {
       animation: dealCard 0.42s cubic-bezier(0.22, 0.61, 0.36, 1) both;
     }
+
+    /* ── Prize draw animation ── */
+    .prize-star { position: fixed; pointer-events: none; z-index: 1001; line-height: 1; transform-origin: center; animation: prizeStarBurst var(--ps-dur, 0.9s) ease-out forwards; }
+    @keyframes prizeStarBurst { 0%{opacity:1;transform:translate(0,0) scale(1) rotate(0deg);} 100%{opacity:0;transform:translate(var(--ps-tx,0px),var(--ps-ty,-60px)) scale(var(--ps-s,.4)) rotate(var(--ps-r,360deg));} }
+    .prize-fly-card { position: fixed; pointer-events: none; z-index: 1000; border-radius: 6px; overflow: hidden; box-shadow: 0 6px 28px rgba(0,0,0,.6); }
+    .prize-fly-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .prize-mega-star { position: fixed; left: -80px; pointer-events: none; z-index: 1100; font-size: 52px; filter: drop-shadow(0 0 16px gold) drop-shadow(0 0 32px #ff0); animation: megaStarFly 1.6s cubic-bezier(.4,0,.2,1) forwards; }
+    @keyframes megaStarFly { 0%{transform:translateX(0) scale(.4) rotate(-30deg);opacity:0;} 8%{transform:translateX(5vw) scale(1.4) rotate(0deg);opacity:1;} 88%{transform:translateX(90vw) scale(1.1) rotate(320deg);opacity:1;} 100%{transform:translateX(108vw) scale(.6) rotate(380deg);opacity:0;} }
     .hand-card:hover { transform: translateY(-12px) scale(1.48); border-color: var(--blue2); z-index: 10; }
     .hand-card.selected { border-color: var(--gold); transform: translateY(-16px) scale(1.48); }
     .hand-card img { width: 100%; height: 100%; object-fit: cover; border-radius: 5px; }
@@ -593,6 +601,8 @@ let diceAnimating = false;
 let myRpsChoice  = null;
 let lastRpsResultKey = null;
 let prevHandIds  = new Set();
+let prevMyPrizeCount = null;
+let lastNewHandCardIds = new Set();
 let prevPhaseTurn = null;
 let lastNaturalSelectionTs = 0;
 let lastCommunismTs = 0;
@@ -1461,6 +1471,7 @@ function updateHand(state, mi) {
   const currentIds = new Set(me.handIds);
   const newIds = new Set([...currentIds].filter(id => !prevHandIds.has(id)));
   prevHandIds = currentIds;
+  lastNewHandCardIds = newIds;
 
   handScroll.innerHTML = me.handIds.map(id => {
     const card = allCards[id];
@@ -2336,6 +2347,15 @@ function updatePrizePanel(state, mi, oi) {
   document.getElementById('my-prize-count').textContent  = myCount;
   document.getElementById('opp-prize-count').textContent = oppCount;
 
+  // Snapshot prize slot position BEFORE clearing, to detect a prize draw
+  let prizeDrawRect = null;
+  if (prevMyPrizeCount !== null && myCount < prevMyPrizeCount) {
+    const slotsEl = document.getElementById('prize-my-slots');
+    const slot = slotsEl ? slotsEl.querySelector('.prize-slot') : null;
+    if (slot) prizeDrawRect = slot.getBoundingClientRect();
+  }
+  prevMyPrizeCount = myCount;
+
   // Draw face-down prize slots
   function renderPrizeSlots(containerId, count, revealedBottomCardId) {
     const el = document.getElementById(containerId);
@@ -2356,6 +2376,12 @@ function updatePrizePanel(state, mi, oi) {
   }
   renderPrizeSlots('prize-my-slots',  myCount, myRevealedBottom);
   renderPrizeSlots('prize-opp-slots', oppCount, oppRevealedBottom);
+
+  // Fire prize draw animation after slots are re-rendered
+  if (prizeDrawRect) {
+    const drawnCardId = lastNewHandCardIds.size > 0 ? [...lastNewHandCardIds][0] : null;
+    animatePrizeDraw(prizeDrawRect, myCount, drawnCardId);
+  }
 }
 
 // ── Dice rolling animation ─────────────────────────────────────────────────────
@@ -2481,6 +2507,137 @@ function showPhaseToast(msg, color) {
   el.style.color = color || 'var(--text)';
   el.classList.add('show');
   phaseToastTimeout = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// ── Prize draw animation ───────────────────────────────────────────────────────
+function spawnPrizeStars(cx, cy, count, isLast) {
+  const colors = isLast
+    ? ['#FFD700','#FFA500','#FF6B6B','#FF69B4','#58a6ff','#bc8cff','#3fb950','#FF4500']
+    : ['#FFD700','#FFC200','#FFE066','#F0A500'];
+
+  for (let i = 0; i < count; i++) {
+    const star = document.createElement('div');
+    star.className = 'prize-star';
+    const angle = Math.random() * Math.PI * 2;
+    const dist  = isLast ? (55 + Math.random() * 160) : (20 + Math.random() * 80);
+    const tx    = Math.cos(angle) * dist;
+    const ty    = Math.sin(angle) * dist - (isLast ? 25 : 10);
+    const size  = isLast ? (14 + Math.random() * 30) : (8 + Math.random() * 12);
+    const dur   = isLast ? (0.7 + Math.random() * 1.1) : (0.5 + Math.random() * 0.6);
+    const scale = 0.15 + Math.random() * 0.45;
+    const rot   = Math.random() * 720 - 360;
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    const delay = Math.random() * 0.18;
+    const glyph = ['★','✦','✸','⋆','✺'][i % 5];
+    star.textContent = glyph;
+    star.style.cssText = `left:${cx}px;top:${cy}px;font-size:${size}px;color:${color};` +
+      (isLast ? `text-shadow:0 0 ${Math.round(size*.6)}px ${color},0 0 ${Math.round(size*1.2)}px ${color}66;` : '') +
+      `--ps-tx:${tx}px;--ps-ty:${ty}px;--ps-s:${scale};--ps-r:${rot}deg;--ps-dur:${dur}s;animation-delay:${delay}s;`;
+    document.body.appendChild(star);
+    setTimeout(() => star.remove(), (dur + delay + 0.25) * 1000);
+  }
+}
+
+function spawnMegaStars() {
+  const configs = [
+    { top: '6vh', size: 52, delay: 0, glyph: '⭐' },
+    { top: '14vh', size: 34, delay: 280, glyph: '🌟' },
+  ];
+  configs.forEach(({ top, size, delay, glyph }) => {
+    setTimeout(() => {
+      const el = document.createElement('div');
+      el.className = 'prize-mega-star';
+      el.style.top = top;
+      el.style.fontSize = size + 'px';
+      el.textContent = glyph;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 1800);
+    }, delay);
+  });
+}
+
+function animatePrizeDraw(fromRect, remainingAfter, drawnCardId) {
+  const isLast   = remainingAfter === 0;
+  const flipCount = isLast ? 3 : 1;
+  const duration  = isLast ? 1150 : 780;
+
+  // Star count grows exponentially as fewer prizes remain
+  const starCount = Math.round(10 + Math.pow(5 - remainingAfter, 1.65) * 10);
+  const cx = fromRect.left + fromRect.width / 2;
+  const cy = fromRect.top  + fromRect.height / 2;
+
+  spawnPrizeStars(cx, cy, starCount, isLast);
+  if (isLast) {
+    spawnMegaStars();
+    setTimeout(() => spawnPrizeStars(cx, cy, 32, true), 320);
+  }
+
+  const handArea = document.getElementById('hand-area');
+  if (!handArea) return;
+  const handRect = handArea.getBoundingClientRect();
+
+  const fw = fromRect.width;
+  const fh = fromRect.height;
+  const sx = fromRect.left, sy = fromRect.top;
+  const ex = handRect.left + handRect.width * 0.5 - fw / 2;
+  const ey = handRect.top + 10;
+
+  // Cubic bezier arc control points (sweeps up then down to hand)
+  const cp1x = sx + (ex - sx) * 0.15, cp1y = sy - 110;
+  const cp2x = sx + (ex - sx) * 0.72, cp2y = ey - 55;
+
+  const flyCard = document.createElement('div');
+  flyCard.className = 'prize-fly-card';
+  flyCard.style.cssText = `left:${sx}px;top:${sy}px;width:${fw}px;height:${fh}px;`;
+  const img = document.createElement('img');
+  img.src = cardBack();
+  flyCard.appendChild(img);
+  document.body.appendChild(flyCard);
+
+  const t0 = performance.now();
+  let faceRevealed = false;
+
+  function cbez(t, p0, p1, p2, p3) {
+    const u = 1 - t;
+    return u*u*u*p0 + 3*u*u*t*p1 + 3*u*t*t*p2 + t*t*t*p3;
+  }
+
+  function frame(now) {
+    const t  = Math.min((now - t0) / duration, 1);
+    const bx = cbez(t, sx, cp1x, cp2x, ex);
+    const by = cbez(t, sy, cp1y, cp2y, ey);
+
+    // Flip: width pulses through 0 for each flip cycle
+    const flipPhase = (t * flipCount) % 1;
+    const flipWidth = Math.abs(Math.cos(flipPhase * Math.PI)) * fw;
+    const xOff = (fw - flipWidth) / 2;
+
+    // Reveal card face after first half-flip
+    if (!faceRevealed && t * flipCount >= 0.5 && drawnCardId && allCards[drawnCardId]) {
+      faceRevealed = true;
+      img.src = cardImg(allCards[drawnCardId]);
+    }
+
+    // Scale boost mid-flight for drama
+    const scaleBoost = 1 + Math.sin(t * Math.PI) * (isLast ? 0.55 : 0.22);
+    const opacity = t > 0.78 ? 1 - (t - 0.78) / 0.22 : 1;
+
+    flyCard.style.left    = (bx + xOff) + 'px';
+    flyCard.style.top     = by + 'px';
+    flyCard.style.width   = (flipWidth * scaleBoost) + 'px';
+    flyCard.style.height  = (fh * scaleBoost) + 'px';
+    flyCard.style.opacity = opacity;
+
+    if (isLast) {
+      const glow = Math.sin(t * Math.PI) * 22;
+      flyCard.style.boxShadow = `0 6px 28px rgba(0,0,0,.6),0 0 ${Math.round(glow)}px gold,0 0 ${Math.round(glow*2)}px rgba(255,215,0,.45)`;
+    }
+
+    if (t < 1) requestAnimationFrame(frame);
+    else flyCard.remove();
+  }
+
+  requestAnimationFrame(frame);
 }
 
 // ── Natural Selection animation ────────────────────────────────────────────────
