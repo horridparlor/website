@@ -820,10 +820,15 @@ function processState(state) {
   }
 
   const mpEvt = state.lastMagicPotionRoll;
-  if (mpEvt && mpEvt.ts && mpEvt.ts !== lastMagicPotionTs) {
-    lastMagicPotionTs = mpEvt.ts;
-    magicPotionQueue.push({ ...mpEvt, username: state.players?.[mpEvt.playerIndex]?.username || 'Player' });
-    runMagicPotionAnimationQueue();
+  if (mpEvt && mpEvt.ts) {
+    const mpAck = state.lastMagicPotionAcks?.[myIndex] ?? 0;
+    if (mpEvt.ts !== lastMagicPotionTs && mpEvt.ts !== mpAck) {
+      lastMagicPotionTs = mpEvt.ts;
+      const mpLabel = mpEvt.playerIndex === myIndex ? 'You' : 'Opponent';
+      magicPotionQueue.push({ ...mpEvt, label: mpLabel });
+      acknowledgeNotification('magic_potion', mpEvt.ts);
+      runMagicPotionAnimationQueue();
+    }
   }
 
   // Reveal phase modal
@@ -1724,7 +1729,7 @@ function runMagicPotionAnimationQueue() {
       d1El.classList.remove('rolling');
       d1El.textContent = String(evt.roll);
       totalEl.textContent = `Magic Potion = ${evt.roll}`;
-      showPhaseToast(`${evt.username} rolled ${evt.roll} (Magic Potion)`, '#d29922');
+      showPhaseToast(`${evt.label} rolled ${evt.roll} (Magic Potion)`, '#d29922');
 
       setTimeout(() => {
         d2El.style.display = prevD2Display;

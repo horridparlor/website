@@ -76,6 +76,9 @@ function getGameState(Database $database): string
     if (!array_key_exists('lastMagicPotionRoll', $state)) {
         $state['lastMagicPotionRoll'] = null;
     }
+    if (!isset($state['lastMagicPotionAcks']) || !is_array($state['lastMagicPotionAcks'])) {
+        $state['lastMagicPotionAcks'] = [0, 0];
+    }
     if (!array_key_exists('revealQueueNextAt', $state)) {
         $state['revealQueueNextAt'] = null;
     }

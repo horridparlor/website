@@ -237,6 +237,7 @@ class GameEngine
                         'cardId' => $cardId,
                         'roll' => $roll,
                     ];
+                    $state['lastMagicPotionAcks'] = [0, 0];
                     $state['log'][] = $state['players'][$playerIndex]['username'] . ' rolled D6 for Magic Potion: ' . $roll;
                     if ($roll === 1) {
                         $this->removeTopFromStack($state, $playerIndex, $slot);
@@ -1238,6 +1239,17 @@ function handleAcknowledgeNotification(array &$state, int $playerIndex, array $p
         $current = (int)($state['lastCommunismUsed'] ?? 0);
         if ($current && $stamp === $current) {
             $state['communismAcks'][$playerIndex] = $stamp;
+        }
+        return null;
+    }
+
+    if ($kind === 'magic_potion') {
+        $current = (int)($state['lastMagicPotionRoll']['ts'] ?? 0);
+        if ($current && $stamp === $current) {
+            if (!isset($state['lastMagicPotionAcks']) || !is_array($state['lastMagicPotionAcks'])) {
+                $state['lastMagicPotionAcks'] = [0, 0];
+            }
+            $state['lastMagicPotionAcks'][$playerIndex] = $stamp;
         }
         return null;
     }
