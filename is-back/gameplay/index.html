@@ -559,12 +559,14 @@ let prevPhaseTurn = null;
 let lastNaturalSelectionTs = 0;
 let lastCommunismTs = 0;
 let lastMagicPotionTs = 0;
+let lastFacismDestroyTs = 0;
 let phaseToastTimeout = null;
 let activePendingModalSig = null;
 let pendingActionInFlight = false;
 let magicPotionAnimating = false;
 let magicPotionQueue = [];
 let passResolveScheduledKey = null;
+let facismResolveScheduledSig = null;
 
 function authHeaders() { return { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }; }
 function fmt(p) { return String(Number(p)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
@@ -751,6 +753,18 @@ function processState(state) {
     runMagicPotionAnimationQueue();
   }
 
+  const facEvt = state.lastFacismDestroy;
+  if (facEvt && facEvt.ts && facEvt.ts !== lastFacismDestroyTs) {
+    lastFacismDestroyTs = facEvt.ts;
+    const tIdx = Number(facEvt.targetPlayerIndex ?? -1);
+    const byIdx = Number(facEvt.byPlayerIndex ?? -1);
+    const typeRaw = String(facEvt.destroyType || 'card');
+    const typeLabel = typeRaw ? (typeRaw.charAt(0).toUpperCase() + typeRaw.slice(1)) : 'Card';
+    const targetName = tIdx === myIndex ? 'your' : ((state.players?.[tIdx]?.username || 'opponent') + "'s");
+    const byName = byIdx === myIndex ? 'You' : (state.players?.[byIdx]?.username || 'Opponent');
+    showPhaseToast(`${byName} Facism destroyed ${targetName} ${typeLabel}`, '#f85149', 1100);
+  }
+
   // Win/complete
   if (state.phase === 'game_over' || state._matchStatus === 'completed') {
     handleMatchComplete(state);
@@ -795,6 +809,7 @@ function isPendingResponder(effect, mi) {
     case 'elder_slime_discard':
     case 'mikontalo_discard':
     case 'communism_draw':
+    case 'facism_resolve':
       return mi === owner;
     default:
       return false;
@@ -818,6 +833,7 @@ function processPendingEffects(state) {
   if (!effect) {
     activePendingModalSig = null;
     pendingActionInFlight = false;
+    facismResolveScheduledSig = null;
     return;
   }
 
@@ -862,9 +878,32 @@ function openPendingEffectModal(effect, state) {
     case 'communism_draw':
       openCommunismDrawModal(state);
       return;
+    case 'facism_resolve':
+      openFacismResolveFlow(effect);
+      return;
     default:
       resolvePendingKeyword({ keyword: `${effect.type || 'unknown'}_respond` });
   }
+}
+
+function openFacismResolveFlow(effect) {
+  const sig = JSON.stringify(effect);
+  if (facismResolveScheduledSig === sig) return;
+  facismResolveScheduledSig = sig;
+
+  const nextAt = Number(effect.nextAt || 0);
+  const delay = Math.max(0, nextAt - Date.now());
+  const typeRaw = String(effect.destroyType || 'card');
+  const typeLabel = typeRaw ? (typeRaw.charAt(0).toUpperCase() + typeRaw.slice(1)) : 'Card';
+  showPhaseToast(`Facism resolving: destroy ${typeLabel} tops`, '#f85149', Math.max(900, delay + 300));
+
+  setTimeout(() => {
+    if (!gameState) return;
+    const pendingNow = getCurrentPendingEffect(gameState);
+    if (!pendingNow || (pendingNow.type || '').toLowerCase() !== 'facism_resolve') return;
+    if (Number(pendingNow.playerIndex ?? -1) !== myIndex) return;
+    resolvePendingKeyword({ keyword: 'facism_resolve_respond' });
+  }, delay || 10);
 }
 
 function getTopFaceDownSlots(player) {

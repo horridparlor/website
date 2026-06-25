@@ -454,6 +454,30 @@ function revealNextFaceDownInPrimary(array &$state, int $playerIndex): bool
     return false;
 }
 
+function canTriggerFacismAgainstPasser(array &$state, int $passerId, string $destroyType, GameEngine $engine): bool
+{
+    foreach (['primary', 'left', 'right'] as $slot) {
+        $top = $engine->getTopCard($state['players'][$passerId]['field'][$slot] ?? []);
+        if (!$top || !empty($top['faceDown'])) continue;
+        if (strtolower((string)($top['type'] ?? '')) !== $destroyType) continue;
+        if ((int)($top['power'] ?? 0) <= 5000) return true;
+    }
+    return false;
+}
+
+function findFacismDestroyTarget(array &$state, string $destroyType, GameEngine $engine): ?array
+{
+    foreach ([0, 1] as $targetPlayerIndex) {
+        foreach (['primary', 'left', 'right'] as $slot) {
+            $top = $engine->getTopCard($state['players'][$targetPlayerIndex]['field'][$slot] ?? []);
+            if ($top && strtolower((string)($top['type'] ?? '')) === $destroyType) {
+                return ['playerIndex' => $targetPlayerIndex, 'slot' => $slot, 'cardId' => (int)$top['id']];
+            }
+        }
+    }
+    return null;
+}
+
 // ── Action handlers ────────────────────────────────────────────────────────
 
 function handleReady(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
@@ -1023,6 +1047,61 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
             consumePendingEffect($state);
             return null;
         }
+        case 'facism_resolve_respond': {
+            $pending = getCurrentPendingEffect($state);
+            if (!$pending || $pending['type'] !== 'facism_resolve') return 'No Facism pending';
+            if ((int)($pending['playerIndex'] ?? -1) !== $playerIndex) return 'Not your response';
+
+            $now = nextEventStamp();
+            $nextAt = (int)($pending['nextAt'] ?? 0);
+            if ($now < $nextAt) {
+                return null;
+            }
+
+            $destroyType = strtolower((string)($pending['destroyType'] ?? ''));
+            $target = findFacismDestroyTarget($state, $destroyType, $engine);
+            if (!$target) {
+                $state['log'][] = 'Facism finished destroying all ' . $destroyType . ' tops.';
+                consumePendingEffect($state);
+                return null;
+            }
+
+            $targetPlayerIndex = (int)$target['playerIndex'];
+            $targetSlot = $target['slot'];
+            $engine->removeTopFromStack($state, $targetPlayerIndex, $targetSlot);
+
+            // If a player's primary stack is gone, their supporting stacks are discarded immediately.
+            if (empty($state['players'][$targetPlayerIndex]['field']['primary'])) {
+                $engine->discardFromField($state, $targetPlayerIndex, 'left');
+                $engine->discardFromField($state, $targetPlayerIndex, 'right');
+            }
+
+            $engine->recalcDemocracy($state, 0);
+            $engine->recalcDemocracy($state, 1);
+
+            $state['lastFacismDestroy'] = [
+                'ts' => nextEventStamp(),
+                'byPlayerIndex' => $playerIndex,
+                'targetPlayerIndex' => $targetPlayerIndex,
+                'slot' => $targetSlot,
+                'destroyType' => $destroyType,
+            ];
+            $state['log'][] = 'Facism destroyed a ' . ucfirst($destroyType) . ' from ' . $state['players'][$targetPlayerIndex]['username'] . ' (' . $targetSlot . ').';
+
+            $nextTarget = findFacismDestroyTarget($state, $destroyType, $engine);
+            if (!$nextTarget) {
+                $state['log'][] = 'Facism finished destroying all ' . $destroyType . ' tops.';
+                consumePendingEffect($state);
+                return null;
+            }
+
+            ensurePendingEffects($state);
+            if (!empty($state['pendingEffects'][0]) && ($state['pendingEffects'][0]['type'] ?? '') === 'facism_resolve') {
+                $state['pendingEffects'][0]['nextAt'] = $now + 1000;
+                $state['pendingEffect'] = $state['pendingEffects'][0];
+            }
+            return null;
+        }
     }
     return 'Unknown keyword: ' . $keyword;
 }
@@ -1033,20 +1112,16 @@ function getTriggerableOpponentPassesEffects(array &$state, int $responderIndex,
     $responder = $state['players'][$responderIndex] ?? null;
     if (!$responder) return $effects;
 
-    $passerTop = $engine->getTopCard($state['players'][$passerId]['field']['primary'] ?? []);
-
     foreach (['primary', 'left', 'right'] as $slot) {
         $myTop = $engine->getTopCard($responder['field'][$slot] ?? []);
         if (!$myTop) continue;
 
         if ($engine->hasKeyword($myTop['id'], 'facism')) {
-            // Facism only triggerable if passer has face-up weak type at <= 5000.
-            if ($passerTop && !$passerTop['faceDown']) {
-                $myType = strtolower($myTop['type']);
-                $weakType = WEAK_TYPE[$myType] ?? null;
-                if ($weakType && strtolower($passerTop['type']) === $weakType && (int)$passerTop['power'] <= 5000) {
-                    $effects[] = ['keyword' => 'facism', 'slot' => $slot];
-                }
+            // Facism is triggerable if passer has any face-up target type (top of any stack) at <= 5000.
+            $myType = strtolower((string)($myTop['type'] ?? ''));
+            $destroyType = WEAK_TYPE[$myType] ?? null;
+            if ($destroyType && canTriggerFacismAgainstPasser($state, $passerId, $destroyType, $engine)) {
+                $effects[] = ['keyword' => 'facism', 'slot' => $slot];
             }
         }
         if ($engine->hasKeyword($myTop['id'], 'herwood')) {
@@ -1153,43 +1228,31 @@ function handleOpponentPassesResponse(array &$state, int $playerIndex, array $pa
     switch ($keyword) {
         case 'facism': {
             $p = $state['players'][$playerIndex];
-            // Trigger: passing player's primary is WEAK_TYPE of this card at ≤5000 power
+            // Trigger: passing player has target type on top of any stack at <= 5000 power.
             $myTop    = $engine->getTopCard($p['field'][$slot]);
             if (!$myTop) return 'No card in that slot';
             if (!$engine->hasKeyword($myTop['id'], 'facism')) return 'Card does not have Facism';
-            $myType   = strtolower($myTop['type']);
-            $weakType = WEAK_TYPE[$myType];
-            $passerTop = $engine->getTopCard($state['players'][$passerId]['field']['primary']);
-            if (!$passerTop) return 'No passer primary';
-            if (strtolower($passerTop['type']) !== $weakType) return 'Facism trigger condition not met (wrong type)';
-            if ((int)$passerTop['power'] > 5000) return 'Facism trigger condition not met (power too high)';
+            $myType   = strtolower((string)($myTop['type'] ?? ''));
+            $destroyType = WEAK_TYPE[$myType] ?? null;
+            if (!$destroyType) return 'Facism trigger condition not met';
+            if (!canTriggerFacismAgainstPasser($state, $passerId, $destroyType, $engine)) {
+                return 'Facism trigger condition not met';
+            }
 
-            // Destroy ALL weak type on passing player's field, with cascade
-            foreach (['primary', 'left', 'right'] as $s) {
-                $changed = true;
-                while ($changed) {
-                    $changed = false;
-                    $top = $engine->getTopCard($state['players'][$passerId]['field'][$s]);
-                    if ($top && strtolower($top['type']) === $weakType) {
-                        $engine->removeTopFromStack($state, $passerId, $s);
-                        $changed = true;
-                    }
-                }
+            // Reveal this response card if it was face-down.
+            if (!empty($myTop['faceDown'])) {
+                $topIdx = count($state['players'][$playerIndex]['field'][$slot]) - 1;
+                if ($topIdx >= 0) $state['players'][$playerIndex]['field'][$slot][$topIdx]['faceDown'] = false;
             }
-            // If primary is gone, discard all supporting
-            if (empty($state['players'][$passerId]['field']['primary'])) {
-                $engine->discardFromField($state, $passerId, 'left');
-                $engine->discardFromField($state, $passerId, 'right');
-            }
-            $state['log'][] = $state['players'][$playerIndex]['username'] . ' triggered Facism!';
-            // Check if pass is now countered
-            $passerNewTop = $engine->getTopCard($state['players'][$passerId]['field']['primary']);
-            if (!$passerNewTop) {
-                // Passing player's primary gone → their main phase countered, they must surrender or play again
-                $state['phase'] = 'main_phase';
-                $state['turn']  = $passerId;
-                $state['log'][] = 'Pass countered — ' . $state['players'][$passerId]['username'] . '\'s main phase resumes.';
-            }
+
+            enqueuePendingEffects($state, [[
+                'type' => 'facism_resolve',
+                'playerIndex' => $playerIndex,
+                'passerId' => $passerId,
+                'destroyType' => $destroyType,
+                'nextAt' => nextEventStamp(),
+            ]]);
+            $state['log'][] = $state['players'][$playerIndex]['username'] . ' triggered Facism (' . ucfirst($destroyType) . ').';
             return null;
         }
         case 'herwood': {
@@ -1246,6 +1309,31 @@ function resolvePassingPhase(array &$state, GameEngine $engine): void
 {
     $passerId = $state['passerId'];
     $oppIdx = 1 - $passerId;
+
+    $passerTop = $engine->getTopCard($state['players'][$passerId]['field']['primary']);
+    $oppTop = $engine->getTopCard($state['players'][$oppIdx]['field']['primary']);
+
+    // If passer's primary is face-down, do not decide winner yet unless opponent has Divine
+    // face-up or opponent's primary is also face-down (reveal flow).
+    if ($passerTop && !empty($passerTop['faceDown'])) {
+        $oppTopFaceDown = $oppTop && !empty($oppTop['faceDown']);
+        $oppTopDivineFaceUp = $oppTop && empty($oppTop['faceDown']) && $engine->hasKeyword($oppTop['id'], 'divine');
+
+        if ($oppTopDivineFaceUp) {
+            clearRoundScopedFlags($state);
+            $state['phase'] = 'end_of_round';
+            $state['roundWinnerId'] = $oppIdx;
+            $state['log'][] = $state['players'][$oppIdx]['username'] . ' wins: Divine defeats the passing face-down primary.';
+            return;
+        }
+
+        if (!$oppTopFaceDown) {
+            $state['phase'] = 'main_phase';
+            $state['turn']  = $oppIdx;
+            $state['log'][] = $state['players'][$oppIdx]['username'] . " gets a turn after a face-down pass.";
+            return;
+        }
+    }
 
     // If either primary stack still has hidden cards, resolve through end_of_round reveal queue.
     if (hasFaceDownInPrimary($state, $passerId) || hasFaceDownInPrimary($state, $oppIdx)) {

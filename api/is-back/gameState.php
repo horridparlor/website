@@ -79,6 +79,9 @@ function getGameState(Database $database): string
     if (!array_key_exists('revealQueueNextAt', $state)) {
         $state['revealQueueNextAt'] = null;
     }
+    if (!array_key_exists('lastFacismDestroy', $state)) {
+        $state['lastFacismDestroy'] = null;
+    }
 
     // Redact opponent hidden info
     $state['players'][$opponentIndex]['handIds']  = array_fill(0, count($state['players'][$opponentIndex]['handIds']), null);

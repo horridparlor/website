@@ -264,7 +264,6 @@ const GameEngine = (() => {
     const oppIndex = 1 - respondingPlayerIndex;
     const opp = state.players[oppIndex];
     const oppPrimTop = topOfStack(opp.field.primary);
-    const oppCard = oppPrimTop ? allCardsMap[oppPrimTop.cardId] : null;
 
     for (const slot of ['primary', 'left', 'right']) {
       const top = topOfStack(field[slot]);
@@ -277,13 +276,17 @@ const GameEngine = (() => {
           if (!kw) continue;
           const kwLow = kw.toLowerCase();
           if (kwLow === 'facism') {
-            // Trigger if opponent passed with WEAK_TYPE ≤5000
-            if (oppCard && !oppPrimTop.faceDown) {
-              const weak = weakTypeFor(card.type.toLowerCase());
-              const oppPower = getEffectivePower(oppPrimTop.cardId, opp, allCardsMap);
-              if (oppCard.type.toLowerCase() === weak && oppPower <= 5000) {
-                results.push({ slot, cardId: top.cardId, keyword: 'Facism' });
-              }
+            // Trigger if opponent has a face-up target type on top of any stack at <= 5000.
+            const weak = weakTypeFor(card.type.toLowerCase());
+            const hasTriggerTarget = ['primary', 'left', 'right'].some(oppSlot => {
+              const oppTop = topOfStack(opp.field[oppSlot]);
+              if (!oppTop || oppTop.faceDown) return false;
+              const oppTopCard = allCardsMap[oppTop.cardId];
+              if (!oppTopCard || oppTopCard.type.toLowerCase() !== weak) return false;
+              return Number(oppTopCard.power || 0) <= 5000;
+            });
+            if (hasTriggerTarget) {
+              results.push({ slot, cardId: top.cardId, keyword: 'Facism' });
             }
           } else if (kwLow === 'herwood') {
             results.push({ slot, cardId: top.cardId, keyword: 'Herwood' });
