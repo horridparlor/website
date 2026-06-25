@@ -94,9 +94,14 @@ function getGameState(Database $database): string
     if (!isset($state['lastPrizeDrawAcks']) || !is_array($state['lastPrizeDrawAcks'])) {
         $state['lastPrizeDrawAcks'] = [0, 0];
     }
-    if (!isset($state['discardAnims'])) {
-        $state['discardAnims'] = [];
+    if (!isset($state['discardAnimAcks']) || !is_array($state['discardAnimAcks'])) {
+        $state['discardAnimAcks'] = [0, 0];
     }
+    // Only return discard anims not yet acked by this player
+    $myAckedId = (int)($state['discardAnimAcks'][$playerIndex] ?? 0);
+    $state['discardAnims'] = array_values(array_filter($state['discardAnims'] ?? [], function ($a) use ($myAckedId) {
+        return (int)($a['id'] ?? 0) > $myAckedId;
+    }));
 
     // Redact opponent hidden info
     $state['players'][$opponentIndex]['handIds']  = array_fill(0, count($state['players'][$opponentIndex]['handIds']), null);

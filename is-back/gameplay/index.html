@@ -865,12 +865,17 @@ function processState(state) {
   }
 
   const oppIdx2 = 1 - myIndex;
+  let maxNewDiscardId = 0;
   for (const anim of (state.discardAnims ?? [])) {
-    if (!seenDiscardAnimIds.has(anim.id) && anim.playerIndex === oppIdx2) {
+    if (!seenDiscardAnimIds.has(anim.id)) {
       seenDiscardAnimIds.add(anim.id);
-      discardAnimQueue.push(anim);
+      maxNewDiscardId = Math.max(maxNewDiscardId, anim.id);
+      if (anim.playerIndex === oppIdx2) {
+        discardAnimQueue.push(anim);
+      }
     }
   }
+  if (maxNewDiscardId > 0) acknowledgeNotification('discard_anims', maxNewDiscardId);
   if (discardAnimQueue.length && !discardAnimRunning) runDiscardAnimQueue();
 
   const facEvt = state.lastFacismDestroy;

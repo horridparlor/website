@@ -1242,6 +1242,15 @@ function handleAcknowledgeNotification(array &$state, int $playerIndex, array $p
         return null;
     }
 
+    if ($kind === 'discard_anims') {
+        // stamp = max discard anim ID the client has processed
+        if (!isset($state['discardAnimAcks']) || !is_array($state['discardAnimAcks'])) {
+            $state['discardAnimAcks'] = [0, 0];
+        }
+        $state['discardAnimAcks'][$playerIndex] = max((int)($state['discardAnimAcks'][$playerIndex] ?? 0), $stamp);
+        return null;
+    }
+
     if ($kind === 'prize_draw') {
         $current = (int)($state['lastPrizeDraw']['ts'] ?? 0);
         if ($current && $stamp === $current) {
