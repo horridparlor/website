@@ -1032,58 +1032,124 @@ function openMakkarajarviModal(state) {
     resolvePendingKeyword({ keyword: 'makkarajarvi_respond' });
     return;
   }
-  openKwModalCustom('Makkarajarvi', 'Choose a supporting card to return to hand (or discard if Makkara), or skip.', cards, [
+  openKwModalCustom('Makkarajärvi', 'Choose a supporting card to return to hand (or discard if Makkara), or skip.', cards, [
     { label: 'Skip', className: 'm-cancel', onClick: () => resolvePendingKeyword({ keyword: 'makkarajarvi_respond' }) },
   ], (cardId) => resolvePendingKeyword({ keyword: 'makkarajarvi_respond', returnCardId: cardId }));
 }
 
-function openSahkotaloFlow(state, discarded = [], retrigger = []) {
+function openSahkotaloFlow(state) {
   const me = state.players[myIndex];
-  const remainingHand = (me.handIds || []).filter(id => !discarded.includes(id));
-
-  if (discarded.length < 2 && remainingHand.length) {
-    const cards = remainingHand.map(id => allCards[id]).filter(Boolean);
-    openKwModalCustom(
-      'Sahkotalo',
-      `Discard up to 2 cards (${discarded.length}/2 selected).`,
-      cards,
-      [{ label: 'Done', className: 'm-cancel', onClick: () => openSahkotaloRetriggerFlow(state, discarded, retrigger) }],
-      (cardId) => openSahkotaloFlow(state, [...discarded, cardId], retrigger)
-    );
+  const handIds = me.handIds || [];
+  if (!handIds.length) {
+    resolvePendingKeyword({ keyword: 'sahkotalo_respond', discardIds: [], retriggerSlots: [] });
     return;
   }
 
-  openSahkotaloRetriggerFlow(state, discarded, retrigger);
+  const selectedIdx = new Set();
+
+  function renderDiscardModal() {
+    openKwModalCustom(
+      'Sähkötalo',
+      `Choose up to 2 card(s) to discard (${selectedIdx.size}/2 selected).`,
+      [],
+      [{
+        label: 'Continue',
+        className: 'm-confirm',
+        onClick: () => {
+          const discardIds = [...selectedIdx].sort((a, b) => a - b).map(i => handIds[i]);
+          openSahkotaloRetriggerFlow(state, discardIds);
+        }
+      }],
+      null
+    );
+
+    const list = document.getElementById('kw-modal-cards');
+    list.innerHTML = handIds.map((cardId, handIdx) => {
+      const c = allCards[cardId];
+      if (!c) return '';
+      return `
+        <div class="modal-card-item ${selectedIdx.has(handIdx) ? 'selected' : ''}" data-hand-idx="${handIdx}">
+          <img src="${cardImg(c)}" alt="${stripBB(c.name)}" onerror="this.src=''" />
+          <div class="mci-name">${stripBB(c.name)}</div>
+        </div>`;
+    }).join('');
+
+    window._kwModalCallback = null;
+    document.querySelectorAll('#kw-modal-cards .modal-card-item').forEach(el => {
+      el.onclick = () => {
+        const handIdx = Number(el.dataset.handIdx);
+        if (selectedIdx.has(handIdx)) selectedIdx.delete(handIdx);
+        else if (selectedIdx.size < 2) selectedIdx.add(handIdx);
+        renderDiscardModal();
+      };
+    });
+  }
+
+  renderDiscardModal();
 }
 
-function openSahkotaloRetriggerFlow(state, discarded, retrigger) {
-  if (!discarded.length) {
-    resolvePendingKeyword({ keyword: 'sahkotalo_respond', discardIds: [], retriggerIds: [] });
+function openSahkotaloRetriggerFlow(state, discardIds) {
+  if (!discardIds.length) {
+    resolvePendingKeyword({ keyword: 'sahkotalo_respond', discardIds: [], retriggerSlots: [] });
     return;
   }
 
   const me = state.players[myIndex];
-  const supportTopIds = ['left', 'right']
+  const supportOptions = ['left', 'right']
     .map(slot => {
       const stack = me.field?.[slot] || [];
-      return stack.length ? stack[stack.length - 1].cardId : null;
+      if (!stack.length) return null;
+      const cardId = stack[stack.length - 1].cardId;
+      const card = allCards[cardId];
+      if (!card) return null;
+      return { slot, cardId, card };
     })
-    .filter(Boolean)
-    .filter(id => !retrigger.includes(id));
+    .filter(Boolean);
 
-  if (retrigger.length >= discarded.length || !supportTopIds.length) {
-    resolvePendingKeyword({ keyword: 'sahkotalo_respond', discardIds: discarded, retriggerIds: retrigger });
+  if (!supportOptions.length) {
+    resolvePendingKeyword({ keyword: 'sahkotalo_respond', discardIds, retriggerSlots: [] });
     return;
   }
 
-  const cards = supportTopIds.map(id => allCards[id]).filter(Boolean);
-  openKwModalCustom(
-    'Sahkotalo',
-    `Retrigger up to ${discarded.length} supporting card effect(s) (${retrigger.length}/${discarded.length} selected).`,
-    cards,
-    [{ label: 'Done', className: 'm-cancel', onClick: () => resolvePendingKeyword({ keyword: 'sahkotalo_respond', discardIds: discarded, retriggerIds: retrigger }) }],
-    (cardId) => openSahkotaloRetriggerFlow(state, discarded, [...retrigger, cardId])
-  );
+  const maxChoices = Math.min(discardIds.length, supportOptions.length);
+  const selectedSlots = new Set();
+
+  function renderRetriggerModal() {
+    openKwModalCustom(
+      'Sähkötalo',
+      `Retrigger up to ${maxChoices} supporting card effect(s) (${selectedSlots.size}/${maxChoices} selected).`,
+      [],
+      [{
+        label: 'Continue',
+        className: 'm-confirm',
+        onClick: () => resolvePendingKeyword({
+          keyword: 'sahkotalo_respond',
+          discardIds,
+          retriggerSlots: [...selectedSlots]
+        })
+      }],
+      null
+    );
+
+    const list = document.getElementById('kw-modal-cards');
+    list.innerHTML = supportOptions.map(({ slot, card }) => `
+      <div class="modal-card-item ${selectedSlots.has(slot) ? 'selected' : ''}" data-slot="${slot}">
+        <img src="${cardImg(card)}" alt="${stripBB(card.name)}" onerror="this.src=''" />
+        <div class="mci-name">${stripBB(card.name)} (${slot})</div>
+      </div>`).join('');
+
+    window._kwModalCallback = null;
+    document.querySelectorAll('#kw-modal-cards .modal-card-item').forEach(el => {
+      el.onclick = () => {
+        const slot = el.dataset.slot;
+        if (selectedSlots.has(slot)) selectedSlots.delete(slot);
+        else if (selectedSlots.size < maxChoices) selectedSlots.add(slot);
+        renderRetriggerModal();
+      };
+    });
+  }
+
+  renderRetriggerModal();
 }
 
 function openHerwoodModal(effect) {
@@ -1769,8 +1835,12 @@ function openKwModal(title, desc, cards, onSelect, skipLabel = 'Skip') {
   openKwModalCustom(title, desc, cards, [{ label: skipLabel, className: 'm-cancel', onClick: closeKwModal }], onSelect);
 }
 function kwModalSelect(id) {
-  if (window._kwModalCallback) window._kwModalCallback(id);
-  closeKwModal();
+  const cb = window._kwModalCallback;
+  if (!cb) return;
+  cb(id);
+  const modal = document.getElementById('kw-modal');
+  // Keep modal open if callback replaced itself with a follow-up selection step.
+  if (window._kwModalCallback === cb && modal.classList.contains('open')) closeKwModal();
 }
 function closeKwModal() {
   document.getElementById('kw-modal').classList.remove('open');

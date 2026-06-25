@@ -938,17 +938,55 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
             $pending = getCurrentPendingEffect($state);
             if (!$pending || $pending['type'] !== 'sahkotalo') return 'No Sähkötalo pending';
             if ((int)($pending['playerIndex'] ?? -1) !== $playerIndex) return 'Not your response';
-            $discardIds   = $params['discardIds'] ?? [];
-            $retriggerIds = $params['retriggerIds'] ?? [];
+            $discardIds   = array_map('intval', $params['discardIds'] ?? []);
+            $retriggerIds = array_values(array_unique(array_map('intval', $params['retriggerIds'] ?? [])));
+            $retriggerSlots = array_values(array_unique(array_map(function($s) {
+                return strtolower((string)$s);
+            }, $params['retriggerSlots'] ?? [])));
             $p = &$state['players'][$playerIndex];
             $discarded = 0;
             foreach (array_slice($discardIds, 0, 2) as $dId) {
                 if ($engine->discardFromHand($state, $playerIndex, (int)$dId)) $discarded++;
             }
-            // Retrigger up to $discarded supporting cards
-            foreach (array_slice($retriggerIds, 0, $discarded) as $rId) {
-                $newPending = $engine->applyWhenPlayed($state, $playerIndex, 'left', (int)$rId); // slot is approximate
-                if ($newPending) enqueuePendingEffects($state, $newPending);
+
+            // Build selectable support tops from actual board state.
+            $supportTopBySlot = [];
+            foreach (['left', 'right'] as $slotName) {
+                $stack = $p['field'][$slotName] ?? [];
+                if (empty($stack)) continue;
+                $topEntry = $stack[count($stack) - 1];
+                $topId = (int)($topEntry['cardId'] ?? 0);
+                if ($topId > 0) {
+                    $supportTopBySlot[$slotName] = $topId;
+                }
+            }
+
+            // Backward compatibility: if slots are not provided, map retrigger card IDs to current support slots.
+            if (empty($retriggerSlots) && !empty($retriggerIds)) {
+                foreach ($retriggerIds as $rId) {
+                    foreach ($supportTopBySlot as $slotName => $topId) {
+                        if ($topId === (int)$rId) {
+                            $retriggerSlots[] = $slotName;
+                            break;
+                        }
+                    }
+                }
+                $retriggerSlots = array_values(array_unique($retriggerSlots));
+            }
+
+            // Retrigger up to $discarded chosen support slots.
+            foreach (array_slice($retriggerSlots, 0, $discarded) as $slotName) {
+                if (!isset($supportTopBySlot[$slotName])) continue;
+                $rId = (int)$supportTopBySlot[$slotName];
+                $newPending = $engine->applyWhenPlayed($state, $playerIndex, $slotName, (int)$rId);
+                if (!empty($newPending)) enqueuePendingEffects($state, $newPending);
+
+                // If this top card is evolved (has underlying card), retrigger evolve effects too.
+                $stack = $p['field'][$slotName] ?? [];
+                if (count($stack) >= 2) {
+                    $oldCardId = (int)$stack[count($stack) - 2]['cardId'];
+                    $engine->applyWhenEvolves($state, $playerIndex, $slotName, (int)$rId, $oldCardId);
+                }
             }
             consumePendingEffect($state);
             return null;
