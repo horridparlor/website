@@ -68,6 +68,26 @@ function cleanStaleEntries(Database $database): void
     );
 }
 
+function cleanOldData(Database $database): void
+{
+    $database->query(
+        "DELETE gs FROM isBack_gameState gs
+         JOIN isBack_match m ON m.id = gs.matchId
+         WHERE m.createdAt < NOW() - INTERVAL 7 DAY",
+        []
+    );
+    $database->query(
+        "DELETE FROM isBack_matchQueue
+         WHERE createdAt < NOW() - INTERVAL 7 DAY",
+        []
+    );
+    $database->query(
+        "DELETE FROM isBack_match
+         WHERE createdAt < NOW() - INTERVAL 7 DAY",
+        []
+    );
+}
+
 function handleHeartbeat(Database $database): string
 {
     $user = $database->getUser();
@@ -126,6 +146,7 @@ function joinQueue(Database $database): string
     $user = $database->getUser();
     if (!$user) return Database::responseUnauthorized();
     cleanStaleEntries($database);
+    cleanOldData($database);
 
     $action   = $database->getStringParam('action', '');
     $deckId   = $database->getIntParam('deckId');
