@@ -66,7 +66,7 @@ const RULES_SECTIONS = [
   {
     id: 'turn-order',
     title: 'Turn Order',
-    content: `<p>A round proceeds through four phases in order. Both players act within each phase before the next begins.</p>
+    content: `<p>A round proceeds through up to five phases in order. Both players act within each phase before the next begins.</p>
 <p>The player who lost the previous round always goes first in the next round. In the very first round, the starting player is determined during game preparation.</p>`,
     subtitles: [
       {
@@ -85,8 +85,13 @@ const RULES_SECTIONS = [
         content: `<p>When a player passes, the opponent may respond with <strong>[Opponent passes]</strong> keyword effects. If those effects leave the passing player in a losing or cardless state, the pass is countered and the main phase resumes.</p>`,
       },
       {
+        id: 'turn-reveal-phase',
+        title: '4.4 Reveal Phase',
+        content: `<p>If the non-passing player has a face-down primary card when the pass resolves, the round enters the Reveal Phase. The non-passing player's face-down primary card is revealed first. If the passing player also has a face-down primary card, it is revealed next. Once all face-down primary cards have been revealed, the round proceeds immediately to End of Round.</p>`,
+      },
+      {
         id: 'turn-end-of-round',
-        title: '4.4 End of Round',
+        title: '4.5 End of Round',
         content: `<p>The losing player concedes — either by passing with a losing card or by surrendering. If the winner still has prize cards, they draw one. If they have no prize cards left to draw, they win the game instead.</p>
 <p>The losing player goes first in the next round.</p>`,
       },
@@ -132,7 +137,7 @@ const RULES_SECTIONS = [
   <li>If your opponent has a <strong>face-up</strong> primary card that beats yours, you immediately lose the round.</li>
   <li>If both cards share the same type and the same power, you lose the round — ties are broken in favour of the non-passing player.</li>
   <li>If your card beats the opponent's face-up card, they receive a new main phase.</li>
-  <li>If your opponent has a <strong>face-down primary card</strong>, skip directly to the end of round. Face-down primary cards are then revealed starting from the opponent's. If the opponent's revealed card has an <strong>[Opponent passes]</strong> keyword, they may trigger that effect — if it alters the game state such that the end of round no longer applies, the round continues instead.</li>
+  <li>If your opponent has a <strong>face-down primary card</strong>, the round moves into the Reveal Phase (see section 5.4) instead of ending immediately.</li>
 </ul>
 <p>When passing against a face-up primary, before the pass resolves the opponent may trigger any <strong>[Opponent passes]</strong> keywords on their field cards (primary and supporting) one at a time in any order they choose.</p>
 <ul>
@@ -141,8 +146,19 @@ const RULES_SECTIONS = [
 </ul>`,
       },
       {
+        id: 'go-reveal-phase',
+        title: '5.4 Reveal Phase',
+        content: `<p>When the non-passing player has a face-down primary card, the round enters the Reveal Phase instead of ending immediately.</p>
+<ul>
+  <li><strong>Step 1 — Non-passing player reveals:</strong> Their face-down primary card is flipped face-up.</li>
+  <li><strong>Divine shortcut:</strong> If the revealed card has <strong>Divine</strong> and the passing player still has a face-down primary card, Divine defeats it without further reveal. The passing player's card is never shown.</li>
+  <li><strong>Step 2 — Passing player reveals (if applicable):</strong> If the passing player also had a face-down primary card and no Divine shortcut occurred, their card is now revealed.</li>
+  <li>The winner is determined from the now face-up cards.</li>
+</ul>`,
+      },
+      {
         id: 'go-end-of-round',
-        title: '5.4 End of Round',
+        title: '5.5 End of Round',
         content: `<p>A round ends when a player either passes with a losing card or surrenders. The winning player draws one of their prize cards.</p>
 <ul>
   <li>If the winning player has no prize cards remaining, they win the game.</li>
@@ -221,8 +237,9 @@ const RULES_SECTIONS = [
         title: '8.1 Divine and Face-Down Cards',
         content: `<p>Divine is a keyword that allows your card to automatically defeat any face-down primary card — the opponent's card is never revealed and they lose the round.</p>
 <ul>
-  <li><strong>Face-up Divine vs. face-down primary:</strong> If you pass with a face-up card that has Divine and your opponent has a face-down primary, their card is never revealed. You win the round automatically.</li>
-  <li><strong>Both face-down, one player passes:</strong> The opponent reveals their face-down card first. If it has Divine, the passing player's face-down card is never revealed — Divine defeats it sight unseen and the passing player loses automatically.</li>
+  <li><strong>Face-up Divine vs. face-down primary:</strong> If you pass with a face-up card that has Divine and your opponent has a face-down primary, their card is never revealed. You win the round automatically — no Reveal Phase occurs.</li>
+  <li><strong>Both face-down, one player passes:</strong> The round enters the Reveal Phase (see section 5.4). The non-passing player reveals their face-down card first. If it has Divine, the passing player's face-down card is never revealed — Divine defeats it sight unseen and the passing player loses.</li>
+  <li><strong>Revealed Divine during Reveal Phase:</strong> If the non-passing player's revealed card has Divine while the passing player still has a face-down primary, the passing player loses immediately. The passing player's card is never shown.</li>
 </ul>`,
       },
       {

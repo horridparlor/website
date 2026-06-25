@@ -263,6 +263,24 @@
     .connect-banner { position: fixed; top: 0; left: 0; right: 0; background: #2d1b1b; border-bottom: 1px solid var(--red); color: var(--red); padding: 8px; text-align: center; font-size: 13px; z-index: 700; display: none; }
     .connect-banner.show { display: block; }
 
+    /* ── Reveal phase mandatory modal ── */
+    #reveal-phase-modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 620;
+      display: none; align-items: center; justify-content: center;
+    }
+    #reveal-phase-modal.open { display: flex; }
+    #reveal-phase-inner {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 14px;
+      padding: 28px 32px; max-width: 380px; width: 92%; text-align: center;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+    }
+    #reveal-phase-inner h3 { font-size: 18px; margin-bottom: 14px; color: var(--orange); letter-spacing: 1px; text-transform: uppercase; }
+    #reveal-phase-card-img { width: 110px; height: 154px; object-fit: cover; border-radius: 8px; margin: 0 auto 16px; display: block; border: 1px solid var(--border); }
+    #reveal-phase-msg { font-size: 14px; color: var(--text); margin-bottom: 22px; line-height: 1.6; }
+    #reveal-phase-btn { background: var(--blue); color: #fff; border: 1px solid var(--blue2); border-radius: 8px; padding: 10px 32px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background .15s; }
+    #reveal-phase-btn:hover:not(:disabled) { background: var(--blue2); }
+    #reveal-phase-wait { font-size: 13px; color: var(--muted); margin-top: 14px; animation: pulse 1.5s ease-in-out infinite; }
+
     /* ── RPS overlay ── */
     #rps-overlay { position: fixed; inset: 0; z-index: 800; background: rgba(8,10,14,.96); display: flex; flex-direction: column; align-items: center; justify-content: center; }
     #rps-overlay.hidden { display: none; }
@@ -509,6 +527,17 @@
   <button onclick="location.href='/is-back/match-queue/'" style="background:var(--green);color:#fff;border:1px solid var(--green2);border-radius:8px;padding:12px 28px;font-size:16px;cursor:pointer;">Back to Queue</button>
 </div>
 
+<!-- Reveal phase mandatory modal -->
+<div id="reveal-phase-modal">
+  <div id="reveal-phase-inner">
+    <h3>Card Revealed</h3>
+    <img id="reveal-phase-card-img" src="" alt="" />
+    <div id="reveal-phase-msg"></div>
+    <button id="reveal-phase-btn" onclick="sendRevealPhaseAck()">OK</button>
+    <div id="reveal-phase-wait" style="display:none;">Waiting for opponent…</div>
+  </div>
+</div>
+
 <!-- Phase overlay -->
 <div id="phase-overlay">
   <div id="phase-text">ROUND 1</div>
@@ -576,6 +605,7 @@ let magicPotionAnimating = false;
 let magicPotionQueue = [];
 let passResolveScheduledKey = null;
 let facismResolveScheduledSig = null;
+let lastRevealPhaseStamp = 0;
 
 function authHeaders() { return { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }; }
 function fmt(p) { return String(Number(p)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
@@ -760,6 +790,19 @@ function processState(state) {
     lastMagicPotionTs = mpEvt.ts;
     magicPotionQueue.push({ ...mpEvt, username: state.players?.[mpEvt.playerIndex]?.username || 'Player' });
     runMagicPotionAnimationQueue();
+  }
+
+  // Reveal phase modal
+  if (state.phase === 'reveal_phase') {
+    const rpStamp = state.revealPhaseStamp ?? 0;
+    if (rpStamp && rpStamp !== lastRevealPhaseStamp) {
+      lastRevealPhaseStamp = rpStamp;
+      showRevealPhaseModal(state);
+    } else if (rpStamp && document.getElementById('reveal-phase-modal').classList.contains('open')) {
+      updateRevealPhaseModalState(state);
+    }
+  } else if (document.getElementById('reveal-phase-modal').classList.contains('open')) {
+    closeRevealPhaseModal();
   }
 
   const facEvt = state.lastFacismDestroy;
@@ -1266,6 +1309,7 @@ const PHASE_COLORS = {
   start_of_round: '#58a6ff',
   main_phase:     '#3fb950',
   passing_phase:  '#d29922',
+  reveal_phase:   '#9b59b6',
   end_of_round:   '#f85149',
   setup:          '#8b949e',
 };
@@ -1274,6 +1318,7 @@ function announcePhase(phase, roundNum) {
     start_of_round: `START OF ROUND ${roundNum || ''}`,
     main_phase:     'MAIN PHASE',
     passing_phase:  'PASSING PHASE',
+    reveal_phase:   'REVEAL PHASE',
     end_of_round:   'END OF ROUND',
     setup:          'PREPARE',
   };
@@ -1530,6 +1575,7 @@ function updateActionBar(state, mi) {
     start_of_round: 'Start of Round',
     main_phase: 'Main Phase',
     passing_phase: 'Passing Phase',
+    reveal_phase: 'Reveal Phase',
     end_of_round: 'End of Round',
     completed: 'Match Complete',
   };
@@ -1627,6 +1673,21 @@ function updateActionBar(state, mi) {
       }
     } else {
       btns.innerHTML = '<span class="thinking-indicator">Opponent is responding…</span>';
+    }
+    return;
+  }
+
+  if (phase === 'reveal_phase') {
+    phLabel.textContent = 'Reveal Phase';
+    const rpStamp  = state.revealPhaseStamp ?? 0;
+    const myAcked  = rpStamp && (state.revealPhaseAcks?.[mi] === rpStamp);
+    if (myAcked) {
+      btns.innerHTML = '<span class="thinking-indicator">Waiting for opponent to confirm…</span>';
+    } else {
+      const hint = document.createElement('span');
+      hint.style.cssText = 'font-size:13px;color:var(--orange);';
+      hint.textContent = 'A card was revealed — confirm in the popup.';
+      btns.appendChild(hint);
     }
     return;
   }
@@ -1802,6 +1863,50 @@ async function sendAction(action, params = {}) {
 
 function triggerOpponentPasses({ slot, cardId, keyword }) {
   sendAction('triggerOpponentPasses', { slot, cardId, keyword });
+}
+
+// ── Reveal phase modal ────────────────────────────────────────────────────────
+function showRevealPhaseModal(state) {
+  const stamp  = state.revealPhaseStamp ?? 0;
+  const msg    = state.revealPhaseMessage ?? '';
+  const cardId = state.revealPhaseRevealedCardId ?? null;
+  const card   = cardId ? allCards[cardId] : null;
+
+  const imgEl = document.getElementById('reveal-phase-card-img');
+  if (card) {
+    imgEl.src = cardImg(card);
+    imgEl.style.display = 'block';
+  } else {
+    imgEl.style.display = 'none';
+  }
+  document.getElementById('reveal-phase-msg').textContent = msg;
+  updateRevealPhaseModalState(state);
+  document.getElementById('reveal-phase-modal').classList.add('open');
+}
+
+function updateRevealPhaseModalState(state) {
+  const stamp   = state.revealPhaseStamp ?? 0;
+  const myAcked = stamp && (state.revealPhaseAcks?.[myIndex] === stamp);
+  const btn  = document.getElementById('reveal-phase-btn');
+  const wait = document.getElementById('reveal-phase-wait');
+  if (btn)  { btn.style.display  = myAcked ? 'none' : ''; btn.disabled = myAcked; }
+  if (wait) { wait.style.display = myAcked ? '' : 'none'; }
+}
+
+function closeRevealPhaseModal() {
+  document.getElementById('reveal-phase-modal').classList.remove('open');
+}
+
+async function sendRevealPhaseAck() {
+  if (!gameState || gameState.phase !== 'reveal_phase') return;
+  const stamp = gameState.revealPhaseStamp ?? 0;
+  if (!stamp) return;
+  // Optimistic UI update
+  const btn  = document.getElementById('reveal-phase-btn');
+  const wait = document.getElementById('reveal-phase-wait');
+  if (btn)  { btn.style.display = 'none'; btn.disabled = true; }
+  if (wait) { wait.style.display = ''; }
+  await sendAction('revealPhaseAck', { stamp });
 }
 
 // ── Keyword effect modals ─────────────────────────────────────────────────────

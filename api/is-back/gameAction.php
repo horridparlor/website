@@ -1400,8 +1400,23 @@ function resolvePassingPhase(array &$state, GameEngine $engine): void
         }
     }
 
-    // If either primary stack still has hidden cards, resolve through end_of_round reveal queue.
-    if (hasFaceDownInPrimary($state, $passerId) || hasFaceDownInPrimary($state, $oppIdx)) {
+    // Passer face-up Divine vs. opponent face-down → passer wins immediately (no reveal needed)
+    if ($oppTop && !empty($oppTop['faceDown']) && $passerTop && empty($passerTop['faceDown']) && $engine->hasKeyword($passerTop['id'], 'divine')) {
+        clearRoundScopedFlags($state);
+        $state['phase'] = 'end_of_round';
+        $state['roundWinnerId'] = $passerId;
+        $state['log'][] = $state['players'][$passerId]['username'] . ' wins: Divine defeats the face-down primary.';
+        return;
+    }
+
+    // Non-passing player has face-down primary → enter reveal phase
+    if ($oppTop && !empty($oppTop['faceDown'])) {
+        enterRevealPhase($state, $engine);
+        return;
+    }
+
+    // Fallback: only passer has hidden cards in stack (edge case)
+    if (hasFaceDownInPrimary($state, $passerId)) {
         clearRoundScopedFlags($state);
         $state['phase'] = 'end_of_round';
         return;
@@ -1427,6 +1442,103 @@ function resolvePassingPhase(array &$state, GameEngine $engine): void
     clearRoundScopedFlags($state);
     $state['phase']         = 'end_of_round';
     $state['roundWinnerId'] = $winner;
+}
+
+function enterRevealPhase(array &$state, GameEngine $engine): void
+{
+    $passerId = $state['passerId'];
+    $oppIdx   = 1 - $passerId;
+
+    clearRoundScopedFlags($state);
+    $state['phase'] = 'reveal_phase';
+
+    // Reveal the non-passing player's top face-down primary card
+    revealNextFaceDownInPrimary($state, $oppIdx);
+
+    $oppTop      = $engine->getTopCard($state['players'][$oppIdx]['field']['primary']);
+    $oppCardId   = $oppTop ? (int)$oppTop['id'] : null;
+    $oppCard     = $oppCardId ? $engine->getCard($oppCardId) : [];
+    $oppCardName = $oppCard['name'] ?? '?';
+
+    $passerHasFaceDown = hasFaceDownInPrimary($state, $passerId);
+    $divineWin = $oppCardId && $engine->hasKeyword($oppCardId, 'divine') && $passerHasFaceDown;
+
+    $stamp = nextEventStamp();
+    $state['revealPhaseStamp']          = $stamp;
+    $state['revealPhaseAcks']           = [0, 0];
+    $state['revealPhaseStep']           = 'opp_revealed';
+    $state['revealPhaseRevealedCardId'] = $oppCardId;
+    $state['revealPhaseDivineWin']      = $divineWin;
+
+    if ($divineWin) {
+        $state['revealPhaseMessage'] = $state['players'][$oppIdx]['username'] . "'s " . $oppCardName
+            . ' has Divine — it defeats the face-down card. '
+            . $state['players'][$oppIdx]['username'] . ' wins the round!';
+        $state['log'][] = $oppCardName . ' has Divine — defeats the passing player\'s face-down card!';
+    } else {
+        $state['revealPhaseMessage'] = $state['players'][$oppIdx]['username'] . ' revealed: ' . $oppCardName . '.';
+    }
+
+    $state['log'][] = $state['players'][$oppIdx]['username'] . ' revealed their primary card: ' . $oppCardName . '.';
+}
+
+function maybeFinishRevealPhase(array &$state, GameEngine $engine): void
+{
+    $passerId = $state['passerId'];
+    $oppIdx   = 1 - $passerId;
+
+    if (!empty($state['revealPhaseDivineWin'])) {
+        $state['phase']         = 'end_of_round';
+        $state['roundWinnerId'] = $oppIdx;
+        $state['log'][] = $state['players'][$oppIdx]['username'] . ' wins the round! (Divine)';
+        return;
+    }
+
+    if (($state['revealPhaseStep'] ?? '') === 'opp_revealed') {
+        $passerTop = $engine->getTopCard($state['players'][$passerId]['field']['primary']);
+        if ($passerTop && !empty($passerTop['faceDown'])) {
+            // Reveal passing player's card
+            revealNextFaceDownInPrimary($state, $passerId);
+            $passerTop      = $engine->getTopCard($state['players'][$passerId]['field']['primary']);
+            $passerCardId   = $passerTop ? (int)$passerTop['id'] : null;
+            $passerCard     = $passerCardId ? $engine->getCard($passerCardId) : [];
+            $passerCardName = $passerCard['name'] ?? '?';
+
+            $stamp = nextEventStamp();
+            $state['revealPhaseStamp']          = $stamp;
+            $state['revealPhaseAcks']           = [0, 0];
+            $state['revealPhaseStep']           = 'passer_revealed';
+            $state['revealPhaseRevealedCardId'] = $passerCardId;
+            $state['revealPhaseDivineWin']      = false;
+            $state['revealPhaseMessage']        = $state['players'][$passerId]['username'] . ' revealed: ' . $passerCardName . '.';
+            $state['log'][] = $state['players'][$passerId]['username'] . ' revealed their primary card: ' . $passerCardName . '.';
+            return;
+        }
+    }
+
+    // All reveals done — determine winner from now-face-up cards
+    $winner = $engine->checkWinRound($state, $passerId);
+    $state['phase']         = 'end_of_round';
+    $state['roundWinnerId'] = $winner ?? $oppIdx;
+    $state['log'][] = 'Reveal phase complete.';
+}
+
+function handleRevealPhaseAck(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
+{
+    if (($state['phase'] ?? '') !== 'reveal_phase') return 'Not in reveal phase';
+    $stamp         = (int)($params['stamp'] ?? 0);
+    $expectedStamp = (int)($state['revealPhaseStamp'] ?? 0);
+    if (!$stamp || $stamp !== $expectedStamp) return null; // stale ack, ignore silently
+
+    if (!isset($state['revealPhaseAcks']) || !is_array($state['revealPhaseAcks'])) {
+        $state['revealPhaseAcks'] = [0, 0];
+    }
+    $state['revealPhaseAcks'][$playerIndex] = $stamp;
+
+    if ($state['revealPhaseAcks'][0] === $expectedStamp && $state['revealPhaseAcks'][1] === $expectedStamp) {
+        maybeFinishRevealPhase($state, $engine);
+    }
+    return null;
 }
 
 function handleConfirmPassingPhase(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
@@ -1657,7 +1769,7 @@ function performAction(Database $database): string
     ensureNotificationState($state);
 
     $hasPendingEffect = getCurrentPendingEffect($state) !== null;
-    if ($hasPendingEffect && !in_array($action, ['useKeyword', 'surrender', 'gameSurrender', 'acknowledgeNotification'], true)) {
+    if ($hasPendingEffect && !in_array($action, ['useKeyword', 'surrender', 'gameSurrender', 'acknowledgeNotification', 'revealPhaseAck'], true)) {
         return Database::responseBadRequest('Resolve pending effect first');
     }
     if ($hasPendingEffect && $action === 'useKeyword') {
@@ -1699,6 +1811,7 @@ function performAction(Database $database): string
         'confirmPassingPhase',
         'confirmEndOfRound'        => handleConfirmPassingPhase($state, $playerIndex, $paramsArr, $engine),
         'revealFaceDown'           => handleRevealFaceDown($state, $playerIndex, $paramsArr, $engine),
+        'revealPhaseAck'           => handleRevealPhaseAck($state, $playerIndex, $paramsArr, $engine),
         // End of round
         'nextRound',
         'drawPrize'                => handleNextRound($state, $playerIndex, $paramsArr, $engine),
