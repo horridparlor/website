@@ -1617,7 +1617,9 @@ function updateActionBar(state, mi) {
       wait.textContent = 'Waiting for opponent…';
       btns.appendChild(wait);
     } else if (!me.diceRoll) {
-      btns.appendChild(mkBtn('🎲 Roll Dice', 'action-btn btn-done', () => animateAndRollDice()));
+      const rollBtn = mkBtn('🎲 Roll Dice', 'action-btn btn-done', () => animateAndRollDice());
+      rollBtn.id = 'roll-dice-btn';
+      btns.appendChild(rollBtn);
     } else if (!me.startOfRoundUsed) {
       // Auto-skip if no eligible SOR cards
       maybeAutoSkipSOR(state, mi);
@@ -2392,6 +2394,9 @@ function updatePrizePanel(state, mi, oi) {
 async function animateAndRollDice() {
   if (diceAnimating) return;
   diceAnimating = true;
+
+  const rollBtn = document.getElementById('roll-dice-btn');
+  if (rollBtn) rollBtn.disabled = true;
 
   const d1El = document.getElementById('d1');
   const d2El = document.getElementById('d2');
