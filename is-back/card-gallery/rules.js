@@ -121,7 +121,7 @@ const RULES_SECTIONS = [
         content: `<p>Starting from the player going first this round, each player takes a main phase in turn. During your main phase you may:</p>
 <ul>
   <li><strong>Play a card</strong> from your hand as your primary card, or <strong>evolve</strong> by playing a new card on top of your current primary card, forming a stack. The new card must always have higher power than the card beneath it. If the top card of the stack is removed, the card underneath becomes active again.</li>
-  <li><strong>Play supporting cards</strong> — one to the left and one to the right of your primary card, for a maximum of 2. Supporting cards can also be evolved the same way (new card must have higher power; if the top is removed, the one below is active again). You may only play supporting cards once you already have a primary card on the field. If your entire primary card stack is removed, any supporting cards on the field are automatically discarded.</li>
+  <li><strong>Play supporting cards</strong> — one to the left and one to the right of your primary card, for a maximum of 2. Supporting cards can also be evolved the same way (new card must have higher power; if the top is removed, the one below is active again). You may only play supporting cards once you already have a primary card on the field. If your entire primary card stack is removed, any supporting cards on the field are automatically destroyed.</li>
   <li><strong>Use keyword effects</strong> where permitted by the card's text.</li>
 </ul>
 <p>All cards are played face-up unless a specific effect allows a face-down play. Face-down cards cannot evolve.</p>
@@ -307,8 +307,11 @@ const RULES_SECTIONS = [
   <dt>Deckout</dt>
   <dd>The state where a player's deck has no cards remaining. There is no penalty — the graveyard is shuffled into a new deck when a draw is required.</dd>
 
+  <dt>Destroy</dt>
+  <dd>To send a card from the field to the graveyard.</dd>
+
   <dt>Discard</dt>
-  <dd>To send a card from the hand or field to the graveyard.</dd>
+  <dd>To send a card from the hand to the graveyard.</dd>
 
   <dt>Devolve</dt>
   <dd>To evolve with a card that has lower base power than the current active card. Normally not permitted, but certain keywords such as Autocracy allow it. Devolving still counts as evolving in all other respects.</dd>
