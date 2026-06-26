@@ -655,14 +655,15 @@ function resolveTypeTokens(desc, cardType) {
     scissors: { weak: 'rock',    same: 'scissor', strong: 'paper'    },
   }[cardType.toLowerCase()];
   if (!info) return desc;
-  const plural = s => s === 'scissor' ? 'scissors' : s + 's';
+  const plural  = s => s === 'scissor' ? 'scissors' : s + 's';
+  const article = s => s === 'scissor' ? 'scissors' : 'a ' + s;
   return desc
     .replace(/%WEAK_TYPES/g,   plural(info.weak))
     .replace(/%SAME_TYPES/g,   plural(info.same))
     .replace(/%STRONG_TYPES/g, plural(info.strong))
-    .replace(/%WEAK_TYPE/g,    info.weak)
-    .replace(/%SAME_TYPE/g,    info.same)
-    .replace(/%STRONG_TYPE/g,  info.strong);
+    .replace(/%WEAK_TYPE/g,    article(info.weak))
+    .replace(/%SAME_TYPE/g,    article(info.same))
+    .replace(/%STRONG_TYPE/g,  article(info.strong));
 }
 function cardImg(card) {
   if (!card) return '';
