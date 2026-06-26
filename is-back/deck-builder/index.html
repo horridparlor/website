@@ -215,6 +215,7 @@
   const KEYWORDS_URL  = API_BASE + '/keywords';
   const DECKS_URL     = API_BASE + '/decks';
   const AUTH_URL      = API_USER + '/authenticate';
+  const EXPANSIONS_URL = '../card-gallery/.expansions';
 
   /* ── State ──────────────────────────────────────────────────────── */
   let allCards       = [];
@@ -222,6 +223,8 @@
   let filteredCards  = [];
   let focusedCard    = null;
   let savedDecks     = [];
+  let expansionStatus = null;
+  let setBoundaries   = null;
   let authToken      = localStorage.getItem('authToken');
   let userId         = localStorage.getItem('userId');
   let username       = localStorage.getItem('username');
@@ -451,11 +454,74 @@
     renderDeckSelector();
   });
 
+  /* ── Expansion visibility ───────────────────────────────────────── */
+  const getExpansionStatus = (setNum) => {
+    if (expansionStatus === null) return 'released';
+    const s = expansionStatus[setNum];
+    if (!s) return 'null';
+    const status = typeof s === 'object' ? s.status : s;
+    if (!status || status === 'null' || status === '0') return 'null';
+    if (status === 'hidden' || status === '1') return 'hidden';
+    return 'released';
+  };
+
+  const computeSetBoundaries = () => {
+    if (expansionStatus === null) { setBoundaries = null; return; }
+    const setNums = Object.keys(expansionStatus).map(Number).sort((a, b) => a - b);
+    const bounds = [];
+    let cursor = 1;
+    for (const num of setNums) {
+      const info = expansionStatus[num];
+      const maxId = typeof info === 'object' && info.maxId !== undefined ? info.maxId : cursor + 59;
+      bounds.push({ setNum: num, start: cursor, end: maxId });
+      cursor = maxId + 1;
+    }
+    setBoundaries = bounds;
+  };
+
+  const getSetNum = (cardId) => {
+    if (!setBoundaries || !setBoundaries.length) return Math.ceil(cardId / 60);
+    for (const b of setBoundaries) {
+      if (cardId >= b.start && cardId <= b.end) return b.setNum;
+    }
+    const last = setBoundaries[setBoundaries.length - 1];
+    return last.setNum + Math.ceil((cardId - last.end) / 60);
+  };
+
+  const loadExpansions = async () => {
+    try {
+      const res = await fetch(EXPANSIONS_URL);
+      if (!res.ok) return;
+      const text = await res.text();
+      expansionStatus = {};
+      text.split('\n').forEach(line => {
+        line = line.trim();
+        if (!line) return;
+        const eq = line.indexOf('=');
+        if (eq === -1) return;
+        const key = line.slice(0, eq).trim().toLowerCase();
+        const val = line.slice(eq + 1).trim();
+        const num = parseInt(key.replace(/^set/, ''), 10);
+        if (isNaN(num)) return;
+        const parts = val.split(',');
+        const status = parts[0].trim().toLowerCase();
+        let maxId;
+        for (let i = 1; i < parts.length; i++) {
+          const m = parts[i].trim().toLowerCase().match(/^maxid=(\d+)$/);
+          if (m) maxId = parseInt(m[1], 10);
+        }
+        expansionStatus[num] = maxId !== undefined ? { status, maxId } : { status };
+      });
+      computeSetBoundaries();
+    } catch (_) { /* missing file → expansionStatus stays null → all sets treated as released */ }
+  };
+
   /* ── Data loading ───────────────────────────────────────────────── */
   const loadCards = async () => {
     const res  = await fetch(CARDS_URL);
     const data = await res.json();
-    allCards   = Array.isArray(data) ? data : (data.cards || []);
+    const raw  = Array.isArray(data) ? data : (data.cards || []);
+    allCards   = raw.filter(c => getExpansionStatus(getSetNum(c.id)) === 'released');
   };
 
   const loadKeywords = async () => {
@@ -1114,6 +1180,7 @@
     setLoading('Loading cards…');
     updateUserUI();
     try {
+      await loadExpansions();
       await loadCards();
       await loadKeywords();
       applyURLToControls();
