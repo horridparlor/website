@@ -437,6 +437,22 @@ function pushDiscardAnim(array &$state, int $cardId, int $playerIndex, string $c
     }
 }
 
+function addCardPlayAnim(array &$state, int $playerIndex, int $cardId, string $slot, string $animType): void
+{
+    if (!isset($state['cardPlayAnims'])) $state['cardPlayAnims'] = [];
+    $state['_cpaCnt'] = ($state['_cpaCnt'] ?? 0) + 1;
+    $state['cardPlayAnims'][] = [
+        'id'          => $state['_cpaCnt'],
+        'playerIndex' => $playerIndex,
+        'cardId'      => $cardId,
+        'slot'        => $slot,
+        'animType'    => $animType,
+    ];
+    if (count($state['cardPlayAnims']) > 30) {
+        $state['cardPlayAnims'] = array_slice($state['cardPlayAnims'], -30);
+    }
+}
+
 function clearRoundScopedFlags(array &$state): void
 {
     $state['naturalSelection'] = false;
@@ -691,6 +707,7 @@ function handlePlayCard(array &$state, int $playerIndex, array $params, GameEngi
         if ($pending) enqueuePendingEffects($state, $pending);
     }
 
+    addCardPlayAnim($state, $playerIndex, $faceDown ? 0 : $cardId, $slot, $faceDown ? 'facedown' : 'play');
     return null;
 }
 
@@ -779,6 +796,13 @@ function handleEvolveCard(array &$state, int $playerIndex, array $params, GameEn
         $state['naturalSelectionPlays'][$playerIndex]++;
     }
 
+    $evolveAnimType = 'evolve';
+    if ($faceDown) {
+        $evolveAnimType = 'evolve_facedown';
+    } elseif (!empty($newCard) && !empty($oldCard) && (int)$newCard['power'] < (int)$oldCard['power']) {
+        $evolveAnimType = 'devolve';
+    }
+    addCardPlayAnim($state, $playerIndex, $faceDown ? 0 : $cardId, $slot, $evolveAnimType);
     return null;
 }
 
@@ -929,6 +953,7 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
                             } else {
                                 $p['handIds'][] = $returnCardId;
                                 $state['log'][] = $p['username'] . ' returned a card to hand.';
+                                addCardPlayAnim($state, $playerIndex, $returnCardId, $s, 'return');
                             }
                             $engine->recalcDemocracy($state, $playerIndex);
                             break;
@@ -1285,7 +1310,27 @@ function handleAcknowledgeNotification(array &$state, int $playerIndex, array $p
         return null;
     }
 
+    if ($kind === 'card_play_anims') {
+        if (!isset($state['cardPlayAnimAcks']) || !is_array($state['cardPlayAnimAcks'])) {
+            $state['cardPlayAnimAcks'] = [0, 0];
+        }
+        $state['cardPlayAnimAcks'][$playerIndex] = max((int)($state['cardPlayAnimAcks'][$playerIndex] ?? 0), $stamp);
+        return null;
+    }
+
     return 'Unknown notification kind';
+}
+
+function handleReorderHand(array &$state, int $playerIndex, array $params): ?string
+{
+    $newOrder = array_map('intval', $params['handIds'] ?? []);
+    $p = &$state['players'][$playerIndex];
+    $current = $p['handIds'] ?? [];
+    $ns = $newOrder; sort($ns);
+    $cs = $current; sort($cs);
+    if ($ns !== $cs) return 'Card set mismatch';
+    $p['handIds'] = array_values($newOrder);
+    return null;
 }
 
 function handlePass(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
@@ -1422,6 +1467,7 @@ function handleOpponentPassesResponse(array &$state, int $playerIndex, array $pa
             $state['players'][$playerIndex]['handIds'][] = $returnedId;
             $engine->recalcDemocracy($state, $playerIndex);
             $state['log'][] = $state['players'][$playerIndex]['username'] . ' returned card via Mikontalo.';
+            addCardPlayAnim($state, $playerIndex, $returnedId, $slot, 'return');
 
             enqueuePendingEffects($state, [[
                 'type' => 'mikontalo_discard',
@@ -1879,6 +1925,7 @@ function performAction(Database $database): string
         'evolveCard'               => handleEvolveCard($state, $playerIndex, $paramsArr, $engine),
         'useKeyword'               => handleUseKeyword($state, $playerIndex, $paramsArr, $engine),
         'acknowledgeNotification'  => handleAcknowledgeNotification($state, $playerIndex, $paramsArr),
+        'reorderHand'              => handleReorderHand($state, $playerIndex, $paramsArr),
         'playCommunism'            => handleUseKeyword($state, $playerIndex, array_merge($paramsArr, ['keyword' => 'communism']), $engine),
         'useRizz'                  => handleUseKeyword($state, $playerIndex, array_merge($paramsArr, ['keyword' => 'rizz']), $engine),
         'activateCultism'          => handleUseKeyword($state, $playerIndex, array_merge($paramsArr, ['keyword' => 'cultism']), $engine),

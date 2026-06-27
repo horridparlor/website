@@ -12,232 +12,379 @@
 </head>
 <body>
 
-<header>
-  <img src="/images/overlay.png" alt="Rakuel" class="overlay-img" />
-  <div class="header-text">
-    <h1>Rakuel</h1>
-    <p class="subtitle">Tampereen Gangsta-Rap-Ylijumala</p>
-  </div>
-  <div class="social-icons">
+<div class="app-layout">
 
-  <a href="/message-center" id="admin-msg-badge" style="display:none; position:relative;" title="Viestilaatikko">
-    <span class="material-icons">mail</span>
-    <span id="admin-msg-count" style="position:absolute; top:-8px; right:-8px; background:#ff0066; color:#fff; border-radius:50%; font-size:0.65rem; padding:2px 5px; min-width:16px; text-align:center; line-height:1.5; font-weight:bold; box-shadow:0 0 8px #ff0066;"></span>
-  </a>
+  <!-- ── Left sidebar ── -->
+  <aside class="sidebar">
 
-  <a href="https://open.spotify.com/artist/6zEclwyLsW20Rp4ui3vGNS?si=J9SLeR74RBiIBRbiQ25liw" target="_blank" title="Spotify">
-    <span class="material-icons">headphones</span>
-  </a>
-  
-  <a href="https://www.instagram.com/rakuelig/" target="_blank" title="Instagram">
-    <span class="material-icons">photo_camera</span>
-  </a>
-  
-  <a href="https://www.tiktok.com/@rakueli" target="_blank" title="TikTok">
-    <span class="material-icons">music_note</span>
-  </a>
+    <div class="sidebar-brand">
+      <img src="/images/overlay.png" alt="Rakuel" class="sidebar-img" />
+      <h1 class="sidebar-title">Rakuel</h1>
+      <a href="mailto:eero@rakuel.com" class="sidebar-email">eero@rakuel.com</a>
+    </div>
 
-  <a href="https://www.youtube.com/@rakueli" target="_blank" title="YouTube">
-    <span class="material-icons">smart_display</span>
-  </a>
-  
-  <a href="https://genius.com/artists/Rakuel" target="_blank" title="Lyriikat (Genius)">
-    <span class="material-icons">lyrics</span>
-  </a>
+    <div class="sidebar-social">
+      <a href="/message-center" id="admin-msg-badge" style="display:none;position:relative;" title="Viestilaatikko">
+        <span class="material-icons">mail</span>
+        <span id="admin-msg-count" style="position:absolute;top:-6px;right:-6px;background:#ff0066;color:#fff;border-radius:50%;font-size:0.6rem;padding:2px 4px;min-width:14px;text-align:center;line-height:1.5;font-weight:bold;"></span>
+      </a>
+      <a href="https://open.spotify.com/artist/6zEclwyLsW20Rp4ui3vGNS?si=J9SLeR74RBiIBRbiQ25liw" target="_blank" title="Spotify"><span class="material-icons">headphones</span></a>
+      <a href="https://www.instagram.com/rakuelig/" target="_blank" title="Instagram"><span class="material-icons">photo_camera</span></a>
+      <a href="https://www.tiktok.com/@rakueli" target="_blank" title="TikTok"><span class="material-icons">music_note</span></a>
+      <a href="https://www.youtube.com/@rakueli" target="_blank" title="YouTube"><span class="material-icons">smart_display</span></a>
+      <a href="https://genius.com/artists/Rakuel" target="_blank" title="Lyriikat (Genius)"><span class="material-icons">lyrics</span></a>
+      <a href="https://store.steampowered.com/search/?developer=Rakuel" target="_blank" title="Pelit"><span class="material-icons">sports_esports</span></a>
+    </div>
 
-  <a href="https://store.steampowered.com/search/?developer=Rakuel" target="_blank" title="Pelit">
-    <span class="material-icons">sports_esports</span>
-  </a>
+    <nav class="site-nav">
 
-  
+      <div class="nav-category open" id="nav-cat-isback">
+        <button class="nav-cat-btn" onclick="toggleNavCat('nav-cat-isback')">
+          Rakuel Is Back <span class="nav-cat-arrow">▾</span>
+        </button>
+        <div class="nav-cat-links">
+          <a href="/is-back/card-gallery" class="nav-link">Card Gallery</a>
+          <a href="/is-back/deck-builder" class="nav-link">Deck Builder</a>
+          <a href="/is-back/match-queue" class="nav-link">Play</a>
+          <a href="/is-back/register" class="nav-link">Register / Sign In</a>
+          <a href="/hardest/card-gallery" class="nav-link">Hardest – Card Gallery</a>
+        </div>
+      </div>
+
+      <div class="nav-category open" id="nav-cat-dev">
+        <button class="nav-cat-btn" onclick="toggleNavCat('nav-cat-dev')">
+          Kehittäjätyökalut <span class="nav-cat-arrow">▾</span>
+        </button>
+        <div class="nav-cat-links">
+          <a href="/json-formatter" class="nav-link">JSON Formatter</a>
+          <a href="/sql-formatter" class="nav-link">SQL Formatter</a>
+          <a href="/pdf-generator" class="nav-link">PDF Generator</a>
+          <a href="/find-difference" class="nav-link">Find Difference</a>
+          <a href="/translation-synchronizer" class="nav-link">Translation Synchronizer</a>
+          <a href="/translation-merger" class="nav-link">Translation Merger</a>
+          <a href="/function-comparison" class="nav-link">Function Comparison</a>
+          <a href="/configuration-variables-mapper" class="nav-link">Config Variables Mapper</a>
+          <a href="/employee-generator" class="nav-link">Employee Generator</a>
+          <a href="/ek-industry-eater" class="nav-link">EK Industry -eater</a>
+          <a href="/ek-profession-eater" class="nav-link">EK Profession -eater</a>
+        </div>
+      </div>
+
+      <div class="nav-category open" id="nav-cat-lifestyle">
+        <button class="nav-cat-btn" onclick="toggleNavCat('nav-cat-lifestyle')">
+          Lifestyle <span class="nav-cat-arrow">▾</span>
+        </button>
+        <div class="nav-cat-links">
+          <a href="/calendar" class="nav-link">Calendar</a>
+          <a href="/noise-generator" class="nav-link">Noise Generator</a>
+        </div>
+      </div>
+
+      <div class="nav-category nav-category--admin open" id="nav-admin" style="display:none;">
+        <button class="nav-cat-btn nav-cat-btn--admin" onclick="toggleNavCat('nav-admin')">
+          Admin <span class="nav-cat-arrow">▾</span>
+        </button>
+        <div class="nav-cat-links">
+          <a href="/is-back/expansions" class="nav-link nav-link--admin" id="btn-expansions">Expansions</a>
+          <a href="/message-center" class="nav-link nav-link--admin" id="btn-message-center">Message Center</a>
+        </div>
+      </div>
+
+    </nav>
+  </aside>
+
+  <!-- ── Main content ── -->
+  <main class="main-content">
+
+    <!-- Album Carousel -->
+    <div class="carousel-section">
+      <div class="carousel-viewport" id="carouselViewport">
+        <div class="carousel-track" id="carouselTrack"></div>
+      </div>
+      <div class="active-album-embed" id="activeAlbumEmbed"></div>
+    </div>
+
+    <!-- Description -->
+    <div class="desc-section">
+      <p class="hero-tagline">Tampereen Gangsta-Rap-Ylijumala</p>
+      <p class="hero-body">Nämä kolme albumia tein aikanaan vuosina 2025–2026 inspiroituneena Eminemin ja Tupacin ja muista räpin legendoista. Michael Jackson aina kova. Lauloin näitä biisejä Tampereen opiskelijabileissä Kolmioilla ja Symposiumeissa, sekä HeNTAi-animekerhossa ja Luupin karaokeilloissa. Nämä tulevat aina olemaan itselle rakkaita kappaleita. Ja rosoisuuskin, että sydäntä lämmittää miten niidenkin välissä on sydäntä läpäiseviä suruja omista ystävistä ja yhteiskunnan tulevaisuudesta.</p>
+      <p class="hero-body" style="margin-top:1rem;">Eniten itseä juuri inspiroi se, että karaokelistoilla suurin osa biiseistä keskittyy rakkauteen ja pehmeisiin lyhytaikaisiin tunteisiin. Itse tykkään juuri semmosista Kaksi Puuta tyylisistä lyriikoista, jotka pohjautuu hitaaseen enemmän arkiseen onneen eikä päiviä kestävien parisuhdedraamojen fetisoimiseen. Etenkään ystävyydestä ei nykyään tunneta paljon laulavan. Rakuel biisejä löytyy varmaan edelleen Feelmentin ja Muvikan karaokelistoilta. Niin kannattaa laulaa nopeet, jos käy karaokessa! <em style="color:#666;">Ystävyys On Huume</em> oli aina oma lemppari.</p>
+    </div>
+
+    <!-- Contact -->
+    <section class="contact-section" id="contact">
+      <h2>Keikkatarjoukset</h2>
+      <p>Kiinnostaako keikka tai yhteistyö? Jätä viesti alle!</p>
+      <form class="contact-form" id="contact-form">
+        <input type="email" id="contact-email" placeholder="Sähköpostiosoitteesi" required />
+        <textarea id="contact-message" rows="5" placeholder="Kerro keikkatarjouksestasi..." required></textarea>
+        <input type="submit" id="contact-submit" value="Lähetä!" />
+        <div id="contact-status" style="font-size:0.95rem;min-height:1.4em;"></div>
+      </form>
+    </section>
+
+    <footer>©2026 Rakuel</footer>
+
+  </main>
 </div>
-</header>
-
-<main class="description">
-  <p>Tässä on kaikkii random sivuja, mitä käytän välillä tai koko ajan? Nettisivut tarkoitettu lähinnä omaan käyttöön, mut saa kopioida pois! Just wibe coding.</p>
-
-  <div class="buttons">
-    <a href="/is-back/card-gallery" class="button">Rakuel Is Back – Card Gallery</a>
-    <a href="/is-back/expansions" class="button" id="btn-expansions" style="display:none;">Rakuel Is Back – Expansions (Admin)</a>
-    <a href="/message-center" class="button" id="btn-message-center" style="display:none;">Message Center (Admin)</a>
-    <a href="/is-back/deck-builder" class="button">Rakuel Is Back – Deck Builder</a>
-    <a href="/is-back/match-queue" class="button">Rakuel Is Back – Play</a>
-    <a href="/is-back/register" class="button">Rakuel Is Back – Register / Login</a>
-    <a href="/json-formatter" class="button">JSON Formatter</a>
-    <a href="/sql-formatter" class="button">SQL Formatter</a>
-    <a href="/hardest/card-gallery" class="button">Hardest – Card Gallery</a>
-    <a href="/employee-generator" class="button">Employee Generator</a>
-    <a href="/translation-synchronizer" class="button">Translation Synchronizer</a>
-    <a href="/find-difference" class="button">Find Difference</a>
-    <a href="/calendar" class="button">Calendar</a>
-    <a href="/function-comparison" class="button">Function Comparison</a>
-    <a href="/pdf-generator" class="button">PDF Generator</a>
-    <a href="/ek-industry-eater" class="button">EK Industry -eater</a>
-    <a href="/ek-profession-eater" class="button">EK Profession -eater</a>
-    <a href="/configuration-variables-mapper" class="button">Configuration Variables -mapper</a>
-    <a href="/noise-generator" class="button">Noise Generator</a>
-    <a href="/translation-merger" class="button">Translation Merger</a>
-  </div>
-
-  <div class="email-highlight">
-    Ota yhteyttä: <a href="mailto:eero@rakuel.com" style="color: white;">eero@rakuel.com</a>
-  </div>
-</main>
-
-<section class="music-section">
-  <h2>Kuuntele KLASSIKKO teos!</h2>
-
-  <div class="spotify-embed">
-    <iframe style="border-radius:12px" 
-      src="https://open.spotify.com/embed/album/1zMQnPbIwdVCEBB47NuDF7" 
-      width="100%" 
-      height="380" 
-      frameBorder="0" 
-      allowfullscreen="" 
-      allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture">
-    </iframe>
-  </div>
-  
-  <section class="music-section">
-  <h2>UUSIN albumi (2026)</h2>
-
-  <div class="spotify-embed">
-    <iframe style="border-radius:12px" 
-      src="https://open.spotify.com/embed/album/4r4r9EmYvsnR0OPj5IoHOf" 
-      width="100%" 
-      height="380" 
-      frameBorder="0" 
-      allowfullscreen="" 
-      allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture">
-    </iframe>
-  </div>
-
-  <h2>Alkuperäinen HITTI (2015)</h2>
-
-  <div class="spotify-embed">
-    <iframe style="border-radius:12px" 
-      src="https://open.spotify.com/embed/track/6PMxWDCWoYwsVd1I07mCE5" 
-      width="100%" 
-      height="152" 
-      frameBorder="0" 
-      allowfullscreen="" 
-      allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture">
-    </iframe>
-  </div>
-</section>
-
-<section class="contact-section">
-  <h2>Keikkatarjoukset</h2>
-  <p>Kiinnostaako keikka tai yhteistyö? Jätä viesti alle!</p>
-  <form class="contact-form" id="contact-form">
-    <input type="email" id="contact-email" placeholder="Sähköpostiosoitteesi" required />
-    <textarea id="contact-message" rows="5" placeholder="Kerro keikkatarjouksestasi..." required></textarea>
-    <input type="submit" id="contact-submit" value="Lähetä!" />
-    <div id="contact-status" style="font-size:0.95rem; min-height:1.4em;"></div>
-  </form>
-</section>
-
-<footer>
-  © 2026 Rakuel
-</footer>
 
 <!-- Success modal -->
-<div id="contact-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1000; align-items:center; justify-content:center; padding:1rem;">
-  <div style="background:#1a1a1a; border:2px solid #00ffcc; border-radius:18px; padding:2.5rem 2rem; max-width:440px; width:100%; text-align:center; box-shadow:0 0 60px rgba(0,255,204,0.25); position:relative; margin-top:18vh;">
-    <div style="font-size:3.5rem; line-height:1; margin-bottom:0.8rem;">💌</div>
-    <h2 style="font-family:'Anton',sans-serif; color:#00ffcc; margin:0 0 1rem; font-size:1.8rem;">Viesti saapui perille!</h2>
-    <p style="color:#ddd; line-height:1.7; margin:0 0 1.5rem; font-size:1.05rem;">
+<div id="contact-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:1000;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#1a1a1a;border:2px solid #00ffcc;border-radius:18px;padding:2.5rem 2rem;max-width:440px;width:100%;text-align:center;box-shadow:0 0 60px rgba(0,255,204,0.25);position:relative;margin-top:18vh;">
+    <div style="font-size:3.5rem;line-height:1;margin-bottom:0.8rem;">💌</div>
+    <h2 style="font-family:'Anton',sans-serif;color:#00ffcc;margin:0 0 1rem;font-size:1.8rem;">Viesti saapui perille!</h2>
+    <p style="color:#ddd;line-height:1.7;margin:0 0 1.5rem;font-size:1.05rem;">
       Sain viestisi ja vastaan mahdollisimman pian.<br>
       Olen innoissani yhteistyöstä sinun kanssasi! ❤️🥰
     </p>
-    <button onclick="document.getElementById('contact-modal').style.display='none'" style="padding:0.7rem 2rem; background:#00ffcc; color:#000; border:none; border-radius:8px; font-weight:bold; font-size:1rem; cursor:pointer; transition:background 0.2s;" onmouseover="this.style.background='#00ccaa'" onmouseout="this.style.background='#00ffcc'">Sulje</button>
+    <button onclick="document.getElementById('contact-modal').style.display='none'" style="padding:0.7rem 2rem;background:#00ffcc;color:#000;border:none;border-radius:8px;font-weight:bold;font-size:1rem;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='#00ccaa'" onmouseout="this.style.background='#00ffcc'">Sulje</button>
   </div>
 </div>
 
 <script>
-  (async () => {
-    const token = localStorage.getItem('authToken');
-    console.log('[expansions] 1. token:', token ? token.slice(0, 10) + '…' : 'MISSING');
-    if (!token) return;
-    let res;
+// ── Nav sidebar toggle ────────────────────────────────────────────────────────
+function toggleNavCat(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+
+// ── Admin visibility ──────────────────────────────────────────────────────────
+(async () => {
+  const token = localStorage.getItem('authToken');
+  if (!token) return;
+  let res;
+  try { res = await fetch('/api/is-back/expansions', { headers: { Authorization: 'Bearer ' + token } }); }
+  catch { return; }
+  let data;
+  try { data = JSON.parse(await res.text()); } catch { return; }
+  if (data.isAdmin) {
+    const adminNav = document.getElementById('nav-admin');
+    adminNav.style.display = '';
+    adminNav.classList.add('open');
     try {
-      res = await fetch('/api/is-back/expansions', { headers: { Authorization: 'Bearer ' + token } });
-    } catch (e) {
-      console.error('[expansions] 2. fetch threw:', e); return;
-    }
-    console.log('[expansions] 2. HTTP status:', res.status, res.ok ? 'OK' : 'NOT OK');
-    const text = await res.text();
-    console.log('[expansions] 3. raw response:', text);
-    let data;
-    try { data = JSON.parse(text); } catch (e) {
-      console.error('[expansions] 4. JSON parse failed:', e); return;
-    }
-    console.log('[expansions] 4. isAdmin:', data.isAdmin);
-    if (data.isAdmin) {
-      document.getElementById('btn-expansions').style.display = '';
-      document.getElementById('btn-message-center').style.display = '';
-      console.log('[expansions] 5. link shown ✓');
-      // Check unread messages for admin badge
-      try {
-        const msgRes = await fetch('/api/admin/messages?countOnly=true', { headers: { Authorization: 'Bearer ' + token } });
-        if (msgRes.ok) {
-          const msgData = await msgRes.json();
-          if (msgData.count > 0) {
-            document.getElementById('admin-msg-count').textContent = msgData.count;
-            document.getElementById('admin-msg-badge').style.display = 'inline-flex';
-          }
+      const m = await fetch('/api/admin/messages?countOnly=true', { headers: { Authorization: 'Bearer ' + token } });
+      if (m.ok) {
+        const md = await m.json();
+        if (md.count > 0) {
+          document.getElementById('admin-msg-count').textContent = md.count;
+          document.getElementById('admin-msg-badge').style.display = 'inline-flex';
         }
+      }
+    } catch {}
+  }
+})();
+
+// ── Album Carousel ────────────────────────────────────────────────────────────
+(async function () {
+  const FALLBACK = [
+    { id: '4r4r9EmYvsnR0OPj5IoHOf', type: 'album', title: 'UUSIN ALBUMI', year: '2026', cover: null },
+    { id: '1zMQnPbIwdVCEBB47NuDF7', type: 'album', title: 'KLASSIKKO',    year: '',     cover: null },
+    { id: '6PMxWDCWoYwsVd1I07mCE5', type: 'track', title: 'HITTI 2015',   year: '2015', cover: null },
+  ];
+
+  let albums = FALLBACK;
+  try {
+    const r = await fetch('/api/spotify/releases');
+    if (r.ok) {
+      const data = await r.json();
+      if (Array.isArray(data) && data.length > 0) albums = data;
+    }
+  } catch {}
+
+  // Fetch missing cover art via oEmbed (uses correct type per entry)
+  if (albums === FALLBACK) {
+    for (const a of albums) {
+      try {
+        const r = await fetch(`https://open.spotify.com/oembed?url=https://open.spotify.com/${a.type}/${a.id}`);
+        const d = await r.json();
+        a.cover = d.thumbnail_url || null;
       } catch {}
     }
-  })();
+  }
 
-  // Contact form AJAX submit
-  document.getElementById('contact-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email   = document.getElementById('contact-email').value.trim();
-    const message = document.getElementById('contact-message').value.trim();
-    const status  = document.getElementById('contact-status');
-    const submit  = document.getElementById('contact-submit');
+  const CARD_W = 220;
+  const GAP    = 20;
+  // Shift card alignment by half a card to the left so the visual center matches the viewport center.
+  const CENTER_NUDGE = -CARD_W / 2;
+  const COPIES = 4;
+  const track  = document.getElementById('carouselTrack');
+  const vp     = document.getElementById('carouselViewport');
+  const embedEl = document.getElementById('activeAlbumEmbed');
 
-    submit.disabled = true;
-    submit.value = 'Lähetetään…';
-    status.style.color = '#aaa';
-    status.textContent = '';
+  let pos        = 0;
+  let SET_W      = 0;
+  let hovering   = false;
+  let stopped    = false;
+  let dragActive = false;
+  let dragStartX = null;
+  let dragStartP = 0;
+  let resumeTimer = null;
+  let targetPos  = null;
 
-    try {
-      const res = await fetch('/api/contact/message', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, message }),
+  for (let c = 0; c < COPIES; c++) {
+    albums.forEach((a, idx) => {
+      const card = document.createElement('div');
+      card.className = 'album-card';
+      card.dataset.idx = idx;
+      const bg = a.cover
+        ? `background-image:url('${a.cover}');background-size:cover;background-position:center;`
+        : '';
+      card.innerHTML = `
+        <div class="album-cover" style="${bg}" data-cover="${idx}">
+          ${!a.cover ? `<div class="album-cover-placeholder">${a.title}</div>` : ''}
+        </div>
+        <div class="album-info">
+          <div class="album-title">${a.title}</div>
+          ${a.year ? `<div class="album-year">${a.year}</div>` : ''}
+        </div>`;
+      card.addEventListener('click', () => {
+        if (dragActive) return;
+        selectAlbum(idx);
+        centerAlbum(idx, true);
+        stopped = true;
+        clearTimeout(resumeTimer);
+        resumeTimer = setTimeout(() => { stopped = false; }, 1250);
       });
-      const data = await res.json();
-      if (res.ok) {
-        document.getElementById('contact-modal').style.display = 'flex';
-        document.getElementById('contact-form').reset();
-        status.textContent = '';
-      } else if (res.status === 429) {
-        status.style.color = '#ff6600';
-        status.textContent = `Odota vielä ${data.secondsLeft} sekuntia ennen uuden viestin lähettämistä.`;
-      } else {
-        status.style.color = '#ff4466';
-        status.textContent = data.error || 'Virhe. Yritä uudelleen.';
-      }
-    } catch {
-      status.style.color = '#ff4466';
-      status.textContent = 'Verkkovirhe. Yritä uudelleen.';
-    } finally {
-      submit.disabled = false;
-      submit.value = 'Lähetä!';
+      track.appendChild(card);
+    });
+  }
+
+  function selectAlbum(idx) {
+    track.querySelectorAll('.album-card').forEach(c =>
+      c.classList.toggle('active', Number(c.dataset.idx) === idx));
+    const a = albums[idx];
+    const type = a.type || 'album';
+    const h    = getEmbedHeight(a, type);
+    embedEl.style.height = `${h}px`;
+    embedEl.innerHTML = `<iframe style="border-radius:12px"
+      src="https://open.spotify.com/embed/${type}/${a.id}?utm_source=generator&theme=0"
+      width="100%" height="${h}" frameBorder="0" allowfullscreen=""
+      allow="autoplay;clipboard-write;encrypted-media;fullscreen;picture-in-picture"></iframe>`;
+  }
+
+  function normalizePos(value) {
+    while (value < SET_W) value += SET_W;
+    while (value >= SET_W * 2) value -= SET_W;
+    return value;
+  }
+
+  function shortestWrapDelta(from, to, period) {
+    let d = (to - from) % period;
+    if (d > period / 2) d -= period;
+    if (d < -period / 2) d += period;
+    return d;
+  }
+
+  function centerAlbum(idx, animate = true) {
+    const step = CARD_W + GAP;
+    const centerOffset = vp.clientWidth / 2 - CARD_W / 2 + CENTER_NUDGE;
+    const target = normalizePos(SET_W + idx * step - centerOffset);
+    if (animate) {
+      targetPos = target;
+      return;
     }
+    targetPos = null;
+    pos = target;
+  }
+
+  function getEmbedHeight(release, type) {
+    if (type === 'track') return 152;
+    const tracks = Number(release.trackCount);
+    if (!Number.isFinite(tracks) || tracks <= 0) return 380;
+    // Keep singles compact, and let long albums grow enough to avoid iframe scrolling.
+    return 120 + tracks * 54;
+  }
+
+  // Measure actual SET_W after DOM layout
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    SET_W = track.scrollWidth / COPIES;
+    pos   = SET_W;
+    selectAlbum(0);
+    centerAlbum(0, false);
+    tick();
+  }));
+
+  vp.addEventListener('mouseenter', () => { hovering = true; });
+  vp.addEventListener('mouseleave', () => { hovering = false; });
+
+  vp.addEventListener('pointerdown', e => {
+    dragStartX = e.clientX;
+    dragStartP = pos;
+    dragActive = false;
+    targetPos = null;
+  });
+  vp.addEventListener('pointermove', e => {
+    if (dragStartX === null) return;
+    const dx = e.clientX - dragStartX;
+    if (!dragActive && Math.abs(dx) > 6) { dragActive = true; stopped = false; }
+    if (dragActive) targetPos = null;
+    if (dragActive) pos = dragStartP - dx;
+  });
+  vp.addEventListener('pointerup', () => {
+    dragStartX = null;
+    setTimeout(() => { dragActive = false; }, 50);
   });
 
-  // Close modal on backdrop click
-  document.getElementById('contact-modal').addEventListener('click', (e) => {
-    if (e.target === document.getElementById('contact-modal')) {
-      document.getElementById('contact-modal').style.display = 'none';
+  function tick() {
+    if (targetPos !== null && !dragActive) {
+      const d = shortestWrapDelta(pos, targetPos, SET_W);
+      if (Math.abs(d) < 0.8) {
+        pos = targetPos;
+        targetPos = null;
+      } else {
+        pos += d * 0.18;
+      }
+    } else if (!hovering && !stopped && !dragActive) {
+      pos += 0.45;
     }
-  });
+    pos = normalizePos(pos);
+    track.style.transform = `translateX(-${pos}px)`;
+
+    const vpW    = vp.clientWidth;
+    const cx     = vpW / 2;
+    const vpRect = vp.getBoundingClientRect();
+    track.querySelectorAll('.album-card').forEach(card => {
+      const r    = card.getBoundingClientRect();
+      const cardCx = r.left - vpRect.left + r.width / 2;
+      const t    = Math.min(Math.abs(cardCx - cx) / (cx * 1.1), 1);
+      card.style.transform = `scale(${1 - t * 0.36})`;
+      card.style.opacity   = `${0.45 + (1 - t) * 0.55}`;
+    });
+    requestAnimationFrame(tick);
+  }
+})();
+
+// ── Contact form ──────────────────────────────────────────────────────────────
+document.getElementById('contact-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const email   = document.getElementById('contact-email').value.trim();
+  const message = document.getElementById('contact-message').value.trim();
+  const status  = document.getElementById('contact-status');
+  const submit  = document.getElementById('contact-submit');
+  submit.disabled = true; submit.value = 'Lähetetään…'; status.textContent = '';
+  try {
+    const res  = await fetch('/api/contact/message', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, message }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      document.getElementById('contact-modal').style.display = 'flex';
+      document.getElementById('contact-form').reset();
+    } else if (res.status === 429) {
+      status.style.color = '#ff6600';
+      status.textContent = `Odota vielä ${data.secondsLeft} sekuntia ennen uuden viestin lähettämistä.`;
+    } else {
+      status.style.color = '#ff4466';
+      status.textContent = data.error || 'Virhe. Yritä uudelleen.';
+    }
+  } catch {
+    status.style.color = '#ff4466'; status.textContent = 'Verkkovirhe. Yritä uudelleen.';
+  } finally { submit.disabled = false; submit.value = 'Lähetä!'; }
+});
+document.getElementById('contact-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('contact-modal'))
+    document.getElementById('contact-modal').style.display = 'none';
+});
 </script>
 </body>
 </html>
-

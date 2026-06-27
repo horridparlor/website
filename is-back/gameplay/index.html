@@ -162,10 +162,27 @@
     #hand-area { background: var(--bg2); border-top: 1px solid var(--border); padding: 8px 16px; }
     #hand-scroll { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0; scrollbar-width: thin; }
     @keyframes dealCard {
-      0%   { transform: translateY(160px) rotate(18deg) scale(0.85); opacity: 0; }
+      0%   { transform: translateX(var(--deal-x,0px)) translateY(var(--deal-y,160px)) rotate(var(--deal-r,18deg)) scale(0.85); opacity: 0; }
       55%  { opacity: 1; }
-      100% { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
+      100% { transform: translateX(0) translateY(0) rotate(0deg) scale(1); opacity: 1; }
     }
+    /* ── Card play animation overlay ── */
+    .cpa-card {
+      position: fixed; pointer-events: none; z-index: 1500;
+      border-radius: 8px; overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,.85);
+      will-change: left, top, width, height, transform;
+      transform-origin: center center;
+    }
+    .cpa-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    /* ── Hand control buttons ── */
+    .btn-hand-ctrl {
+      background: #21262d; color: var(--muted); border-color: var(--border);
+      font-size: 12px; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+      border: 1px solid var(--border); transition: background .15s, color .15s;
+    }
+    .btn-hand-ctrl:hover { background: var(--border); color: var(--text); }
+    .hand-ctrl-sep { width: 1px; background: var(--border); align-self: stretch; margin: 4px 0; }
     .hand-card {
       flex-shrink: 0; width: 112px; height: 157px; border-radius: 7px; border: 2px solid var(--border);
       cursor: pointer; position: relative; transition: transform .15s, border-color .15s;
@@ -533,6 +550,11 @@
       <div class="dice-total" id="dice-total"></div>
     </div>
     <div id="action-btns" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
+      <div class="hand-ctrl-sep"></div>
+      <button class="btn-hand-ctrl" onclick="shuffleHand()" title="Shuffle your hand randomly">Shuffle Hand</button>
+      <button class="btn-hand-ctrl" onclick="orderHand()" title="Order by type (Rock→Paper→Scissors) then power">Order Hand</button>
+    </div>
   </div>
 </div>
 
@@ -716,6 +738,10 @@ let lastGreedTs = 0;
 let seenDiscardAnimIds = new Set();
 let discardAnimQueue = [];
 let discardAnimRunning = false;
+let seenCardPlayAnimIds = new Set();
+let cardPlayAnimQueue = [];
+let cardPlayAnimRunning = false;
+let isHandReorderInProgress = false;
 
 function authHeaders() { return { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }; }
 function fmt(p) { return String(Number(p)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
@@ -985,6 +1011,8 @@ function processState(state) {
   }
   if (maxNewDiscardId > 0) acknowledgeNotification('discard_anims', maxNewDiscardId);
   if (discardAnimQueue.length && !discardAnimRunning) runDiscardAnimQueue();
+
+  processCardPlayAnims(state);
 
   const facEvt = state.lastFacismDestroy;
   if (facEvt && facEvt.ts && facEvt.ts !== lastFacismDestroyTs) {
@@ -1666,7 +1694,7 @@ function updateHand(state, mi) {
     if (isSOR && phase === 'start_of_round') cls += ' sor-card';
     if (isCommunism) cls += ' communism-card';
     if (isRizz) cls += ' rizz-card';
-    if (isNew) cls += ' dealing';
+    if (isNew && !isHandReorderInProgress) cls += ' dealing';
     return `
       <div class="${cls}" data-id="${id}" data-sor="${isSOR?1:0}"
            onclick="onHandCardClick(${id})"
@@ -1677,11 +1705,14 @@ function updateHand(state, mi) {
       </div>`;
   }).join('');
 
-  // Stagger new cards so they deal in sequence
+  // Stagger new cards so they deal in sequence, with randomized origin
   if (newIds.size > 0) {
     let i = 0;
     handScroll.querySelectorAll('.hand-card.dealing').forEach(el => {
       el.style.animationDelay = `${i * 90}ms`;
+      el.style.setProperty('--deal-y', `${130 + Math.random() * 80}px`);
+      el.style.setProperty('--deal-r', `${(Math.random() - 0.5) * 46}deg`);
+      el.style.setProperty('--deal-x', `${(Math.random() - 0.5) * 28}px`);
       i++;
     });
   }
@@ -2106,6 +2137,14 @@ function onSlotClick(slot) {
     const result = GameEngine.canPlayCard(gameState, myIndex, selectedHandCardId, slot, false);
     if (result.canPlay) {
       const action = slotStack.length > 0 ? 'evolveCard' : 'playCard';
+      // Animate immediately before sending action
+      const handCardEl = document.querySelector(`.hand-card[data-id="${selectedHandCardId}"]`);
+      if (handCardEl) {
+        const fromRect = handCardEl.getBoundingClientRect();
+        const animType = computeMyAnimType(selectedHandCardId, slot, result.mustFaceDown, slotStack);
+        handCardEl.style.visibility = 'hidden';
+        flyCard(fromRect, `my-${slot}`, selectedHandCardId, animType);
+      }
       sendAction(action, { cardId: selectedHandCardId, slot, faceDown: result.mustFaceDown });
       selectedHandCardId = null;
       clearSlotHighlights();
@@ -2890,6 +2929,13 @@ document.getElementById('hand-scroll').addEventListener('dragstart', e => {
     if (result.canPlay) {
       const slotStack = gameState.players[myIndex].field[slot] || [];
       const act = slotStack.length > 0 ? 'evolveCard' : 'playCard';
+      const handCardEl = document.querySelector(`.hand-card[data-id="${cardId}"]`);
+      if (handCardEl) {
+        const fromRect = handCardEl.getBoundingClientRect();
+        const animType = computeMyAnimType(cardId, slot, result.mustFaceDown, slotStack);
+        handCardEl.style.visibility = 'hidden';
+        flyCard(fromRect, `my-${slot}`, cardId, animType);
+      }
       sendAction(act, { cardId, slot, faceDown: result.mustFaceDown });
     }
   });
@@ -3137,6 +3183,340 @@ function showNaturalSelectionEffect() {
   }
   document.body.appendChild(overlay);
   setTimeout(() => overlay.remove(), 3000);
+}
+
+// ── Card play animations ──────────────────────────────────────────────────────
+
+function computeMyAnimType(cardId, slot, isFaceDown, slotStack) {
+  if (!slotStack || slotStack.length === 0) return isFaceDown ? 'facedown' : 'play';
+  if (isFaceDown) return 'evolve_facedown';
+  const newCard = allCards[cardId];
+  const topEntry = slotStack[slotStack.length - 1];
+  const topCard = allCards[topEntry.cardId];
+  if (newCard && topCard && newCard.power < topCard.power) return 'devolve';
+  return 'evolve';
+}
+
+function flyCard(fromRect, toSlotId, cardId, animType) {
+  const toEl = document.getElementById(toSlotId);
+  if (!toEl) return;
+  flyCardCustom(fromRect, toEl.getBoundingClientRect(), cardId, animType);
+}
+
+function flyCardCustom(fromRect, toRect, cardId, animType) {
+  const showBack = animType === 'facedown' || animType === 'evolve_facedown' || !allCards[cardId];
+  const el = document.createElement('div');
+  el.className = 'cpa-card';
+  el.style.cssText = `left:${fromRect.left}px;top:${fromRect.top}px;width:${fromRect.width}px;height:${fromRect.height}px;`;
+  const img = document.createElement('img');
+  img.src = showBack ? cardBack() : cardImg(allCards[cardId]);
+  el.appendChild(img);
+  document.body.appendChild(el);
+
+  const fw = fromRect.width, fh = fromRect.height;
+  const tw = toRect.width,   th = toRect.height;
+  const dx = toRect.left - fromRect.left;
+  const dy = toRect.top  - fromRect.top;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  const leanDir = dist > 5 ? dx / dist : 0;
+  const duration = 490;
+  const t0 = performance.now();
+
+  function eio(t) { return t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t; }
+
+  function frame(now) {
+    const rawT = Math.min((now - t0) / duration, 1);
+
+    let pos, scale;
+    if (rawT <= 0.80) {
+      pos   = eio(rawT / 0.80) * 0.88;
+      scale = 1.0;
+    } else if (rawT <= 0.91) {
+      const lt = (rawT - 0.80) / 0.11;
+      pos   = 0.88 + lt * 0.06;
+      scale = 1.0 + lt * 0.09;
+    } else {
+      const lt = (rawT - 0.91) / 0.09;
+      pos   = 0.94 + eio(lt) * 0.06;
+      scale = 1.09 - lt * 0.09;
+    }
+
+    const x  = fromRect.left + dx * pos;
+    const y  = fromRect.top  + dy * pos;
+    const cw = fw + (tw - fw) * pos;
+    const ch = fh + (th - fh) * pos;
+    const lean = leanDir * 12 * Math.sin(rawT * Math.PI);
+
+    el.style.left      = x + 'px';
+    el.style.top       = y + 'px';
+    el.style.width     = cw + 'px';
+    el.style.height    = ch + 'px';
+    el.style.transform = `rotate(${lean}deg) scale(${scale})`;
+
+    if (rawT < 1) {
+      requestAnimationFrame(frame);
+    } else {
+      el.style.left = toRect.left + 'px'; el.style.top = toRect.top + 'px';
+      el.style.width = tw + 'px'; el.style.height = th + 'px';
+      el.style.transform = '';
+      spawnCardParticles(toRect.left + tw / 2, toRect.top + th / 2, animType);
+      el.style.transition = 'opacity 0.22s';
+      el.style.opacity = '0';
+      setTimeout(() => el.remove(), 250);
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+function spawnCardParticles(cx, cy, animType) {
+  const cvs = document.createElement('canvas');
+  cvs.width = window.innerWidth; cvs.height = window.innerHeight;
+  cvs.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:1490;';
+  document.body.appendChild(cvs);
+  const ctx = cvs.getContext('2d');
+  const particles = buildParticles(animType);
+  const DURATION = animType === 'evolve_facedown' ? 920 : 760;
+  const t0 = performance.now();
+
+  function frame(now) {
+    const elapsed = now - t0;
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
+    let alive = false;
+    for (const p of particles) {
+      const pt = (elapsed - (p.delay || 0)) / (p.dur || DURATION);
+      if (pt < 0) { alive = true; continue; }
+      if (pt > 1.15) continue;
+      alive = true;
+      const alpha = Math.max(0, 1 - pt * pt * (pt < 0.5 ? 0.4 : 1.6));
+      ctx.globalAlpha = alpha;
+      drawCPAParticle(ctx, p, pt, cx, cy);
+    }
+    ctx.globalAlpha = 1;
+    if (alive && elapsed < DURATION * 1.4) requestAnimationFrame(frame);
+    else cvs.remove();
+  }
+  requestAnimationFrame(frame);
+}
+
+function buildParticles(animType) {
+  const p = [];
+  if (animType === 'play') {
+    for (let i = 0; i < 3; i++) p.push({ type: 'ring', color: '#4daaff', maxR: 46 + i * 22, delay: i * 90, dur: 620 });
+    for (let i = 0; i < 11; i++) {
+      const a = (i / 11) * Math.PI * 2;
+      p.push({ type: 'dot', color: '#4daaff', angle: a, speed: 2.6 + Math.random() * 2, r: 4, delay: 0, dur: 520 });
+    }
+  } else if (animType === 'facedown') {
+    for (let i = 0; i < 3; i++) p.push({ type: 'ring', color: '#9b59b6', maxR: 42 + i * 18, delay: i * 75, dur: 660 });
+    for (let i = 0; i < 14; i++) {
+      const a = (i / 14) * Math.PI * 2;
+      p.push({ type: 'spiral_dot', color: '#9b59b6', baseAngle: a, delay: i * 28, dur: 700 });
+    }
+  } else if (animType === 'evolve') {
+    for (let i = 0; i < 9; i++) {
+      p.push({ type: 'arrow_up', color: '#3fb950', ox: (Math.random() - 0.5) * 55, delay: i * 38, dur: 600 });
+    }
+    for (let i = 0; i < 7; i++) {
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 0.85;
+      p.push({ type: 'dot', color: '#3fb950', angle: a, speed: 2.2 + Math.random() * 2, r: 3.5, delay: i * 22, dur: 550 });
+    }
+  } else if (animType === 'devolve') {
+    for (let i = 0; i < 9; i++) {
+      p.push({ type: 'arrow_down', color: '#58a6ff', ox: (Math.random() - 0.5) * 55, delay: i * 38, dur: 600 });
+    }
+    for (let i = 0; i < 7; i++) {
+      const a = Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 0.85;
+      p.push({ type: 'dot', color: '#58a6ff', angle: a, speed: 2.2 + Math.random() * 2, r: 3.5, delay: i * 22, dur: 550 });
+    }
+  } else if (animType === 'evolve_facedown') {
+    for (let i = 0; i < 20; i++) {
+      const a = (i / 20) * Math.PI * 2;
+      p.push({ type: 'spiral', color: '#bc8cff', baseAngle: a, delay: i * 22, dur: 920 });
+    }
+    for (let i = 0; i < 2; i++) p.push({ type: 'ring', color: '#9b59b6', maxR: 52 + i * 22, delay: i * 140, dur: 700 });
+  } else if (animType === 'return') {
+    for (let i = 0; i < 13; i++) {
+      p.push({ type: 'streak', color: 'rgba(210,222,235,0.82)', yOff: (Math.random() - 0.5) * 52, dir: Math.random() > 0.5 ? 1 : -1, delay: i * 32, dur: 500 });
+    }
+    for (let i = 0; i < 2; i++) p.push({ type: 'ring', color: 'rgba(200,215,230,0.5)', maxR: 38 + i * 16, delay: i * 80, dur: 500 });
+  }
+  return p;
+}
+
+function drawCPAParticle(ctx, p, pt, cx, cy) {
+  if (p.type === 'ring') {
+    const r = p.maxR * Math.min(pt * 1.9, 1);
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.strokeStyle = p.color; ctx.lineWidth = 2.5 * (1 - pt * 0.75); ctx.stroke();
+  } else if (p.type === 'dot') {
+    const dist = pt * p.speed * 78;
+    const px = cx + Math.cos(p.angle) * dist;
+    const py = cy + Math.sin(p.angle) * dist + pt * pt * 18;
+    ctx.beginPath(); ctx.arc(px, py, p.r * (1 - pt * 0.55), 0, Math.PI * 2);
+    ctx.fillStyle = p.color; ctx.fill();
+  } else if (p.type === 'arrow_up') {
+    const y = cy - pt * 76;
+    const x = cx + p.ox * (1 - pt * 0.3);
+    const sz = 9 * (1 - pt * 0.45);
+    ctx.beginPath(); ctx.moveTo(x, y - sz); ctx.lineTo(x - sz * 0.55, y + sz * 0.28); ctx.lineTo(x + sz * 0.55, y + sz * 0.28); ctx.closePath();
+    ctx.fillStyle = p.color; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x, y + sz * 0.28); ctx.lineTo(x, y + sz * 0.9);
+    ctx.strokeStyle = p.color; ctx.lineWidth = sz * 0.42; ctx.stroke();
+  } else if (p.type === 'arrow_down') {
+    const y = cy + pt * 76;
+    const x = cx + p.ox * (1 - pt * 0.3);
+    const sz = 9 * (1 - pt * 0.45);
+    ctx.beginPath(); ctx.moveTo(x, y + sz); ctx.lineTo(x - sz * 0.55, y - sz * 0.28); ctx.lineTo(x + sz * 0.55, y - sz * 0.28); ctx.closePath();
+    ctx.fillStyle = p.color; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x, y - sz * 0.28); ctx.lineTo(x, y - sz * 0.9);
+    ctx.strokeStyle = p.color; ctx.lineWidth = sz * 0.42; ctx.stroke();
+  } else if (p.type === 'spiral_dot') {
+    const t2 = pt * 1.25; const r = t2 * 54;
+    const a = p.baseAngle + t2 * Math.PI;
+    ctx.beginPath(); ctx.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 4 * (1 - pt * 0.7), 0, Math.PI * 2);
+    ctx.fillStyle = p.color; ctx.fill();
+  } else if (p.type === 'spiral') {
+    const t2 = pt; const r = t2 * 72;
+    const a = p.baseAngle + t2 * Math.PI * 3.2;
+    ctx.beginPath(); ctx.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 5 * (1 - pt * 0.6), 0, Math.PI * 2);
+    ctx.fillStyle = p.color; ctx.fill();
+  } else if (p.type === 'streak') {
+    const bx = cx + p.dir * pt * 88;
+    const len = 38 * (1 - pt * 0.65);
+    ctx.beginPath(); ctx.moveTo(bx - p.dir * len * 0.25, cy + p.yOff); ctx.lineTo(bx + p.dir * len * 0.75, cy + p.yOff);
+    ctx.strokeStyle = p.color; ctx.lineWidth = 2; ctx.stroke();
+  }
+}
+
+// ── Opponent card play animation queue ────────────────────────────────────────
+function processCardPlayAnims(state) {
+  if (!state.cardPlayAnims) return;
+  let maxNewId = 0;
+  for (const anim of state.cardPlayAnims) {
+    if (seenCardPlayAnimIds.has(anim.id)) continue;
+    seenCardPlayAnimIds.add(anim.id);
+    maxNewId = Math.max(maxNewId, anim.id);
+    if (anim.playerIndex === myIndex) continue; // my own plays are animated locally
+    cardPlayAnimQueue.push(anim);
+  }
+  if (maxNewId > 0) acknowledgeNotification('card_play_anims', maxNewId);
+  if (cardPlayAnimQueue.length && !cardPlayAnimRunning) runCardPlayAnimQueue();
+}
+
+function runCardPlayAnimQueue() {
+  if (!cardPlayAnimQueue.length) { cardPlayAnimRunning = false; return; }
+  cardPlayAnimRunning = true;
+  const anim = cardPlayAnimQueue.shift();
+  playOppCardAnimation(anim);
+  setTimeout(runCardPlayAnimQueue, 660);
+}
+
+function playOppCardAnimation(anim) {
+  const prefix = anim.playerIndex === myIndex ? 'my' : 'opp';
+  const oppArea = document.getElementById(prefix === 'opp' ? 'opp-area' : 'my-area');
+  const areaRect = oppArea ? oppArea.getBoundingClientRect() : { left: 20, top: 10, width: 200, height: 50 };
+
+  if (anim.animType === 'return') {
+    // Card flies FROM field slot TO hand (off-screen for opp)
+    const slotEl = document.getElementById(`${prefix}-${anim.slot}`);
+    if (!slotEl) return;
+    const fromRect = slotEl.getBoundingClientRect();
+    if (prefix === 'opp') {
+      // Fly off-screen upward
+      const destX = areaRect.left + Math.random() * Math.max(1, areaRect.width * 0.6) + areaRect.width * 0.1;
+      flyCardCustom(fromRect, { left: destX, top: areaRect.top - 120, width: 90, height: 126 }, anim.cardId, 'return');
+    } else {
+      // Fly to my hand area
+      const handArea = document.getElementById('hand-area');
+      const hRect = handArea ? handArea.getBoundingClientRect() : null;
+      if (!hRect) return;
+      const destX = hRect.left + Math.random() * Math.max(1, hRect.width * 0.7) + hRect.width * 0.1;
+      flyCardCustom(fromRect, { left: destX, top: hRect.top + 10, width: 90, height: 126 }, anim.cardId, 'return');
+    }
+    return;
+  }
+
+  // Playing to field slot: source = opp hand area (off-screen top), dest = slot
+  const toEl = document.getElementById(`${prefix}-${anim.slot}`);
+  if (!toEl) return;
+  const toRect = toEl.getBoundingClientRect();
+  const srcX = areaRect.left + Math.random() * Math.max(1, areaRect.width * 0.7) + areaRect.width * 0.1;
+  const srcY = areaRect.top - (50 + Math.random() * 60);
+  flyCardCustom({ left: srcX, top: srcY, width: 90, height: 126 }, toRect, anim.cardId, anim.animType);
+}
+
+// ── Hand shuffle / order ──────────────────────────────────────────────────────
+function shuffleHand() {
+  if (!gameState || myIndex === -1) return;
+  const me = gameState.players[myIndex];
+  if (!me || !me.handIds || me.handIds.length < 2) return;
+  const shuffled = [...me.handIds].sort(() => Math.random() - 0.5);
+  animateHandReorder(me.handIds, shuffled);
+  sendAction('reorderHand', { handIds: shuffled });
+}
+
+function orderHand() {
+  if (!gameState || myIndex === -1) return;
+  const me = gameState.players[myIndex];
+  if (!me || !me.handIds || me.handIds.length < 2) return;
+  const TYPE_ORDER = { rock: 0, paper: 1, scissors: 2 };
+  const sorted = [...me.handIds].sort((a, b) => {
+    const ca = allCards[a], cb = allCards[b];
+    if (!ca || !cb) return 0;
+    const ta = TYPE_ORDER[(ca.type || '').toLowerCase()] ?? 9;
+    const tb = TYPE_ORDER[(cb.type || '').toLowerCase()] ?? 9;
+    if (ta !== tb) return ta - tb;
+    return (ca.power || 0) - (cb.power || 0);
+  });
+  animateHandReorder(me.handIds, sorted);
+  sendAction('reorderHand', { handIds: sorted });
+}
+
+function animateHandReorder(oldIds, newIds) {
+  const handScroll = document.getElementById('hand-scroll');
+  if (!handScroll) return;
+
+  // 1. Record all current card positions
+  const oldPos = {};
+  handScroll.querySelectorAll('.hand-card').forEach(el => {
+    oldPos[el.dataset.id] = el.getBoundingClientRect();
+  });
+
+  // 2. Re-render with new order (suppress deal animation)
+  if (gameState) {
+    const me = gameState.players[myIndex];
+    const savedIds = [...(me.handIds || [])];
+    me.handIds = [...newIds];
+    isHandReorderInProgress = true;
+    updateHand(gameState, myIndex);
+    isHandReorderInProgress = false;
+    me.handIds = savedIds; // restore until server state arrives
+  }
+
+  // 3. Apply inverse transforms to newly rendered elements
+  const toAnimate = [];
+  handScroll.querySelectorAll('.hand-card').forEach(el => {
+    const id = el.dataset.id;
+    if (!oldPos[id]) return;
+    const newRect = el.getBoundingClientRect();
+    const dx = oldPos[id].left - newRect.left;
+    if (Math.abs(dx) < 2) return;
+    const tilt = Math.max(-14, Math.min(14, dx * 0.055));
+    el.style.transition = 'none';
+    el.style.transform = `translate(${dx}px, 0px) rotate(${tilt}deg)`;
+    toAnimate.push(el);
+  });
+
+  if (!toAnimate.length) return;
+  // Single forced reflow then animate all
+  toAnimate[0].offsetHeight;
+  toAnimate.forEach(el => {
+    el.style.transition = 'transform 0.46s cubic-bezier(0.22,0.61,0.36,1)';
+    el.style.transform = '';
+  });
+  setTimeout(() => {
+    toAnimate.forEach(el => { if (el.parentNode) { el.style.transition = ''; el.style.transform = ''; } });
+  }, 510);
 }
 
 // ── Animated dark texture background ───────────────────────────────────────────
