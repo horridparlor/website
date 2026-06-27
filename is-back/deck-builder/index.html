@@ -228,6 +228,12 @@
   let userId         = localStorage.getItem('userId');
   let username       = localStorage.getItem('username');
   let isDirty        = false;
+  let dataLoaded     = false;
+
+  /* ── Infinite scroll state ──────────────────────────────────────── */
+  const BATCH_SIZE   = 50;
+  let renderedCount  = 0;
+  let gridObserver   = null;
 
   let currentDeck = {
     id:    null,
@@ -431,6 +437,7 @@
       localStorage.setItem('userId', userId);
       localStorage.setItem('username', username);
       updateUserUI();
+      await initData();
       loadDecks();
     } catch (e) {
       el.loginError.textContent = 'Network error.';
@@ -439,9 +446,38 @@
     }
   };
 
+  /* ── Data init (deferred until after login decision) ───────────── */
+  const initData = async () => {
+    if (dataLoaded) return;
+    dataLoaded = true;
+    setLoading('Loading cards…');
+    try {
+      await loadExpansions();
+      await loadCards();
+      await loadKeywords();
+      applyURLToControls();
+      filterCards();
+    } catch (e) {
+      showToast('Failed to load cards', 'error');
+    } finally {
+      setLoading(null);
+    }
+  };
+
   el.btnDoLogin.addEventListener('click', doLogin);
   el.loginPassword.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
-  el.btnGuest.addEventListener('click', () => { el.modalLogin.classList.add('hidden'); });
+  el.btnGuest.addEventListener('click', async () => {
+    el.modalLogin.classList.add('hidden');
+    await initData();
+    // Restore guest draft
+    const draft = loadDraft();
+    if (draft && !draft.id) {
+      currentDeck = { id: null, name: draft.name || 'New Deck', cards: draft.cards || [] };
+      el.deckNameInput.value = currentDeck.name;
+      updateDeckUI();
+      updateStats();
+    }
+  });
   el.btnLogout.addEventListener('click', () => {
     authToken = null; userId = null; username = null;
     localStorage.removeItem('authToken');
@@ -549,25 +585,83 @@
     el.btnResetFilters.disabled = !anyActive;
   };
 
-  const renderCardGrid = () => {
-    const deckMap = {};
-    currentDeck.cards.forEach(dc => { deckMap[dc.cardId] = dc.quantity; });
+  const buildDeckMap = () => {
+    const m = {};
+    currentDeck.cards.forEach(dc => { m[dc.cardId] = dc.quantity; });
+    return m;
+  };
 
-    el.cardGrid.innerHTML = filteredCards.map(c => {
-      const qty      = deckMap[c.id] || 0;
-      const repl     = hasReplicate(c);
-      const inDeck   = qty > 0;
-      const focused  = focusedCard && focusedCard.id === c.id;
-      const typeLc   = norm(c.type);
-      const displayName = removeBB(c.name);
-      return `
-        <div class="grid-card${inDeck?' in-deck':''}${focused?' focused':''}" data-id="${c.id}" title="${esc(displayName)}">
-          <img src="${cardPath(c)}" alt="${esc(displayName)}" loading="lazy"
-            onerror="this.style.display='none'"/>
-          ${repl ? '<span class="badge-replicate">∞</span>' : ''}
-          ${qty > 1 ? `<span class="badge-qty">×${qty}</span>` : (qty===1 && repl ? '<span class="badge-qty">×1</span>' : '')}
-        </div>`;
-    }).join('');
+  const createCardEl = (c, deckMap) => {
+    const qty  = deckMap[c.id] || 0;
+    const repl = hasReplicate(c);
+    const displayName = removeBB(c.name);
+    const div = document.createElement('div');
+    div.className = `grid-card${qty > 0 ? ' in-deck' : ''}${focusedCard && focusedCard.id === c.id ? ' focused' : ''}`;
+    div.dataset.id = c.id;
+    div.title = displayName;
+    const img = document.createElement('img');
+    img.src = cardPath(c);
+    img.alt = displayName;
+    img.loading = 'lazy';
+    img.onerror = function() { this.style.display = 'none'; };
+    div.appendChild(img);
+    if (repl) { const b = document.createElement('span'); b.className = 'badge-replicate'; b.textContent = '∞'; div.appendChild(b); }
+    if (qty > 1 || (qty === 1 && repl)) { const b = document.createElement('span'); b.className = 'badge-qty'; b.textContent = `×${qty}`; div.appendChild(b); }
+    return div;
+  };
+
+  const updateCardEl = (cardEl, c, deckMap) => {
+    const qty  = deckMap[c.id] || 0;
+    const repl = hasReplicate(c);
+    cardEl.classList.toggle('in-deck', qty > 0);
+    cardEl.classList.toggle('focused', !!(focusedCard && focusedCard.id === c.id));
+    const old = cardEl.querySelector('.badge-qty');
+    if (old) old.remove();
+    if (qty > 1 || (qty === 1 && repl)) { const b = document.createElement('span'); b.className = 'badge-qty'; b.textContent = `×${qty}`; cardEl.appendChild(b); }
+  };
+
+  const appendNextBatch = () => {
+    const deckMap = buildDeckMap();
+    const batch   = filteredCards.slice(renderedCount, renderedCount + BATCH_SIZE);
+    if (!batch.length) return;
+
+    const frag = document.createDocumentFragment();
+    batch.forEach(c => frag.appendChild(createCardEl(c, deckMap)));
+    renderedCount += batch.length;
+
+    const oldSentinel = el.cardGrid.querySelector('.grid-sentinel');
+    if (oldSentinel) oldSentinel.remove();
+    el.cardGrid.appendChild(frag);
+
+    if (renderedCount < filteredCards.length) {
+      const sentinel = document.createElement('div');
+      sentinel.className = 'grid-sentinel';
+      el.cardGrid.appendChild(sentinel);
+      gridObserver = new IntersectionObserver(entries => {
+        if (entries[0].isIntersecting) {
+          gridObserver.disconnect();
+          gridObserver = null;
+          appendNextBatch();
+        }
+      }, { rootMargin: '300px' });
+      gridObserver.observe(sentinel);
+    }
+  };
+
+  const renderCardGrid = () => {
+    if (gridObserver) { gridObserver.disconnect(); gridObserver = null; }
+    renderedCount = 0;
+    el.cardGrid.innerHTML = '';
+    appendNextBatch();
+  };
+
+  /* Update badges/focus on already-rendered cards without a full re-render */
+  const refreshCardGrid = () => {
+    const deckMap = buildDeckMap();
+    el.cardGrid.querySelectorAll('.grid-card[data-id]').forEach(cardEl => {
+      const c = allCards.find(x => x.id === Number(cardEl.dataset.id));
+      if (c) updateCardEl(cardEl, c, deckMap);
+    });
   };
 
   /* ── Focus zone ─────────────────────────────────────────────────── */
@@ -602,7 +696,7 @@
 
     const qty = getDeckQty(card.id);
     updateFocusQty(card, qty);
-    renderCardGrid(); // re-render to update focused highlight
+    refreshCardGrid(); // update focused highlight without full re-render
   };
 
   const updateFocusQty = (card, qty) => {
@@ -632,7 +726,6 @@
     isDirty = true;
     saveDraft();
     updateDeckUI();
-    filterCards();
     showToast(`Added ${card.name}`, 'success');
     if (focusedCard && focusedCard.id === card.id) updateFocusQty(card, getDeckQty(card.id));
   };
@@ -649,7 +742,6 @@
     isDirty = true;
     saveDraft();
     updateDeckUI();
-    filterCards();
     if (focusedCard && focusedCard.id === cardId) updateFocusQty(focusedCard, getDeckQty(cardId));
     if (card) showToast(`Removed ${card.name}`, '');
   };
@@ -659,7 +751,7 @@
   const updateDeckUI = () => {
     renderDeckList();
     updateStats();
-    renderCardGrid();
+    refreshCardGrid(); // only update badges on visible cards
   };
 
   const renderDeckList = () => {
@@ -1134,22 +1226,14 @@
 
   /* ── Init ───────────────────────────────────────────────────────── */
   (async () => {
-    setLoading('Loading cards…');
     updateUserUI();
-    try {
-      await loadExpansions();
-      await loadCards();
-      await loadKeywords();
-      applyURLToControls();
-      filterCards();
-    } catch (e) {
-      showToast('Failed to load cards', 'error');
-    }
 
     if (authToken) {
+      // Already logged in — load data and decks immediately
+      await initData();
       await loadDecks();
 
-      // Restore draft or auto-select the most-recently-updated deck
+      // Restore draft or auto-select most-recently-updated deck
       const draft = loadDraft();
       if (draft) {
         const exists = draft.id ? savedDecks.find(d => d.id === draft.id) : true;
@@ -1181,22 +1265,12 @@
         renderDeckSelector();
         el.deckSelector.value = currentDeck.id;
       }
+
+      updateDeckUI();
+      updateStats();
+      setLoading(null);
     } else {
-      // Not logged in — check for a guest draft (no id)
-      const draft = loadDraft();
-      if (draft && !draft.id) {
-        currentDeck = { id: null, name: draft.name || 'New Deck', cards: draft.cards || [] };
-        el.deckNameInput.value = currentDeck.name;
-      }
-    }
-
-    // Re-render left panel so quantity badges reflect the loaded deck
-    filterCards();
-    updateDeckUI();
-    updateStats();
-    setLoading(null);
-
-    if (!authToken) {
+      // Not logged in — show login modal immediately, load nothing yet
       el.modalLogin.classList.remove('hidden');
     }
   })();

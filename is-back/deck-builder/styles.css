@@ -1,5 +1,8 @@
 /* Deck Builder – page-specific styles */
 
+/* Infinite-scroll sentinel: must span all grid columns so IntersectionObserver fires correctly */
+.grid-sentinel { grid-column: 1 / -1; height: 1px; }
+
 /* ── Layout ─────────────────────────────────────────────────────────── */
 html, body { height: 100%; overflow: hidden; }
 
