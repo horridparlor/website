@@ -1274,6 +1274,17 @@ function handleAcknowledgeNotification(array &$state, int $playerIndex, array $p
         return null;
     }
 
+    if ($kind === 'pass') {
+        $current = (int)($state['lastPassTs'] ?? 0);
+        if ($current && $stamp === $current) {
+            if (!isset($state['passAcks']) || !is_array($state['passAcks'])) {
+                $state['passAcks'] = [0, 0];
+            }
+            $state['passAcks'][$playerIndex] = $stamp;
+        }
+        return null;
+    }
+
     return 'Unknown notification kind';
 }
 
@@ -1286,6 +1297,8 @@ function handlePass(array &$state, int $playerIndex, array $params, GameEngine $
     if (empty($p['field']['primary'])) return 'Need a primary card to pass';
 
     $state['log'][] = $state['players'][$playerIndex]['username'] . ' passes.';
+    $state['lastPassTs'] = time();
+    $state['lastPassBy'] = $playerIndex;
 
     $oppIdx = 1 - $playerIndex;
     $opp    = $state['players'][$oppIdx];

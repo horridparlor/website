@@ -72,7 +72,7 @@ const RULES_SECTIONS = [
       {
         id: 'turn-start-of-round',
         title: '4.1 Start of Round',
-        content: `<p>The player going first rolls their 2 D6, may use one <strong>[Start of round]</strong> keyword effect from hand, then draws cards up to their rolled total — and immediately begins their main phase. After the first player completes their first main phase turn, the second player takes their start of round in the same way (unless the round has already ended by surrender).</p>`,
+        content: `<p>Start of Round takes place at the beginning of each player's first main phase turn. Roll your 2 D6, optionally use one <strong>[Start of round]</strong> keyword from hand, then draw up to your rolled total and begin your main phase. The second player does the same after the first player's first turn — unless the round has already ended.</p>`,
       },
       {
         id: 'turn-main-phase',
@@ -87,7 +87,7 @@ const RULES_SECTIONS = [
       {
         id: 'turn-reveal-phase',
         title: '4.4 Reveal Phase',
-        content: `<p>If the non-passing player has a face-down primary card when the pass resolves, the round enters the Reveal Phase. The non-passing player's face-down primary card is revealed first. If the passing player also has a face-down primary card, it is revealed next. Once all face-down primary cards have been revealed, the round proceeds immediately to End of Round.</p>`,
+        content: `<p>If the non-passing player has a face-down primary card, the round enters the Reveal Phase. Their card is revealed first; if the passing player also has a face-down primary, it is revealed next. The round then proceeds to End of Round.</p>`,
       },
       {
         id: 'turn-end-of-round',
@@ -289,6 +289,12 @@ const RULES_SECTIONS = [
 <p>If the passer is in a winning state when they pass, the pass finalizes regardless of whether any pass-turn effects are used.</p>
 <p><strong>Example:</strong> You pass while losing. Your opponent has Herwood, whose keyword reads: <em>[Opponent passes] Look at the top 3 cards of your deck, and devolve this into 1 of them. If you do, add the other 2 into your hand.</em> The opponent activates Herwood but the top 3 cards offer nothing to devolve into, so they return the cards and declare failure. The game re-evaluates — you are still losing — so your turn is restored.</p>
 <p><strong>Preventing infinite loops:</strong> A pass-turn effect that failed may not be activated again unless the board state has genuinely changed since the last failure. If the passer's turn is restored, and they pass again without having changed anything on the field, the opponent cannot re-use the same effect that already failed — the board is identical and the result would be identical. Only if something actually changed (a card was played, evolved, discarded, etc.) does the effect become available to use again.</p>`,
+      },
+      {
+        id: 'mikontalo-bottom-card',
+        title: '8.6 Mikontalo — Removing Your Own Primary Stack During the Passing Phase',
+        content: `<p>If the non-passing player uses an <strong>[Opponent passes]</strong> effect that removes their own entire primary stack, the re-evaluation sees them with no primary card while the passing player still has one. The passing player wins the round.</p>
+<p>Example: Mikontalo reads <em>[Opponent passes] You may return this card from the field to hand. If you do, discard a card.</em> If Mikontalo is your only primary card and you return it to hand, you are left with no primary card. The re-evaluation finds the passing player still has a card — they win the round.</p>`,
       },
     ],
   },

@@ -387,6 +387,24 @@
     }
     #phase-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
+    /* Pass sweep banner */
+    #pass-banner {
+      position: fixed; top: 50%; left: 0; width: max-content;
+      transform: translateY(-50%) translateX(-110%);
+      font-size: 56px; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase;
+      color: #fff; z-index: 900; pointer-events: none;
+      padding: 14px 36px; border-radius: 10px;
+      background: rgba(0,0,0,0.38); backdrop-filter: blur(6px);
+      text-shadow: 0 0 40px currentColor, 2px 3px 0 rgba(0,0,0,0.55);
+    }
+    @keyframes pass-sweep {
+      0%   { transform: translateY(-50%) translateX(-110%); opacity: 0; }
+      8%   { opacity: 1; }
+      85%  { opacity: 1; }
+      100% { transform: translateY(-50%) translateX(110vw); opacity: 0; }
+    }
+    #pass-banner.active { animation: pass-sweep 2.0s cubic-bezier(0.4,0,0.6,1) forwards; }
+
     /* Opponent thinking */
     .thinking-indicator { font-size: 12px; color: var(--muted); animation: pulse 1.5s ease-in-out infinite; }
     @keyframes pulse { 0%,100%{opacity:1;}50%{opacity:.3;} }
@@ -410,6 +428,7 @@
 <body>
 <canvas id="bg-canvas" style="position:fixed;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none;"></canvas>
 <div id="phase-toast"></div>
+<div id="pass-banner"></div>
 <div id="app">
   <!-- Topbar -->
   <div id="topbar">
@@ -679,6 +698,7 @@ let lastPrizeDrawTs = 0;
 let lastNewHandCardIds = new Set();
 let prevPhaseTurn = null;
 let lastNaturalSelectionTs = 0;
+let lastPassTs = 0;
 let lastCommunismTs = 0;
 let lastMagicPotionTs = 0;
 let lastFacismDestroyTs = 0;
@@ -875,6 +895,21 @@ function processState(state) {
     lastNaturalSelectionTs = nsTs;
     showNaturalSelectionEffect();
     acknowledgeNotification('natural_selection', nsTs);
+  }
+
+  const pTs = state.lastPassTs ?? 0;
+  const pAck = state.passAcks?.[myIndex] ?? 0;
+  if (pTs && pAck !== pTs && pTs !== lastPassTs) {
+    lastPassTs = pTs;
+    const roundOver = state.phase === 'end_of_round' || state.phase === 'reveal_phase' || state.phase === 'game_over';
+    if (!roundOver) {
+      const didIPass = state.lastPassBy === myIndex;
+      showPassBanner(
+        didIPass ? 'You Passed' : 'Opponent Passed',
+        didIPass ? '#58a6ff' : '#f85149'
+      );
+    }
+    acknowledgeNotification('pass', pTs);
   }
 
   const cTs = state.lastCommunismUsed ?? 0;
@@ -2864,6 +2899,20 @@ document.getElementById('hand-scroll').addEventListener('mousedown', e => {
   const hc = e.target.closest('.hand-card');
   if (hc) hc.draggable = true;
 });
+
+// ── Pass sweep banner ──────────────────────────────────────────────────────────
+let passBannerTimeout = null;
+function showPassBanner(msg, color) {
+  const el = document.getElementById('pass-banner');
+  if (!el) return;
+  el.classList.remove('active');
+  el.textContent = msg;
+  el.style.color = color || '#fff';
+  void el.offsetWidth; // force reflow to restart animation
+  el.classList.add('active');
+  clearTimeout(passBannerTimeout);
+  passBannerTimeout = setTimeout(() => el.classList.remove('active'), 2100);
+}
 
 // ── Phase toast ────────────────────────────────────────────────────────────────
 function showPhaseToast(msg, color) {
