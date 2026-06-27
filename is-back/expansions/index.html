@@ -181,7 +181,6 @@
 
   let expansions = [];
   let authToken  = localStorage.getItem('authToken');
-  let pendingDeleteId = null;
   let toastTimer = null;
 
   const root = document.getElementById('page-root');
@@ -296,7 +295,7 @@
       btn.addEventListener('click', () => openEditModal(Number(btn.dataset.id)))
     );
     tbody.querySelectorAll('[data-action="delete"]').forEach(btn =>
-      btn.addEventListener('click', () => confirmDelete(Number(btn.dataset.id)))
+      btn.addEventListener('click', () => deleteExpansion(Number(btn.dataset.id)))
     );
   };
 
@@ -390,11 +389,6 @@
     };
     if (!isCreate) body.id = parseInt(idVal, 10);
 
-    const confirmMsg = isCreate
-      ? `Create expansion "${body.name || 'Unnamed'}" (cards ${firstCardId}–${lastCardId})?`
-      : `Update expansion #${body.id}?`;
-    if (!confirm(confirmMsg)) return;
-
     const btn = document.getElementById('btn-edit-save');
     btn.disabled = true;
     try {
@@ -414,34 +408,18 @@
 
   // ── Delete ─────────────────────────────────────────────────────────────────
 
-  const confirmDelete = (id) => {
-    const e = expansions.find(x => x.id === id);
-    pendingDeleteId = id;
-    document.getElementById('confirm-msg').textContent =
-      `Delete expansion #${id} (${e ? (e.name || 'Unnamed') + ', cards ' + e.firstCardId + '–' + e.lastCardId : ''})?  This cannot be undone.`;
-    document.getElementById('modal-confirm').classList.remove('hidden');
-  };
-
-  document.getElementById('btn-confirm-no').addEventListener('click', () => {
-    document.getElementById('modal-confirm').classList.add('hidden');
-    pendingDeleteId = null;
-  });
-
-  document.getElementById('btn-confirm-yes').addEventListener('click', async () => {
-    document.getElementById('modal-confirm').classList.add('hidden');
-    if (!pendingDeleteId) return;
+  const deleteExpansion = async (id) => {
+    if (!id) return;
     try {
-      const res  = await fetch(EXPANSIONS_URL, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ action: 'delete', id: pendingDeleteId }) });
+      const res  = await fetch(EXPANSIONS_URL, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ action: 'delete', id }) });
       const data = await res.json();
       if (!res.ok) { showToast(data.error || 'Delete failed.', 'err'); return; }
       showToast('Expansion deleted.', 'ok');
       await reload();
     } catch (e) {
       showToast('Network error: ' + e.message, 'err');
-    } finally {
-      pendingDeleteId = null;
     }
-  });
+  };
 
   // ── SQL Export ─────────────────────────────────────────────────────────────
 
