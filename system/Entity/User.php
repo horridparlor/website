@@ -17,6 +17,7 @@ const ACCESS_RIGHT_CAN_CREATE_CONTENT = 'canCreateContent';
 const ACCESS_RIGHT_CAN_GENERATE_IMAGES = 'canGenerateImages';
 const ACCESS_RIGHT_CAN_MESSAGE = 'canMessage';
 const ACCESS_RIGHT_AUTO_REFILL_TOKENS = 'autoRefillTokens';
+const ACCESS_RIGHT_IS_ADMIN = 'isAdmin';
 const ACCESS_RIGHT_IS_REGULAR_USER = 'isRegularUser';
 const ACCESS_RIGHT_IS_PRIORITY_USER = 'isPriorityUser';
 const ACCESS_RIGHT_IS_EMPLOYEE = 'isEmployee';
@@ -144,6 +145,10 @@ class User
     public function autoRefillTokens(): bool
     {
         return $this->checkAccess(ACCESS_RIGHT_AUTO_REFILL_TOKENS);
+    }
+    public function isAdmin(): bool
+    {
+        return $this->checkAccess(ACCESS_RIGHT_IS_ADMIN);
     }
     public function isRegularUser(): bool
     {

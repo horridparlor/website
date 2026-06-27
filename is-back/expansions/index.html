@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" href="../../favicon.svg" type="image/svg+xml" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rakuel Is Back – Expansions</title>
+  <link rel="stylesheet" href="../../styles.css" />
+  <style>
+    body { background:#0d1117; color:#e6edf3; min-height:100vh; display:flex; flex-direction:column; font-family:inherit; }
+    .topbar { background:#161b22; border-bottom:1px solid #30363d; padding:12px 20px; display:flex; align-items:center; gap:10px; }
+    .topbar a, .topbar button { background:#21262d; color:#e6edf3; border:1px solid #30363d; border-radius:6px; padding:6px 14px; text-decoration:none; font-size:14px; cursor:pointer; }
+    .topbar a:hover, .topbar button:hover { background:#30363d; }
+    .topbar .title { flex:1; font-size:18px; color:#58a6ff; font-weight:600; }
+
+    .page { flex:1; padding:32px 20px; max-width:1100px; margin:0 auto; width:100%; box-sizing:border-box; }
+
+    /* Access denied */
+    .access-denied { display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; gap:16px; color:#8b949e; padding:60px 20px; }
+    .access-denied h2 { color:#f85149; margin:0; }
+
+    /* Actions bar */
+    .actions-bar { display:flex; align-items:center; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
+    .btn { border-radius:6px; padding:8px 16px; font-size:14px; font-weight:600; cursor:pointer; border:1px solid; transition:background .15s; }
+    .btn-green  { background:#238636; color:#fff; border-color:#2ea043; }
+    .btn-green:hover { background:#2ea043; }
+    .btn-blue   { background:#1f6feb; color:#fff; border-color:#388bfd; }
+    .btn-blue:hover { background:#388bfd; }
+    .btn-orange { background:#9e4c04; color:#fff; border-color:#d29922; }
+    .btn-orange:hover { background:#b46005; }
+    .btn-red    { background:#4d1c1c; color:#f85149; border-color:#f85149; }
+    .btn-red:hover { background:#612424; }
+    .btn-ghost  { background:transparent; color:#8b949e; border-color:#30363d; }
+    .btn-ghost:hover { background:#21262d; color:#e6edf3; }
+    .btn:disabled { opacity:.45; cursor:not-allowed; }
+
+    /* Table */
+    .table-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:14px; }
+    th { background:#161b22; color:#8b949e; font-weight:600; text-align:left; padding:10px 14px; border-bottom:2px solid #30363d; white-space:nowrap; }
+    td { padding:10px 14px; border-bottom:1px solid #21262d; vertical-align:middle; }
+    tr:hover td { background:#161b22; }
+    .badge { display:inline-block; border-radius:4px; padding:2px 8px; font-size:12px; font-weight:600; }
+    .badge-yes { background:#1a3a1a; color:#3fb950; border:1px solid #2ea043; }
+    .badge-no  { background:#2d1b1b; color:#f85149; border:1px solid #f85149; }
+    .badge-null { background:#1c1c2d; color:#8b949e; border:1px solid #30363d; }
+    .range-badge { font-family:monospace; color:#79c0ff; }
+    .row-actions { display:flex; gap:6px; }
+
+    /* Modal */
+    .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.7); display:flex; align-items:center; justify-content:center; z-index:100; }
+    .modal-backdrop.hidden { display:none; }
+    .modal-box { background:#161b22; border:1px solid #30363d; border-radius:12px; padding:28px 32px; width:100%; max-width:500px; max-height:90vh; overflow-y:auto; }
+    .modal-box h3 { margin:0 0 20px; color:#f0f6fc; font-size:18px; }
+    .field { margin-bottom:16px; }
+    .field label { display:block; font-size:13px; color:#8b949e; margin-bottom:5px; }
+    .field input, .field select { width:100%; background:#0d1117; border:1px solid #30363d; border-radius:6px; padding:9px 12px; color:#e6edf3; font-size:14px; box-sizing:border-box; transition:border-color .15s; }
+    .field input:focus, .field select:focus { outline:none; border-color:#58a6ff; }
+    .field-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .field-hint { font-size:12px; color:#8b949e; margin-top:4px; }
+    .modal-error { background:#2d1b1b; border:1px solid #f85149; color:#f85149; border-radius:6px; padding:8px 12px; font-size:13px; margin-bottom:14px; display:none; }
+    .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; flex-wrap:wrap; }
+    .overlap-warning { background:#2d2100; border:1px solid #d29922; color:#e3b341; border-radius:6px; padding:8px 12px; font-size:12px; margin-top:6px; display:none; }
+
+    /* SQL Export modal */
+    .sql-output { background:#0d1117; border:1px solid #30363d; border-radius:6px; padding:12px; font-family:monospace; font-size:12px; color:#79c0ff; white-space:pre; overflow-x:auto; max-height:400px; overflow-y:auto; user-select:all; }
+
+    /* Toast */
+    .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#21262d; border:1px solid #30363d; color:#e6edf3; border-radius:8px; padding:10px 20px; font-size:14px; z-index:200; display:none; }
+    .toast.ok  { border-color:#2ea043; color:#3fb950; }
+    .toast.err { border-color:#f85149; color:#f85149; }
+
+    /* Loading */
+    .loading-msg { color:#8b949e; padding:40px 0; text-align:center; }
+
+    /* Empty */
+    .empty-msg { color:#8b949e; padding:40px 0; text-align:center; font-size:15px; }
+
+    /* Confirm */
+    .modal-confirm { max-width:380px; }
+    .modal-confirm p { color:#8b949e; font-size:14px; margin:0 0 20px; }
+  </style>
+</head>
+<body>
+
+<header class="topbar">
+  <a href="/">Home</a>
+  <a href="/is-back/card-gallery/">Card Gallery</a>
+  <a href="/is-back/deck-builder/">Deck Builder</a>
+  <div class="title">Expansions</div>
+</header>
+
+<div class="page" id="page-root">
+  <div class="loading-msg" id="loading-msg">Loading…</div>
+</div>
+
+<!-- Edit / Create modal -->
+<div class="modal-backdrop hidden" id="modal-edit">
+  <div class="modal-box">
+    <h3 id="modal-edit-title">Edit Expansion</h3>
+    <div class="modal-error" id="modal-edit-error"></div>
+    <input type="hidden" id="edit-id" />
+    <div class="field">
+      <label for="edit-name">Name <span style="color:#555">(optional)</span></label>
+      <input type="text" id="edit-name" placeholder="e.g. Base Set" maxlength="100" />
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="edit-first">First Card ID</label>
+        <input type="number" id="edit-first" min="1" step="1" />
+        <div class="overlap-warning" id="overlap-warning"></div>
+      </div>
+      <div class="field">
+        <label for="edit-last">Last Card ID</label>
+        <input type="number" id="edit-last" min="1" step="1" />
+      </div>
+    </div>
+    <div class="field">
+      <label for="edit-released">Is Released</label>
+      <select id="edit-released">
+        <option value="1">Yes</option>
+        <option value="0">No</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="edit-gallery">Show Expansion In Card Gallery</label>
+      <select id="edit-gallery">
+        <option value="0">No (invisible unless released)</option>
+        <option value="1">Yes (shown in filter, hidden in default view)</option>
+      </select>
+      <div class="field-hint">When enabled, cards appear in Card Gallery only when this expansion is explicitly selected in the filter — not in the default "any" view. Does not affect Deck Builder.</div>
+    </div>
+    <div class="field">
+      <label for="edit-deckbuilder">Show In Deck Builder</label>
+      <select id="edit-deckbuilder">
+        <option value="">Auto (show if released)</option>
+        <option value="1">Yes (always show)</option>
+        <option value="0">No (always hide)</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btn-edit-cancel">Cancel</button>
+      <button class="btn btn-green" id="btn-edit-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm delete modal -->
+<div class="modal-backdrop hidden" id="modal-confirm">
+  <div class="modal-box modal-confirm">
+    <h3>Delete Expansion</h3>
+    <p id="confirm-msg">Are you sure?</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btn-confirm-no">Cancel</button>
+      <button class="btn btn-red" id="btn-confirm-yes">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- SQL Export modal -->
+<div class="modal-backdrop hidden" id="modal-sql">
+  <div class="modal-box" style="max-width:680px;">
+    <h3>Export SQL</h3>
+    <p style="color:#8b949e;font-size:13px;margin:0 0 12px;">Run this on the target server to sync expansions.</p>
+    <div class="sql-output" id="sql-output"></div>
+    <div class="modal-actions">
+      <button class="btn btn-blue" id="btn-sql-copy">Copy</button>
+      <button class="btn btn-ghost" id="btn-sql-close">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  const API_BASE      = '../../api/is-back';
+  const API_USER      = '../../api/user';
+  const EXPANSIONS_URL = API_BASE + '/expansions';
+  const AUTH_URL       = API_USER + '/authenticate';
+
+  let expansions = [];
+  let authToken  = localStorage.getItem('authToken');
+  let pendingDeleteId = null;
+  let toastTimer = null;
+
+  const root = document.getElementById('page-root');
+
+  const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  const showToast = (msg, type = '') => {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast ' + type;
+    t.style.display = 'block';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.style.display = 'none'; }, 3500);
+  };
+
+  const authHeaders = () => ({
+    'Content-Type': 'application/json',
+    ...(authToken ? { 'Authorization': 'Bearer ' + authToken } : {}),
+  });
+
+  // ── Fetch & render ─────────────────────────────────────────────────────────
+
+  const load = async () => {
+    document.getElementById('loading-msg').style.display = 'block';
+    try {
+      const res  = await fetch(EXPANSIONS_URL, { headers: authHeaders() });
+      const data = await res.json();
+      if (!data.isAdmin) {
+        renderAccessDenied();
+        return;
+      }
+      expansions = data.expansions || [];
+      renderPage();
+    } catch (e) {
+      document.getElementById('loading-msg').textContent = 'Failed to load. ' + e.message;
+    }
+  };
+
+  const renderAccessDenied = () => {
+    root.innerHTML = `
+      <div class="access-denied">
+        <h2>Access Denied</h2>
+        <p>You need admin rights to view this page.</p>
+        <a href="/is-back/card-gallery/" class="btn btn-ghost" style="text-decoration:none;">← Card Gallery</a>
+      </div>`;
+  };
+
+  const renderPage = () => {
+    root.innerHTML = `
+      <div class="actions-bar">
+        <button class="btn btn-green" id="btn-create">+ New Expansion</button>
+        <button class="btn btn-orange" id="btn-sql">Export SQL</button>
+      </div>
+      <div class="table-wrap">
+        <table id="expansions-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Card Range</th>
+              <th>Cards</th>
+              <th>Released</th>
+              <th>Show In Gallery</th>
+              <th>Show In Deck Builder</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="expansions-tbody"></tbody>
+        </table>
+      </div>`;
+    renderTable();
+
+    document.getElementById('btn-create').addEventListener('click', openCreateModal);
+    document.getElementById('btn-sql').addEventListener('click', openSqlModal);
+  };
+
+  const badge = (val) => {
+    if (val === null || val === undefined) return `<span class="badge badge-null">auto</span>`;
+    return val
+      ? `<span class="badge badge-yes">Yes</span>`
+      : `<span class="badge badge-no">No</span>`;
+  };
+
+  const renderTable = () => {
+    const tbody = document.getElementById('expansions-tbody');
+    if (!tbody) return;
+    if (!expansions.length) {
+      tbody.innerHTML = `<tr><td colspan="8" style="color:#8b949e;text-align:center;padding:32px;">No expansions yet. Click "+ New Expansion" to add one.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = expansions.map(e => {
+      const count = e.lastCardId - e.firstCardId + 1;
+      return `
+        <tr>
+          <td>${e.id}</td>
+          <td>${esc(e.name || '')} ${!e.name ? '<span style="color:#555;font-size:12px;">—</span>' : ''}</td>
+          <td><span class="range-badge">${e.firstCardId}–${e.lastCardId}</span></td>
+          <td>${count}</td>
+          <td>${badge(e.isReleased)}</td>
+          <td>${badge(e.showExpansionInCardGallery)}</td>
+          <td>${badge(e.showInDeckBuilder)}</td>
+          <td>
+            <div class="row-actions">
+              <button class="btn btn-blue btn-sm" style="padding:5px 12px;font-size:13px;" data-id="${e.id}" data-action="edit">Edit</button>
+              <button class="btn btn-red btn-sm"  style="padding:5px 12px;font-size:13px;" data-id="${e.id}" data-action="delete">Delete</button>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+
+    tbody.querySelectorAll('[data-action="edit"]').forEach(btn =>
+      btn.addEventListener('click', () => openEditModal(Number(btn.dataset.id)))
+    );
+    tbody.querySelectorAll('[data-action="delete"]').forEach(btn =>
+      btn.addEventListener('click', () => confirmDelete(Number(btn.dataset.id)))
+    );
+  };
+
+  // ── Overlap validation ─────────────────────────────────────────────────────
+
+  const getOverlaps = (first, last, excludeId) =>
+    expansions.filter(e => e.id !== excludeId && !(e.lastCardId < first || e.firstCardId > last));
+
+  const checkOverlapWarning = () => {
+    const first     = parseInt(document.getElementById('edit-first').value, 10);
+    const last      = parseInt(document.getElementById('edit-last').value, 10);
+    const excludeId = parseInt(document.getElementById('edit-id').value, 10) || 0;
+    const warn      = document.getElementById('overlap-warning');
+    if (!first || !last || first > last) { warn.style.display = 'none'; return; }
+    const overlapping = getOverlaps(first, last, excludeId);
+    if (overlapping.length) {
+      warn.textContent = `Overlaps with: ${overlapping.map(e => `#${e.id} (${e.firstCardId}–${e.lastCardId})`).join(', ')}`;
+      warn.style.display = 'block';
+    } else {
+      warn.style.display = 'none';
+    }
+  };
+
+  // ── Edit / Create modal ────────────────────────────────────────────────────
+
+  const openCreateModal = () => {
+    document.getElementById('modal-edit-title').textContent = 'New Expansion';
+    document.getElementById('modal-edit-error').style.display = 'none';
+    document.getElementById('edit-id').value      = '';
+    document.getElementById('edit-name').value    = '';
+    document.getElementById('edit-first').value   = '';
+    document.getElementById('edit-last').value    = '';
+    document.getElementById('edit-released').value     = '0';
+    document.getElementById('edit-gallery').value      = '0';
+    document.getElementById('edit-deckbuilder').value  = '';
+    document.getElementById('overlap-warning').style.display = 'none';
+    document.getElementById('modal-edit').classList.remove('hidden');
+  };
+
+  const openEditModal = (id) => {
+    const e = expansions.find(x => x.id === id);
+    if (!e) return;
+    document.getElementById('modal-edit-title').textContent = `Edit Expansion #${id}`;
+    document.getElementById('modal-edit-error').style.display = 'none';
+    document.getElementById('edit-id').value      = e.id;
+    document.getElementById('edit-name').value    = e.name || '';
+    document.getElementById('edit-first').value   = e.firstCardId;
+    document.getElementById('edit-last').value    = e.lastCardId;
+    document.getElementById('edit-released').value     = e.isReleased ? '1' : '0';
+    document.getElementById('edit-gallery').value      = e.showExpansionInCardGallery ? '1' : '0';
+    document.getElementById('edit-deckbuilder').value  =
+      e.showInDeckBuilder === null ? '' : (e.showInDeckBuilder ? '1' : '0');
+    document.getElementById('overlap-warning').style.display = 'none';
+    document.getElementById('modal-edit').classList.remove('hidden');
+  };
+
+  const closeEditModal = () => document.getElementById('modal-edit').classList.add('hidden');
+
+  document.getElementById('btn-edit-cancel').addEventListener('click', closeEditModal);
+  document.getElementById('edit-first').addEventListener('input', checkOverlapWarning);
+  document.getElementById('edit-last').addEventListener('input', checkOverlapWarning);
+
+  document.getElementById('btn-edit-save').addEventListener('click', async () => {
+    const idVal    = document.getElementById('edit-id').value;
+    const isCreate = !idVal;
+    const errEl    = document.getElementById('modal-edit-error');
+    errEl.style.display = 'none';
+
+    const firstCardId = parseInt(document.getElementById('edit-first').value, 10);
+    const lastCardId  = parseInt(document.getElementById('edit-last').value, 10);
+    if (!firstCardId || !lastCardId) {
+      errEl.textContent = 'First Card ID and Last Card ID are required.';
+      errEl.style.display = 'block';
+      return;
+    }
+    if (firstCardId > lastCardId) {
+      errEl.textContent = 'First Card ID must be ≤ Last Card ID.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    const dbVal  = document.getElementById('edit-deckbuilder').value;
+    const body   = {
+      action:                    isCreate ? 'create' : 'update',
+      name:                      document.getElementById('edit-name').value.trim() || null,
+      firstCardId,
+      lastCardId,
+      isReleased:                document.getElementById('edit-released').value === '1',
+      showExpansionInCardGallery: document.getElementById('edit-gallery').value === '1',
+      showInDeckBuilder:         dbVal === '' ? null : (dbVal === '1'),
+    };
+    if (!isCreate) body.id = parseInt(idVal, 10);
+
+    const confirmMsg = isCreate
+      ? `Create expansion "${body.name || 'Unnamed'}" (cards ${firstCardId}–${lastCardId})?`
+      : `Update expansion #${body.id}?`;
+    if (!confirm(confirmMsg)) return;
+
+    const btn = document.getElementById('btn-edit-save');
+    btn.disabled = true;
+    try {
+      const res  = await fetch(EXPANSIONS_URL, { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) { errEl.textContent = data.error || 'Save failed.'; errEl.style.display = 'block'; return; }
+      closeEditModal();
+      showToast(isCreate ? 'Expansion created!' : 'Expansion updated!', 'ok');
+      await reload();
+    } catch (e) {
+      errEl.textContent = 'Network error: ' + e.message;
+      errEl.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // ── Delete ─────────────────────────────────────────────────────────────────
+
+  const confirmDelete = (id) => {
+    const e = expansions.find(x => x.id === id);
+    pendingDeleteId = id;
+    document.getElementById('confirm-msg').textContent =
+      `Delete expansion #${id} (${e ? (e.name || 'Unnamed') + ', cards ' + e.firstCardId + '–' + e.lastCardId : ''})?  This cannot be undone.`;
+    document.getElementById('modal-confirm').classList.remove('hidden');
+  };
+
+  document.getElementById('btn-confirm-no').addEventListener('click', () => {
+    document.getElementById('modal-confirm').classList.add('hidden');
+    pendingDeleteId = null;
+  });
+
+  document.getElementById('btn-confirm-yes').addEventListener('click', async () => {
+    document.getElementById('modal-confirm').classList.add('hidden');
+    if (!pendingDeleteId) return;
+    try {
+      const res  = await fetch(EXPANSIONS_URL, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ action: 'delete', id: pendingDeleteId }) });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.error || 'Delete failed.', 'err'); return; }
+      showToast('Expansion deleted.', 'ok');
+      await reload();
+    } catch (e) {
+      showToast('Network error: ' + e.message, 'err');
+    } finally {
+      pendingDeleteId = null;
+    }
+  });
+
+  // ── SQL Export ─────────────────────────────────────────────────────────────
+
+  const openSqlModal = () => {
+    const sql = buildSql();
+    document.getElementById('sql-output').textContent = sql;
+    document.getElementById('modal-sql').classList.remove('hidden');
+  };
+
+  const buildSql = () => {
+    if (!expansions.length) return '-- No expansions to export.';
+    const lines = [
+      '-- Expansions sync: ' + new Date().toISOString(),
+      '-- Run on target server to match these expansions.',
+      '',
+      'TRUNCATE TABLE isBack_expansion;',
+      '',
+    ];
+    const vals = expansions.map(e => {
+      const name    = e.name ? `'${e.name.replace(/'/g, "\\'")}'` : 'NULL';
+      const gallery = e.showExpansionInCardGallery ? 1 : 0;
+      const deckBld = e.showInDeckBuilder === null ? 'NULL' : (e.showInDeckBuilder ? 1 : 0);
+      return `(${e.id}, ${name}, ${e.firstCardId}, ${e.lastCardId}, ${e.isReleased ? 1 : 0}, ${gallery}, ${deckBld})`;
+    });
+    lines.push('INSERT INTO isBack_expansion (id, name, firstCardId, lastCardId, isReleased, showExpansionInCardGallery, showInDeckBuilder)');
+    lines.push('VALUES');
+    lines.push(vals.join(',\n') + ';');
+    return lines.join('\n');
+  };
+
+  document.getElementById('btn-sql-close').addEventListener('click', () => {
+    document.getElementById('modal-sql').classList.add('hidden');
+  });
+
+  document.getElementById('btn-sql-copy').addEventListener('click', () => {
+    const text = document.getElementById('sql-output').textContent;
+    navigator.clipboard.writeText(text).then(
+      () => showToast('Copied to clipboard!', 'ok'),
+      () => showToast('Copy failed — select manually.', 'err')
+    );
+  });
+
+  // ── Reload ─────────────────────────────────────────────────────────────────
+
+  const reload = async () => {
+    try {
+      const res  = await fetch(EXPANSIONS_URL, { headers: authHeaders() });
+      const data = await res.json();
+      expansions = data.expansions || [];
+      renderTable();
+    } catch (_) {}
+  };
+
+  // ── Keyboard ───────────────────────────────────────────────────────────────
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      document.getElementById('modal-edit').classList.add('hidden');
+      document.getElementById('modal-confirm').classList.add('hidden');
+      document.getElementById('modal-sql').classList.add('hidden');
+    }
+  });
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+
+  load();
+})();
+</script>
+</body>
+</html>

@@ -72,7 +72,7 @@ const RULES_SECTIONS = [
       {
         id: 'turn-start-of-round',
         title: '4.1 Start of Round',
-        content: `<p>Both players roll their 2 D6. Each player may then use one <strong>[Start of round]</strong> keyword effect from hand. Players then draw cards up to their rolled total.</p>`,
+        content: `<p>The player going first rolls their 2 D6, may use one <strong>[Start of round]</strong> keyword effect from hand, then draws cards up to their rolled total — and immediately begins their main phase. After the first player completes their first main phase turn, the second player takes their start of round in the same way (unless the round has already ended by surrender).</p>`,
       },
       {
         id: 'turn-main-phase',
@@ -105,11 +105,12 @@ const RULES_SECTIONS = [
       {
         id: 'go-start-of-round',
         title: '5.1 Start of Round',
-        content: `<p>Each player rolls their 2 D6. The sum determines how many cards they may hold in hand — you draw <em>up to</em> that number, not that many new cards outright.</p>
+        content: `<p>Each player's start of round happens at the beginning of their <em>first</em> main phase turn each round. The player going first takes their start of round at the very start of the round; the second player takes theirs after the first player completes their first turn (if the round has not ended).</p>
+<p>When it is your start of round, you roll your 2 D6. The sum determines how many cards you may hold in hand — you draw <em>up to</em> that number, not that many new cards outright.</p>
 <ul>
   <li>Example: rolling a 2 and 5 totals 7. If you already have 3 cards in hand, you draw 4 more. If you already have 7 or more, you draw nothing.</li>
 </ul>
-<p>Before drawing, starting from the player going first this round, each player may use one card with a <strong>[Start of round]</strong> keyword from their hand. That card is discarded and its effect resolves. Both players then draw.</p>
+<p>Before drawing, you may use one card with a <strong>[Start of round]</strong> keyword from your hand. That card is discarded and its effect resolves. Then you draw up to your rolled total and your main phase begins.</p>
 <ul>
   <li>These effects commonly alter dice rolls. For example, <em>Greed</em> increases your roll by 2.</li>
   <li>A roll cannot be modified beyond the physical limits of the dice in play. The minimum is the lowest possible roll and the maximum is the highest — 2 and 12 respectively for two D6. If a player has more or fewer dice due to a keyword effect, these limits shift to match the new dice count.</li>

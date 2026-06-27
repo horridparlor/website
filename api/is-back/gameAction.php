@@ -555,12 +555,6 @@ function handlePlayStartOfRound(array &$state, int $playerIndex, array $params, 
     $engine->discardFromHand($state, $playerIndex, $cardId);
     $state['players'][$playerIndex]['startOfRoundUsed'] = true;
 
-    // Pass turn to opponent if they haven't done their start-of-round yet
-    $oppIdx = 1 - $playerIndex;
-    if (!$state['players'][$oppIdx]['startOfRoundUsed']) {
-        $state['turn'] = $oppIdx;
-    }
-
     if (in_array('greed', $kwLower)) {
         $bonus = (int)($state['players'][$playerIndex]['diceBonus'] ?? 0) + 2;
         $state['players'][$playerIndex]['diceBonus'] = $bonus;
@@ -592,37 +586,32 @@ function handleSkipStartOfRound(array &$state, int $playerIndex, array $params, 
     if ($state['turn'] !== $playerIndex) return 'Not your turn';
     if ($state['players'][$playerIndex]['diceRoll'] === null) return 'Must roll dice first';
     $state['players'][$playerIndex]['startOfRoundUsed'] = true;
-    // Pass turn to opponent if they haven't done their start-of-round yet
-    $oppIdx = 1 - $playerIndex;
-    if (!$state['players'][$oppIdx]['startOfRoundUsed']) {
-        $state['turn'] = $oppIdx;
-    }
     maybeStartMainPhase($state, $engine);
     return null;
 }
 
 function maybeStartMainPhase(array &$state, GameEngine $engine): void
 {
-    if (!$state['players'][0]['startOfRoundUsed'] || !$state['players'][1]['startOfRoundUsed']) return;
+    $playerIndex = $state['turn'];
+    if (!$state['players'][$playerIndex]['startOfRoundUsed']) return;
 
-    // Draw cards for each player up to their effective roll
-    foreach ([0, 1] as $idx) {
-        $roll = $state['players'][$idx]['diceRoll'];
-        if (!$roll) continue;
+    // Draw cards for this player up to their effective roll, then start their main phase
+    $roll = $state['players'][$playerIndex]['diceRoll'];
+    if ($roll) {
         $effective = (int)$roll['effective'];
-        $current   = count($state['players'][$idx]['handIds']);
+        $current   = count($state['players'][$playerIndex]['handIds']);
         $toDraw    = max(0, $effective - $current);
         if ($toDraw > 0) {
-            $drawnNow = $engine->drawCards($state, $idx, $toDraw);
+            $drawnNow = $engine->drawCards($state, $playerIndex, $toDraw);
             if ($drawnNow > 0) {
-                $state['log'][] = $state['players'][$idx]['username'] . " drew $drawnNow card(s).";
+                $state['log'][] = $state['players'][$playerIndex]['username'] . " drew $drawnNow card(s).";
             }
         }
     }
 
     $state['phase'] = 'main_phase';
-    $state['turn']  = $state['firstPlayer'];
-    $state['log'][] = 'Main phase begins. ' . $state['players'][$state['firstPlayer']]['username'] . ' acts first.';
+    // Turn stays with the current player — they go right into their main phase
+    $state['log'][] = 'Main phase begins. ' . $state['players'][$playerIndex]['username'] . ' goes first.';
 }
 
 function handleDraw(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
@@ -1301,10 +1290,16 @@ function handlePass(array &$state, int $playerIndex, array $params, GameEngine $
     $oppIdx = 1 - $playerIndex;
     $opp    = $state['players'][$oppIdx];
 
-    // If opponent has no primary card, they get another turn
+    // If opponent has no primary card, give them their start of round first (if not yet done)
     if (empty($opp['field']['primary'])) {
-        $state['turn'] = $oppIdx;
-        $state['log'][] = $state['players'][$oppIdx]['username'] . ' has no card — their main phase continues.';
+        if (!$state['players'][$oppIdx]['startOfRoundUsed']) {
+            $state['phase'] = 'start_of_round';
+            $state['turn']  = $oppIdx;
+            $state['log'][] = $state['players'][$oppIdx]['username'] . "'s start of round begins.";
+        } else {
+            $state['turn'] = $oppIdx;
+            $state['log'][] = $state['players'][$oppIdx]['username'] . ' has no card — their main phase continues.';
+        }
         return null;
     }
 

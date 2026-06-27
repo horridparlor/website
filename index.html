@@ -19,7 +19,12 @@
     <p class="subtitle">Tampereen Gangsta-Rap-Ylijumala</p>
   </div>
   <div class="social-icons">
-  
+
+  <a href="/message-center" id="admin-msg-badge" style="display:none; position:relative;" title="Viestilaatikko">
+    <span class="material-icons">mail</span>
+    <span id="admin-msg-count" style="position:absolute; top:-8px; right:-8px; background:#ff0066; color:#fff; border-radius:50%; font-size:0.65rem; padding:2px 5px; min-width:16px; text-align:center; line-height:1.5; font-weight:bold; box-shadow:0 0 8px #ff0066;"></span>
+  </a>
+
   <a href="https://open.spotify.com/artist/6zEclwyLsW20Rp4ui3vGNS?si=J9SLeR74RBiIBRbiQ25liw" target="_blank" title="Spotify">
     <span class="material-icons">headphones</span>
   </a>
@@ -53,6 +58,8 @@
 
   <div class="buttons">
     <a href="/is-back/card-gallery" class="button">Rakuel Is Back – Card Gallery</a>
+    <a href="/is-back/expansions" class="button" id="btn-expansions" style="display:none;">Rakuel Is Back – Expansions (Admin)</a>
+    <a href="/message-center" class="button" id="btn-message-center" style="display:none;">Message Center (Admin)</a>
     <a href="/is-back/deck-builder" class="button">Rakuel Is Back – Deck Builder</a>
     <a href="/is-back/match-queue" class="button">Rakuel Is Back – Play</a>
     <a href="/is-back/register" class="button">Rakuel Is Back – Register / Login</a>
@@ -121,11 +128,12 @@
 
 <section class="contact-section">
   <h2>Keikkatarjoukset</h2>
-  <p>Kiinnostaako keikka tai yhteistyö? Ota yhteyttä: <strong>eero@rakuel.com</strong></p>
-  <form class="contact-form" action="mailto:eero@rakuel.com" method="POST" enctype="text/plain">
-    <input type="email" name="email" placeholder="Sähköpostiosoitteesi" required />
-    <textarea name="offer" rows="5" placeholder="Kerro keikkatarjouksestasi..." required></textarea>
-    <input type="submit" value="Lähetä!" />
+  <p>Kiinnostaako keikka tai yhteistyö? Jätä viesti alle!</p>
+  <form class="contact-form" id="contact-form">
+    <input type="email" id="contact-email" placeholder="Sähköpostiosoitteesi" required />
+    <textarea id="contact-message" rows="5" placeholder="Kerro keikkatarjouksestasi..." required></textarea>
+    <input type="submit" id="contact-submit" value="Lähetä!" />
+    <div id="contact-status" style="font-size:0.95rem; min-height:1.4em;"></div>
   </form>
 </section>
 
@@ -133,6 +141,103 @@
   © 2026 Rakuel
 </footer>
 
+<!-- Success modal -->
+<div id="contact-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1000; align-items:center; justify-content:center; padding:1rem;">
+  <div style="background:#1a1a1a; border:2px solid #00ffcc; border-radius:18px; padding:2.5rem 2rem; max-width:440px; width:100%; text-align:center; box-shadow:0 0 60px rgba(0,255,204,0.25); position:relative; margin-top:18vh;">
+    <div style="font-size:3.5rem; line-height:1; margin-bottom:0.8rem;">💌</div>
+    <h2 style="font-family:'Anton',sans-serif; color:#00ffcc; margin:0 0 1rem; font-size:1.8rem;">Viesti saapui perille!</h2>
+    <p style="color:#ddd; line-height:1.7; margin:0 0 1.5rem; font-size:1.05rem;">
+      Sain viestisi ja vastaan mahdollisimman pian.<br>
+      Olen innoissani yhteistyöstä sinun kanssasi! ❤️🥰
+    </p>
+    <button onclick="document.getElementById('contact-modal').style.display='none'" style="padding:0.7rem 2rem; background:#00ffcc; color:#000; border:none; border-radius:8px; font-weight:bold; font-size:1rem; cursor:pointer; transition:background 0.2s;" onmouseover="this.style.background='#00ccaa'" onmouseout="this.style.background='#00ffcc'">Sulje</button>
+  </div>
+</div>
+
+<script>
+  (async () => {
+    const token = localStorage.getItem('authToken');
+    console.log('[expansions] 1. token:', token ? token.slice(0, 10) + '…' : 'MISSING');
+    if (!token) return;
+    let res;
+    try {
+      res = await fetch('/api/is-back/expansions', { headers: { Authorization: 'Bearer ' + token } });
+    } catch (e) {
+      console.error('[expansions] 2. fetch threw:', e); return;
+    }
+    console.log('[expansions] 2. HTTP status:', res.status, res.ok ? 'OK' : 'NOT OK');
+    const text = await res.text();
+    console.log('[expansions] 3. raw response:', text);
+    let data;
+    try { data = JSON.parse(text); } catch (e) {
+      console.error('[expansions] 4. JSON parse failed:', e); return;
+    }
+    console.log('[expansions] 4. isAdmin:', data.isAdmin);
+    if (data.isAdmin) {
+      document.getElementById('btn-expansions').style.display = '';
+      document.getElementById('btn-message-center').style.display = '';
+      console.log('[expansions] 5. link shown ✓');
+      // Check unread messages for admin badge
+      try {
+        const msgRes = await fetch('/api/admin/messages?countOnly=true', { headers: { Authorization: 'Bearer ' + token } });
+        if (msgRes.ok) {
+          const msgData = await msgRes.json();
+          if (msgData.count > 0) {
+            document.getElementById('admin-msg-count').textContent = msgData.count;
+            document.getElementById('admin-msg-badge').style.display = 'inline-flex';
+          }
+        }
+      } catch {}
+    }
+  })();
+
+  // Contact form AJAX submit
+  document.getElementById('contact-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email   = document.getElementById('contact-email').value.trim();
+    const message = document.getElementById('contact-message').value.trim();
+    const status  = document.getElementById('contact-status');
+    const submit  = document.getElementById('contact-submit');
+
+    submit.disabled = true;
+    submit.value = 'Lähetetään…';
+    status.style.color = '#aaa';
+    status.textContent = '';
+
+    try {
+      const res = await fetch('/api/contact/message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, message }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        document.getElementById('contact-modal').style.display = 'flex';
+        document.getElementById('contact-form').reset();
+        status.textContent = '';
+      } else if (res.status === 429) {
+        status.style.color = '#ff6600';
+        status.textContent = `Odota vielä ${data.secondsLeft} sekuntia ennen uuden viestin lähettämistä.`;
+      } else {
+        status.style.color = '#ff4466';
+        status.textContent = data.error || 'Virhe. Yritä uudelleen.';
+      }
+    } catch {
+      status.style.color = '#ff4466';
+      status.textContent = 'Verkkovirhe. Yritä uudelleen.';
+    } finally {
+      submit.disabled = false;
+      submit.value = 'Lähetä!';
+    }
+  });
+
+  // Close modal on backdrop click
+  document.getElementById('contact-modal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('contact-modal')) {
+      document.getElementById('contact-modal').style.display = 'none';
+    }
+  });
+</script>
 </body>
 </html>
 

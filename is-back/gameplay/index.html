@@ -167,7 +167,7 @@
       100% { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
     }
     .hand-card {
-      flex-shrink: 0; width: 92px; height: 129px; border-radius: 7px; border: 2px solid var(--border);
+      flex-shrink: 0; width: 112px; height: 157px; border-radius: 7px; border: 2px solid var(--border);
       cursor: pointer; position: relative; transition: transform .15s, border-color .15s;
       background: var(--bg);
     }
@@ -200,7 +200,8 @@
 
     /* Action bar */
     #action-bar { background: var(--bg2); border-top: 1px solid var(--border); padding: 8px 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 52px; }
-    .action-btn { border-radius: 6px; padding: 7px 16px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid; transition: background .15s; }
+    .action-btn { border-radius: 6px; padding: 13px 28px; font-size: 17px; font-weight: 600; cursor: pointer; border: 1px solid; transition: background .15s; }
+    #action-btns { margin-left: 24px; gap: 32px; }
     .action-btn:disabled { opacity: .4; cursor: not-allowed; }
     .btn-pass    { background: var(--green); color: #fff; border-color: var(--green2); }
     .btn-pass:hover:not(:disabled)    { background: var(--green2); }
@@ -335,6 +336,45 @@
       box-shadow: 0 2px 6px rgba(31,111,235,0.5); z-index: 5;
     }
 
+    /* ── Start of Round action overlay ── */
+    #sor-overlay-wrap {
+      position: fixed; inset: 0; z-index: 200; pointer-events: none;
+    }
+    #sor-box {
+      display: none; pointer-events: all; position: absolute; transform: translate(-50%, -50%);
+      background: rgba(13,17,23,0.97); border: 2px solid var(--blue2);
+      border-radius: 20px; padding: 36px 52px; max-width: 520px; width: 92%;
+      text-align: center; box-shadow: 0 16px 64px rgba(0,0,0,0.85), 0 0 40px rgba(31,111,235,0.15);
+    }
+    .sor-title { font-size: 20px; font-weight: 800; color: var(--blue2); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 6px; }
+    .sor-sub   { font-size: 13px; color: var(--muted); margin-bottom: 22px; }
+    #sor-roll-btn {
+      width: 100%; padding: 20px; font-size: 30px; border-radius: 14px;
+      border: 2px solid var(--green2); background: var(--green); color: #fff;
+      cursor: pointer; font-weight: 700; letter-spacing: 2px;
+      transition: background .15s, transform .1s, box-shadow .15s;
+      box-shadow: 0 4px 20px rgba(35,134,54,0.4);
+    }
+    #sor-roll-btn:hover:not(:disabled) { background: var(--green2); transform: translateY(-2px); box-shadow: 0 6px 28px rgba(46,160,67,0.5); }
+    #sor-roll-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    #sor-result { font-size: 54px; font-weight: 900; color: var(--blue2); margin: 4px 0 8px; text-shadow: 0 0 28px rgba(88,166,255,0.5); }
+    #sor-draw-hint { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+    #sor-cards { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 14px; }
+    .sor-card-item {
+      width: 82px; cursor: pointer; border: 2px solid var(--orange); border-radius: 6px;
+      padding: 2px; background: rgba(210,153,34,0.08);
+      transition: transform .15s, box-shadow .15s;
+    }
+    .sor-card-item:hover { transform: translateY(-5px) scale(1.06); box-shadow: 0 6px 20px rgba(210,153,34,0.45); }
+    .sor-card-item img { width: 100%; height: 115px; object-fit: cover; border-radius: 4px; display: block; }
+    .sor-card-name { font-size: 10px; color: var(--orange); text-align: center; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #sor-skip-btn {
+      width: 100%; padding: 10px; font-size: 13px; border-radius: 8px;
+      border: 1px solid var(--border); background: transparent; color: var(--muted);
+      cursor: pointer; transition: background .15s;
+    }
+    #sor-skip-btn:hover:not(:disabled) { background: #21262d; }
+
     /* Phase transition toast */
     #phase-toast {
       position: fixed; top: 60px; left: 50%; transform: translateX(-50%) translateY(-80px);
@@ -362,7 +402,7 @@
     /* Responsive */
     @media (max-width: 600px) {
       .card-slot { width: 80px; height: 112px; }
-      .hand-card { width: 72px; height: 101px; }
+      .hand-card { width: 88px; height: 123px; }
       #log-panel { width: 220px; }
     }
   </style>
@@ -583,6 +623,23 @@
   </div>
 </div>
 
+<!-- Start of Round action overlay -->
+<div id="sor-overlay-wrap">
+  <div id="sor-box">
+    <div class="sor-title">Start of Round</div>
+    <div class="sor-sub" id="sor-sub">Roll your dice to begin</div>
+    <div id="sor-roll-wrap">
+      <button id="sor-roll-btn" onclick="animateAndRollDice()">🎲 Roll Dice</button>
+    </div>
+    <div id="sor-after-roll" style="display:none;">
+      <div id="sor-result">—</div>
+      <div id="sor-draw-hint"></div>
+      <div id="sor-cards"></div>
+      <button id="sor-skip-btn" style="display:none;" onclick="sendAction('skipStartOfRound')">Skip start effect</button>
+    </div>
+  </div>
+</div>
+
 <div class="connect-banner" id="connect-banner">⚠ Reconnecting…</div>
 
 <script src="engine.js"></script>
@@ -769,7 +826,12 @@ function processState(state) {
   if (lastPhase !== state.phase) {
     const prevPhase = lastPhase;
     lastPhase = state.phase;
-    if (prevPhase !== null) announcePhase(state.phase, state.roundNumber);
+    if (prevPhase !== null) {
+      // Skip the start_of_round big announcement if it's a mid-round SOR (first player already done)
+      const firstPIdx = state.firstPlayer ?? 0;
+      const isMidRoundSOR = state.phase === 'start_of_round' && state.players?.[firstPIdx]?.startOfRoundUsed;
+      if (!isMidRoundSOR) announcePhase(state.phase, state.roundNumber);
+    }
   }
 
   // RPS overlay
@@ -781,6 +843,7 @@ function processState(state) {
   updateHand(state, myIndex);
   updateDice(state, myIndex);
   updateOppDice(state, myIndex);
+  updateSorOverlay(state, myIndex);
   updateActionBar(state, myIndex);
   updatePrizePanel(state, myIndex, oppIndex);
   updateRoundResult(state);
@@ -791,8 +854,12 @@ function processState(state) {
   if (curPhaseTurn !== prevPhaseTurn && state.phase !== 'setup' && state.phase !== 'game_over') {
     if (prevPhaseTurn !== null) {
       if (state.phase === 'start_of_round') {
-        showPhaseToast(state.turn === myIndex ? 'Your turn — Start of Round' : "Opponent's Start of Round",
-          state.turn === myIndex ? '#4ade80' : '');
+        const firstPIdx2 = state.firstPlayer ?? 0;
+        const midRound = state.players?.[firstPIdx2]?.startOfRoundUsed;
+        const sorLabel = state.turn === myIndex
+          ? (midRound ? 'Your Start of Round' : 'Your turn — Start of Round')
+          : (midRound ? "Opponent's Start of Round" : "Opponent's Start of Round");
+        showPhaseToast(sorLabel, state.turn === myIndex ? '#4ade80' : '');
       } else if (state.phase === 'main_phase') {
         showPhaseToast(state.turn === myIndex ? 'Your Main Phase' : 'Opponent\'s Main Phase — Stand by',
           state.turn === myIndex ? '#58a6ff' : '');
@@ -1782,39 +1849,31 @@ function updateActionBar(state, mi) {
   }
 
   if (phase === 'start_of_round') {
-    const opp = state.players[oppIndex];
     if (!isMyTurn) {
       const wait = document.createElement('span');
       wait.style.cssText = 'font-size:13px;color:var(--muted);';
       wait.textContent = 'Waiting for opponent…';
       btns.appendChild(wait);
     } else if (!me.diceRoll) {
-      const rollBtn = mkBtn('🎲 Roll Dice', 'action-btn btn-done', () => animateAndRollDice());
-      rollBtn.id = 'roll-dice-btn';
-      btns.appendChild(rollBtn);
+      // Roll dice button is in the center overlay; just hint here
+      const hint = document.createElement('span');
+      hint.style.cssText = 'font-size:13px;color:var(--blue2);';
+      hint.textContent = '↑ Roll your dice to begin';
+      btns.appendChild(hint);
     } else if (!me.startOfRoundUsed) {
-      // Auto-skip if no eligible SOR cards
       maybeAutoSkipSOR(state, mi);
       const hasSorCard = (me.handIds || []).some(id => {
         const c = allCards[id];
         return c && c.keywords && c.keywords.some(k => k && (k.toLowerCase() === 'greed' || k.toLowerCase() === 'natural-selection'));
       });
-      if (hasSorCard) {
-        btns.appendChild(mkBtn('Skip Start Effect', 'action-btn btn-done', () => sendAction('skipStartOfRound')));
-        const hint = document.createElement('span');
-        hint.style.cssText = 'font-size:12px;color:var(--muted);margin-left:8px;';
-        hint.textContent = 'or click an orange card in hand';
-        btns.appendChild(hint);
-      } else {
-        const wait = document.createElement('span');
-        wait.style.cssText = 'font-size:13px;color:var(--muted);';
-        wait.textContent = 'Auto-skipping…';
-        btns.appendChild(wait);
-      }
+      const hint = document.createElement('span');
+      hint.style.cssText = 'font-size:13px;color:var(--muted);';
+      hint.textContent = hasSorCard ? '↑ Use a start effect or skip' : 'Auto-skipping…';
+      btns.appendChild(hint);
     } else {
       const wait = document.createElement('span');
       wait.style.cssText = 'font-size:13px;color:var(--muted);';
-      wait.textContent = opp && opp.startOfRoundUsed ? 'Drawing cards…' : 'Waiting for opponent…';
+      wait.textContent = 'Drawing cards…';
       btns.appendChild(wait);
     }
     return;
@@ -2569,6 +2628,24 @@ async function animateAndRollDice() {
 
   const rollBtn = document.getElementById('roll-dice-btn');
   if (rollBtn) rollBtn.disabled = true;
+  const sorRollBtn = document.getElementById('sor-roll-btn');
+  if (sorRollBtn) sorRollBtn.disabled = true;
+  const sorSub = document.getElementById('sor-sub');
+  if (sorSub) sorSub.textContent = 'Rolling…';
+
+  // Switch overlay to rolling state immediately
+  const sorRollWrap = document.getElementById('sor-roll-wrap');
+  const sorAfterRoll = document.getElementById('sor-after-roll');
+  const sorResultEl = document.getElementById('sor-result');
+  const sorDrawHint = document.getElementById('sor-draw-hint');
+  const sorCardsEl2 = document.getElementById('sor-cards');
+  const sorSkipBtn = document.getElementById('sor-skip-btn');
+  if (sorRollWrap) sorRollWrap.style.display = 'none';
+  if (sorAfterRoll) sorAfterRoll.style.display = '';
+  if (sorResultEl) sorResultEl.textContent = '? + ?';
+  if (sorDrawHint) sorDrawHint.textContent = '';
+  if (sorCardsEl2) sorCardsEl2.innerHTML = '';
+  if (sorSkipBtn) sorSkipBtn.style.display = 'none';
 
   const d1El = document.getElementById('d1');
   const d2El = document.getElementById('d2');
@@ -2578,11 +2655,14 @@ async function animateAndRollDice() {
   const start = Date.now();
   const duration = 900;
   const tick = () => {
-    d1El.textContent = Math.floor(Math.random() * 6) + 1;
-    d2El.textContent = Math.floor(Math.random() * 6) + 1;
+    const r1 = Math.floor(Math.random() * 6) + 1;
+    const r2 = Math.floor(Math.random() * 6) + 1;
+    d1El.textContent = r1;
+    d2El.textContent = r2;
     d1El.classList.add('rolling');
     d2El.classList.add('rolling');
     totalEl.textContent = '';
+    if (sorResultEl) sorResultEl.textContent = `${r1} + ${r2}`;
     if (Date.now() - start < duration) {
       setTimeout(tick, 80);
     } else {
@@ -2590,6 +2670,7 @@ async function animateAndRollDice() {
       d2El.textContent = '?';
       d1El.classList.remove('rolling');
       d2El.classList.remove('rolling');
+      if (sorResultEl) sorResultEl.textContent = '? + ?';
       diceAnimating = false;
       sendAction('rollDice');
     }
@@ -2599,6 +2680,7 @@ async function animateAndRollDice() {
 
 // ── Auto-skip start of round if no eligible cards ─────────────────────────────
 let autoSkipScheduled = false;
+let sorResultReadyAt = 0;
 function maybeAutoSkipSOR(state, mi) {
   if (state.phase !== 'start_of_round') return;
   if (state.turn !== mi) return;
@@ -2622,6 +2704,110 @@ function maybeAutoSkipSOR(state, mi) {
     }, 800);
   }
 }
+
+// ── Start of Round overlay ─────────────────────────────────────────────────────
+function updateSorOverlay(state, mi) {
+  const box = document.getElementById('sor-box');
+  if (!box) return;
+  const phase = state.phase;
+  const me = state.players[mi];
+  const isMyTurn = state.turn === mi;
+
+  if (phase !== 'start_of_round' || !isMyTurn || !me) {
+    box.style.display = 'none';
+    return;
+  }
+
+  box.style.display = 'block';
+  requestAnimationFrame(positionSorBox);
+
+  const rollWrap  = document.getElementById('sor-roll-wrap');
+  const afterRoll = document.getElementById('sor-after-roll');
+  const sorSub    = document.getElementById('sor-sub');
+
+  if (!me.diceRoll) {
+    sorResultReadyAt = 0;
+    rollWrap.style.display  = diceAnimating ? 'none' : '';
+    afterRoll.style.display = diceAnimating ? '' : 'none';
+    sorSub.textContent = diceAnimating ? 'Rolling…' : 'Roll your dice to begin this turn';
+    const rollBtn = document.getElementById('sor-roll-btn');
+    if (rollBtn) rollBtn.disabled = diceAnimating;
+    return;
+  }
+
+  rollWrap.style.display  = 'none';
+  afterRoll.style.display = '';
+
+  const effective = Number(me.diceRoll.effective ?? (me.diceRoll[0] + me.diceRoll[1] + (me.diceBonus || 0)));
+  document.getElementById('sor-result').textContent   = `${me.diceRoll[0]} + ${me.diceRoll[1]} = ${effective}`;
+  document.getElementById('sor-draw-hint').textContent = `You may hold up to ${effective} cards in hand`;
+
+  const sorCardsEl = document.getElementById('sor-cards');
+  const skipBtn    = document.getElementById('sor-skip-btn');
+
+  if (me.startOfRoundUsed) {
+    sorSub.textContent    = 'Drawing cards…';
+    sorCardsEl.innerHTML  = '';
+    skipBtn.style.display = 'none';
+    return;
+  }
+
+  // Show result for 200ms before revealing card options
+  if (!sorResultReadyAt) {
+    sorResultReadyAt = Date.now();
+    sorSub.textContent    = '';
+    sorCardsEl.innerHTML  = '';
+    skipBtn.style.display = 'none';
+    setTimeout(() => { if (gameState) updateSorOverlay(gameState, myIndex); }, 220);
+    return;
+  }
+  if (Date.now() - sorResultReadyAt < 200) {
+    sorSub.textContent    = '';
+    sorCardsEl.innerHTML  = '';
+    skipBtn.style.display = 'none';
+    return;
+  }
+
+  const sorCardIds = (me.handIds || []).filter(id => {
+    const c = allCards[id];
+    return c && c.keywords && c.keywords.some(k => k && (k.toLowerCase() === 'greed' || k.toLowerCase() === 'natural-selection'));
+  });
+
+  if (sorCardIds.length > 0) {
+    sorSub.textContent = 'Use a [Start of Round] card or skip';
+    sorCardsEl.innerHTML = sorCardIds.map(id => {
+      const c = allCards[id];
+      if (!c) return '';
+      return `<div class="sor-card-item" onclick="sendAction('useStartOfRound',{cardId:${id}})"
+                   onmouseenter="showTooltip(event,${id})" onmouseleave="hideTooltip()">
+        <img src="${cardImg(c)}" alt="${stripBB(c.name)}" onerror="this.src=''" />
+        <div class="sor-card-name">${stripBB(c.name)}</div>
+      </div>`;
+    }).join('');
+    skipBtn.style.display = '';
+  } else {
+    sorSub.textContent    = 'No [Start of Round] effects — auto-skipping…';
+    sorCardsEl.innerHTML  = '';
+    skipBtn.style.display = 'none';
+  }
+}
+
+function positionSorBox() {
+  const box = document.getElementById('sor-box');
+  if (!box || box.style.display === 'none') return;
+  const primary = document.getElementById('my-primary');
+  const myArea  = document.getElementById('my-area');
+  if (!primary || !myArea) return;
+  const pRect = primary.getBoundingClientRect();
+  const aRect = myArea.getBoundingClientRect();
+  const boxW  = box.offsetWidth || 520;
+  let cx = pRect.left + pRect.width / 2;
+  cx = Math.max(boxW / 2 + 10, Math.min(window.innerWidth - boxW / 2 - 10, cx));
+  const cy = aRect.top + aRect.height / 2;
+  box.style.left = cx + 'px';
+  box.style.top  = cy + 'px';
+}
+window.addEventListener('resize', positionSorBox);
 
 // Round result announcements (legacy — kept for compatibility)
 function announceRoundResult(iWon) {
