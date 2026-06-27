@@ -3313,20 +3313,44 @@ function buildParticles(animType) {
       p.push({ type: 'spiral_dot', color: '#9b59b6', baseAngle: a, delay: i * 28, dur: 700 });
     }
   } else if (animType === 'evolve') {
-    for (let i = 0; i < 9; i++) {
-      p.push({ type: 'arrow_up', color: '#3fb950', ox: (Math.random() - 0.5) * 55, delay: i * 38, dur: 600 });
+    for (let i = 0; i < 16; i++) {
+      p.push({
+        type: 'arrow_up',
+        color: i % 3 === 0 ? '#71dd82' : '#3fb950',
+        ox: (Math.random() - 0.5) * 140,
+        driftX: (Math.random() - 0.5) * 56,
+        travel: 120 + Math.random() * 85,
+        size: 16 + Math.random() * 14,
+        tail: 0.7 + Math.random() * 0.7,
+        sway: 8 + Math.random() * 22,
+        swayPhase: Math.random() * Math.PI * 2,
+        delay: Math.random() * 260,
+        dur: 680 + Math.random() * 360,
+      });
     }
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 14; i++) {
       const a = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 0.85;
-      p.push({ type: 'dot', color: '#3fb950', angle: a, speed: 2.2 + Math.random() * 2, r: 3.5, delay: i * 22, dur: 550 });
+      p.push({ type: 'dot', color: '#3fb950', angle: a, speed: 2.1 + Math.random() * 2.9, r: 4 + Math.random() * 2.2, delay: Math.random() * 180, dur: 580 + Math.random() * 260 });
     }
   } else if (animType === 'devolve') {
-    for (let i = 0; i < 9; i++) {
-      p.push({ type: 'arrow_down', color: '#58a6ff', ox: (Math.random() - 0.5) * 55, delay: i * 38, dur: 600 });
+    for (let i = 0; i < 16; i++) {
+      p.push({
+        type: 'arrow_down',
+        color: i % 3 === 0 ? '#7bb8ff' : '#58a6ff',
+        ox: (Math.random() - 0.5) * 140,
+        driftX: (Math.random() - 0.5) * 56,
+        travel: 120 + Math.random() * 85,
+        size: 16 + Math.random() * 14,
+        tail: 0.7 + Math.random() * 0.7,
+        sway: 8 + Math.random() * 22,
+        swayPhase: Math.random() * Math.PI * 2,
+        delay: Math.random() * 260,
+        dur: 680 + Math.random() * 360,
+      });
     }
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 14; i++) {
       const a = Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 0.85;
-      p.push({ type: 'dot', color: '#58a6ff', angle: a, speed: 2.2 + Math.random() * 2, r: 3.5, delay: i * 22, dur: 550 });
+      p.push({ type: 'dot', color: '#58a6ff', angle: a, speed: 2.1 + Math.random() * 2.9, r: 4 + Math.random() * 2.2, delay: Math.random() * 180, dur: 580 + Math.random() * 260 });
     }
   } else if (animType === 'evolve_facedown') {
     for (let i = 0; i < 20; i++) {
@@ -3355,21 +3379,23 @@ function drawCPAParticle(ctx, p, pt, cx, cy) {
     ctx.beginPath(); ctx.arc(px, py, p.r * (1 - pt * 0.55), 0, Math.PI * 2);
     ctx.fillStyle = p.color; ctx.fill();
   } else if (p.type === 'arrow_up') {
-    const y = cy - pt * 76;
-    const x = cx + p.ox * (1 - pt * 0.3);
-    const sz = 9 * (1 - pt * 0.45);
+    const sway = Math.sin(pt * 7.4 + (p.swayPhase || 0)) * (p.sway || 0);
+    const y = cy - pt * (p.travel || 76);
+    const x = cx + (p.ox || 0) * (1 - pt * 0.25) + (p.driftX || 0) * pt + sway;
+    const sz = (p.size || 9) * (1 - pt * 0.45);
     ctx.beginPath(); ctx.moveTo(x, y - sz); ctx.lineTo(x - sz * 0.55, y + sz * 0.28); ctx.lineTo(x + sz * 0.55, y + sz * 0.28); ctx.closePath();
     ctx.fillStyle = p.color; ctx.fill();
-    ctx.beginPath(); ctx.moveTo(x, y + sz * 0.28); ctx.lineTo(x, y + sz * 0.9);
-    ctx.strokeStyle = p.color; ctx.lineWidth = sz * 0.42; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, y + sz * 0.28); ctx.lineTo(x, y + sz * (p.tail || 0.9));
+    ctx.strokeStyle = p.color; ctx.lineWidth = sz * 0.52; ctx.stroke();
   } else if (p.type === 'arrow_down') {
-    const y = cy + pt * 76;
-    const x = cx + p.ox * (1 - pt * 0.3);
-    const sz = 9 * (1 - pt * 0.45);
+    const sway = Math.sin(pt * 7.4 + (p.swayPhase || 0)) * (p.sway || 0);
+    const y = cy + pt * (p.travel || 76);
+    const x = cx + (p.ox || 0) * (1 - pt * 0.25) + (p.driftX || 0) * pt + sway;
+    const sz = (p.size || 9) * (1 - pt * 0.45);
     ctx.beginPath(); ctx.moveTo(x, y + sz); ctx.lineTo(x - sz * 0.55, y - sz * 0.28); ctx.lineTo(x + sz * 0.55, y - sz * 0.28); ctx.closePath();
     ctx.fillStyle = p.color; ctx.fill();
-    ctx.beginPath(); ctx.moveTo(x, y - sz * 0.28); ctx.lineTo(x, y - sz * 0.9);
-    ctx.strokeStyle = p.color; ctx.lineWidth = sz * 0.42; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, y - sz * 0.28); ctx.lineTo(x, y - sz * (p.tail || 0.9));
+    ctx.strokeStyle = p.color; ctx.lineWidth = sz * 0.52; ctx.stroke();
   } else if (p.type === 'spiral_dot') {
     const t2 = pt * 1.25; const r = t2 * 54;
     const a = p.baseAngle + t2 * Math.PI;

@@ -420,6 +420,12 @@ function ensureNotificationState(array &$state): void
     if (!isset($state['communismAcks']) || !is_array($state['communismAcks'])) {
         $state['communismAcks'] = [0, 0];
     }
+    if (!isset($state['discardAnimAcks']) || !is_array($state['discardAnimAcks'])) {
+        $state['discardAnimAcks'] = [0, 0];
+    }
+    if (!isset($state['cardPlayAnimAcks']) || !is_array($state['cardPlayAnimAcks'])) {
+        $state['cardPlayAnimAcks'] = [0, 0];
+    }
 }
 
 function nextEventStamp(): int

@@ -100,10 +100,18 @@ function getGameState(Database $database): string
     if (!isset($state['discardAnimAcks']) || !is_array($state['discardAnimAcks'])) {
         $state['discardAnimAcks'] = [0, 0];
     }
+    if (!isset($state['cardPlayAnimAcks']) || !is_array($state['cardPlayAnimAcks'])) {
+        $state['cardPlayAnimAcks'] = [0, 0];
+    }
     // Only return discard anims not yet acked by this player
     $myAckedId = (int)($state['discardAnimAcks'][$playerIndex] ?? 0);
     $state['discardAnims'] = array_values(array_filter($state['discardAnims'] ?? [], function ($a) use ($myAckedId) {
         return (int)($a['id'] ?? 0) > $myAckedId;
+    }));
+    // Only return card-play anims not yet acked by this player
+    $myCardPlayAckedId = (int)($state['cardPlayAnimAcks'][$playerIndex] ?? 0);
+    $state['cardPlayAnims'] = array_values(array_filter($state['cardPlayAnims'] ?? [], function ($a) use ($myCardPlayAckedId) {
+        return (int)($a['id'] ?? 0) > $myCardPlayAckedId;
     }));
 
     // Redact opponent hidden info
