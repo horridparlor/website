@@ -95,10 +95,16 @@ const GameEngine = (() => {
       return { canEvolve: true, mustFaceDown: true };
     }
 
-    // Autocracy: any card can devolve INTO a card that has Autocracy
+    const newPower = Number(newCard.power);
+    const currentPower = Number(currentCard.power);
+
+    // Autocracy: any card can devolve INTO a card that has Autocracy,
+    // but equal-power swaps are not allowed.
     if (cardHasKeyword(newCard, 'Autocracy')) {
-      // Special: any power allowed (devolve), but must still be different card
-      return { canEvolve: true, mustFaceDown: false };
+      if (newPower !== currentPower) {
+        return { canEvolve: true, mustFaceDown: false };
+      }
+      return { canEvolve: false, reason: 'Autocracy cannot devolve into same power' };
     }
 
     // Monarchy: cannot evolve (the Monarchy card itself cannot be evolved from)
@@ -115,13 +121,16 @@ const GameEngine = (() => {
     }
 
     // Normal: new card base power > current card base power
-    if (newCard.power > currentCard.power) {
+    if (newPower > currentPower) {
       return { canEvolve: true, mustFaceDown: false };
     }
 
-    // Autocracy on THIS field (any card can devolve into the field target)
+    // Autocracy on THIS field allows devolve, but not equal-power swaps.
     if (hasAutocracyOnField({ field: { primary: slotStack, left: [], right: [] } }, allCardsMap)) {
-      return { canEvolve: true, mustFaceDown: false };
+      if (newPower !== currentPower) {
+        return { canEvolve: true, mustFaceDown: false };
+      }
+      return { canEvolve: false, reason: 'Autocracy cannot devolve into same power' };
     }
 
     return { canEvolve: false, reason: `New card (${newCard.power}) must have higher base power than ${currentCard.power}` };
