@@ -309,12 +309,14 @@ const GameEngine = (() => {
           } else if (kwLow === 'mikontalo') {
             results.push({ slot, cardId: top.cardId, keyword: 'Mikontalo' });
           } else if (kwLow === 'mic-pass') {
-            const myType = card.type.toLowerCase();
-            const hasSameTypeInGrave = (player.graveyardIds || []).some(gid => {
-              const gc = allCardsMap[gid];
-              return gc && gc.type && gc.type.toLowerCase() === myType;
-            });
-            if (hasSameTypeInGrave) results.push({ slot, cardId: top.cardId, keyword: 'Mic-Pass' });
+            if (!state.micPassUsedThisPass) {
+              const myType = card.type.toLowerCase();
+              const hasSameTypeInGrave = (player.graveyardIds || []).some(gid => {
+                const gc = allCardsMap[gid];
+                return gc && gc.type && gc.type.toLowerCase() === myType;
+              });
+              if (hasSameTypeInGrave) results.push({ slot, cardId: top.cardId, keyword: 'Mic-Pass' });
+            }
           }
         }
       }

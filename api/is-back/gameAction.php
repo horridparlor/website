@@ -1645,7 +1645,7 @@ function getTriggerableOpponentPassesEffects(array &$state, int $responderIndex,
         if ($engine->hasKeyword($myTop['id'], 'mikontalo')) {
             $effects[] = ['keyword' => 'mikontalo', 'slot' => $slot];
         }
-        if ($engine->hasKeyword($myTop['id'], 'mic-pass')) {
+        if (!($state['micPassUsedThisPass'] ?? false) && $engine->hasKeyword($myTop['id'], 'mic-pass')) {
             $myType = strtolower((string)($myTop['type'] ?? ''));
             $hasSameType = false;
             foreach ($responder['graveyardIds'] as $gid) {
@@ -1880,6 +1880,7 @@ function handlePass(array &$state, int $playerIndex, array $params, GameEngine $
     // Opponent has at least one triggerable [Opponent passes] effect.
     $state['phase']    = 'passing_phase';
     $state['passerId'] = $playerIndex;
+    $state['micPassUsedThisPass'] = false;
     $state['log'][] = 'Passing phase — opponent may respond.';
     return null;
 }
@@ -1986,6 +1987,7 @@ function handleOpponentPassesResponse(array &$state, int $playerIndex, array $pa
             return null;
         }
         case 'mic-pass': {
+            if ($state['micPassUsedThisPass'] ?? false) return 'Mic Pass already used this pass phase';
             $myTop = $engine->getTopCard($state['players'][$playerIndex]['field'][$slot]);
             if (!$myTop) return 'No card in that slot';
             if (!$engine->hasKeyword($myTop['id'], 'mic-pass')) return 'Card does not have Mic Pass';
@@ -1996,6 +1998,7 @@ function handleOpponentPassesResponse(array &$state, int $playerIndex, array $pa
                 if (strtolower($gc['type'] ?? '') === $myType) $sameTypeCards[] = (int)$gid;
             }
             if (empty($sameTypeCards)) return 'No same-type cards in graveyard';
+            $state['micPassUsedThisPass'] = true;
             if (count($sameTypeCards) === 1) {
                 // Auto-reshuffle
                 $reshuffleId = $sameTypeCards[0];
