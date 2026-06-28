@@ -103,7 +103,7 @@
       </svg>
       <span>Hover or click a card<br>to see details here</span>
     </div>
-    <div id="focus-content" style="display:none;width:100%;max-width:380px;">
+    <div id="focus-content" style="display:none;width:100%;max-width:440px;">
       <div class="focus-card-img">
         <img id="focus-img" src="" alt="" />
       </div>
@@ -247,7 +247,8 @@
   let username       = localStorage.getItem('username');
   let isDirty        = false;
   let dataLoaded     = false;
-  let collapsedTypes = {};
+  let collapsedTypes   = {};
+  let focusLockedUntil = 0;
 
   /* ── Infinite scroll state ──────────────────────────────────────── */
   const BATCH_SIZE   = 50;
@@ -401,6 +402,10 @@
   const cardPath = c => `../card-images/${encodeURIComponent(cardImgName(c))}.png`;
   const fmtPower = p => String(Number(p)).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
   const capitalize = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+
+  const setFocusLock   = () => { focusLockedUntil = Date.now() + 2000; };
+  const clearFocusLock = () => { focusLockedUntil = 0; };
+  const isFocusLocked  = () => Date.now() < focusLockedUntil;
 
   let toastTimer = null;
   const showToast = (msg, type='') => {
@@ -708,6 +713,7 @@
     });
   };
 
+
   /* ── Focus zone ─────────────────────────────────────────────────── */
   const setFocus = (card) => {
     if (!card) return;
@@ -740,7 +746,7 @@
 
     const qty = getDeckQty(card.id);
     updateFocusQty(card, qty);
-    refreshCardGrid(); // update focused highlight without full re-render
+    refreshCardGrid();
   };
 
   const updateFocusQty = (card, qty) => {
@@ -1079,6 +1085,7 @@
     const id = Number(card.dataset.id);
     const c  = allCards.find(x => x.id === id);
     if (!c) return;
+    clearFocusLock();
     setFocus(c);
     addCard(c);
   });
@@ -1092,11 +1099,30 @@
   });
 
   el.cardGrid.addEventListener('mouseover', e => {
+    if (isFocusLocked()) return;
     const card = e.target.closest('.grid-card[data-id]');
     if (!card) return;
     const id = Number(card.dataset.id);
     const c  = allCards.find(x => x.id === id);
     if (c && (!focusedCard || focusedCard.id !== c.id)) setFocus(c);
+  });
+
+  el.deckCardsList.addEventListener('mouseover', e => {
+    const row = e.target.closest('.deck-card-row[data-id]');
+    if (!row) return;
+    const id = Number(row.dataset.id);
+    const c  = allCards.find(x => x.id === id);
+    if (c && (!focusedCard || focusedCard.id !== c.id)) setFocus(c);
+  });
+
+  el.deckCardsList.addEventListener('click', e => {
+    const row = e.target.closest('.deck-card-row[data-id]');
+    if (!row) return;
+    setFocusLock();
+    row.classList.remove('click-flash');
+    void row.offsetWidth;
+    row.classList.add('click-flash');
+    row.addEventListener('animationend', () => row.classList.remove('click-flash'), { once: true });
   });
 
   /* ── Focus buttons ──────────────────────────────────────────────── */
