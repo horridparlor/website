@@ -80,6 +80,7 @@
     .card-slot.droptarget { border-color: var(--green2); background: rgba(46,160,67,.12); }
     .card-slot.can-play  { border-color: var(--blue2); cursor: pointer; }
     .card-slot.can-play:hover { background: rgba(56,139,253,.15); }
+    .card-slot.cannot-play { opacity: 0.4; cursor: not-allowed; }
     .card-slot.has-card  { border-style: solid; border-color: var(--border); }
     .card-slot img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; display: block; }
     .card-slot .face-down-label { position: absolute; bottom: 4px; left: 0; right: 0; text-align: center; font-size: 11px; color: var(--muted); pointer-events: none; }
@@ -310,7 +311,7 @@
     #stack-close { margin-top: 14px; background: #21262d; border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 7px 20px; cursor: pointer; }
 
     /* Modal */
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 350; display: none; align-items: flex-start; justify-content: center; padding: 5vh 16px; overflow-y: auto; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 350; display: none; align-items: center; justify-content: center; padding: 5vh 16px; overflow-y: auto; }
     .modal-overlay.open { display: flex; }
     .modal-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 24px 28px; max-width: 700px; width: 100%; max-height: 90vh; overflow-y: auto; }
     .modal-box h3 { font-size: 17px; margin-bottom: 8px; }
@@ -321,12 +322,21 @@
     .modal-box .m-confirm:hover { opacity:.85; }
     .modal-box .m-cancel { background: transparent; color: var(--text); border-color: var(--border); }
     .modal-box .m-cancel:hover { background: #21262d; }
+    .modal-box .m-disabled { background: transparent; color: #555; border-color: #333; cursor: not-allowed; opacity: 0.5; }
+    .modal-box .m-disabled:hover { background: transparent; }
     .modal-card-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
     .modal-card-item { width: 140px; cursor: pointer; border: 2px solid transparent; border-radius: 6px; }
     .modal-card-item:hover { border-color: var(--blue2); }
     .modal-card-item.selected { border-color: var(--gold); }
     .modal-card-item img { width: 140px; height: 196px; object-fit: cover; border-radius: 4px; display: block; }
     .modal-card-item .mci-name { font-size: 12px; color: var(--muted); text-align: center; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .grave-section + .grave-section { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px; }
+    .grave-section-header { cursor: pointer; font-size: 13px; font-weight: 700; color: var(--text); padding: 4px 0 8px; user-select: none; display: flex; align-items: center; justify-content: space-between; }
+    .grave-section-header:hover { color: var(--blue2); }
+    .grave-section-header .gsarrow { font-size: 12px; transition: transform 0.15s; }
+    .grave-section.collapsed .gsarrow { transform: rotate(-90deg); }
+    .grave-section.collapsed .grave-section-cards { display: none; }
+    .grave-section-cards { display: flex; flex-wrap: wrap; gap: 8px; }
 
     .connect-banner { position: fixed; top: 0; left: 0; right: 0; background: #2d1b1b; border-bottom: 1px solid var(--red); color: var(--red); padding: 8px; text-align: center; font-size: 13px; z-index: 700; display: none; }
     .connect-banner.show { display: block; }
@@ -1361,15 +1371,45 @@ function openInfernoidPurgeModal(effect, state) {
     resolvePendingKeyword({ keyword: 'infernoid_purge_respond' });
     return;
   }
-  const cards = purgeTargets.map(t => allCards[Number(t.cardId)]).filter(Boolean);
   const strongType = (effect.strongType || '?').charAt(0).toUpperCase() + (effect.strongType || '?').slice(1);
-  openKwModalCustom(
-    'Infernoid',
-    `Choose a ${strongType}-type card from any graveyard to purge permanently, or skip.`,
-    cards,
-    [{ label: 'Skip', className: 'm-cancel', onClick: () => resolvePendingKeyword({ keyword: 'infernoid_purge_respond' }) }],
-    (cardId) => resolvePendingKeyword({ keyword: 'infernoid_purge_respond', purgeCardId: cardId })
-  );
+
+  const oppTargets = purgeTargets.filter(t => t.playerIndex !== myIndex);
+  const myTargets  = purgeTargets.filter(t => t.playerIndex === myIndex);
+
+  function buildSection(targets, label) {
+    if (!targets.length) return '';
+    const cardsHtml = targets.map(t => {
+      const c = allCards[Number(t.cardId)];
+      if (!c) return '';
+      return `<div class="modal-card-item" data-id="${c.id}" onclick="kwModalSelect(${c.id})">
+        <img src="${cardImg(c)}" alt="${stripBB(c.name)}" onerror="this.src=''" />
+        <div class="mci-name">${stripBB(c.name)}</div>
+      </div>`;
+    }).join('');
+    return `<div class="grave-section">
+      <div class="grave-section-header" onclick="this.closest('.grave-section').classList.toggle('collapsed')">
+        <span>${label} (${targets.length})</span><span class="gsarrow">▾</span>
+      </div>
+      <div class="grave-section-cards">${cardsHtml}</div>
+    </div>`;
+  }
+
+  document.getElementById('kw-modal-title').textContent = 'Infernoid';
+  document.getElementById('kw-modal-desc').textContent = `Choose a ${strongType}-type card from any graveyard to purge permanently, or skip.`;
+  document.getElementById('kw-modal-cards').innerHTML =
+    buildSection(oppTargets, "Opponent's Graveyard") +
+    buildSection(myTargets, 'Your Graveyard');
+
+  const btns = document.getElementById('kw-modal-btns');
+  btns.innerHTML = '';
+  const skipBtn = document.createElement('button');
+  skipBtn.className = 'm-cancel';
+  skipBtn.textContent = 'Skip';
+  skipBtn.addEventListener('click', () => resolvePendingKeyword({ keyword: 'infernoid_purge_respond' }));
+  btns.appendChild(skipBtn);
+
+  window._kwModalCallback = (cardId) => resolvePendingKeyword({ keyword: 'infernoid_purge_respond', purgeCardId: cardId });
+  document.getElementById('kw-modal').classList.add('open');
 }
 
 
@@ -1537,7 +1577,7 @@ function chooseSupportSlotAndRespond(zombieId, state) {
   function slotValid(slot) {
     const stack = me.field?.[slot] || [];
     if (!stack.length) return true;
-    return GameEngine.canEvolveSlot(state, myIndex, zombieId, slot);
+    return GameEngine.canEvolveSlot(state, myIndex, zombieId, slot).canEvolve;
   }
 
   const leftOk  = slotValid('left');
@@ -1550,18 +1590,26 @@ function chooseSupportSlotAndRespond(zombieId, state) {
   }
 
   const buttons = [
-    { label: 'Left',  className: leftOk  ? 'm-confirm' : 'm-cancel', disabled: !leftOk,
+    { label: 'Left',  className: leftOk  ? 'm-confirm' : 'm-disabled', disabled: !leftOk,
       onClick: () => { if (leftOk)  resolvePendingKeyword({ keyword: 'necromancy_respond', zombieId, slot: 'left'  }); } },
-    { label: 'Right', className: rightOk ? 'm-confirm' : 'm-cancel', disabled: !rightOk,
+    { label: 'Right', className: rightOk ? 'm-confirm' : 'm-disabled', disabled: !rightOk,
       onClick: () => { if (rightOk) resolvePendingKeyword({ keyword: 'necromancy_respond', zombieId, slot: 'right' }); } },
     { label: 'Skip', className: 'm-cancel',
       onClick: () => resolvePendingKeyword({ keyword: 'necromancy_respond' }) },
   ];
 
   const zombie = allCards[zombieId];
-  const desc = `Place ${zombie ? zombie.name : 'zombie'} in a supporting slot. ${
-    !leftOk ? '(Left occupied — must be bigger)' : !rightOk ? '(Right occupied — must be bigger)' : ''
-  }`.trim();
+  function slotNote(slot, ok) {
+    if (!ok) return `(${slot[0].toUpperCase() + slot.slice(1)} occupied — must be bigger)`;
+    const top = (me.field?.[slot] || []).at(-1);
+    const topCard = top && !top.faceDown ? allCards[top.cardId] : null;
+    if (topCard && GameEngine.cardHasKeyword(topCard, 'Wizard')) return `(${slot[0].toUpperCase() + slot.slice(1)}: will be face-down)`;
+    return '';
+  }
+  const noteLeft  = slotNote('left',  leftOk);
+  const noteRight = slotNote('right', rightOk);
+  const notes = [noteLeft, noteRight].filter(Boolean).join(' ');
+  const desc = `Place ${zombie ? zombie.name : 'zombie'} in a supporting slot. ${notes}`.trim();
 
   openKwModalCustom('Necromancy', desc, [], buttons);
 }
@@ -1951,7 +1999,7 @@ function renderSlot(el, stack, canInteract, owner, forceReveal = false) {
       ${wasDown ? `<div class="face-down-label">Was face-down</div>` : ''}
     `;
   }
-  addTooltipListeners(el, top.cardId, showFaceDown, isMine);
+  addTooltipListeners(el, top.cardId, showFaceDown, isMine, !!top.knownFaceDown);
 }
 
 function updateField(state, mi, oi) {
@@ -1985,7 +2033,8 @@ function highlightPlayableSlots(state, mi, cardId) {
   for (const slot of ['primary','left','right']) {
     const el = document.getElementById(`my-${slot}`);
     const result = GameEngine.canPlayCard(state, mi, cardId, slot, false);
-    el.classList.toggle('can-play', result.canPlay);
+    el.classList.toggle('can-play',    result.canPlay);
+    el.classList.toggle('cannot-play', !result.canPlay);
   }
 }
 
@@ -2530,7 +2579,10 @@ function onSlotClick(slot) {
 }
 
 function clearSlotHighlights() {
-  ['primary','left','right'].forEach(s => document.getElementById(`my-${s}`).classList.remove('can-play'));
+  ['primary','left','right'].forEach(s => {
+    const el = document.getElementById(`my-${s}`);
+    el.classList.remove('can-play', 'cannot-play');
+  });
 }
 
 // ── Actions → API ─────────────────────────────────────────────────────────────
@@ -2771,11 +2823,12 @@ function showStackPopup(title, stack, isMine = false, cultismCardId = null) {
   container.innerHTML = [...stack].reverse().map((entry, i) => {
     const card = allCards[entry.cardId];
     const isActive = i === 0;
-    const hidden = entry.faceDown && !isMine;
+    const hidden = entry.faceDown && !isMine && !entry.knownFaceDown;
     const isCultism = cultismCardId !== null && entry.cardId === cultismCardId;
+    const knownDownNote = entry.knownFaceDown && !isMine ? ' (face-down)' : '';
     return `<div class="sc-card${isCultism ? ' cultism-trigger' : ''}" ${isCultism ? `data-cultism="${cultismCardId}"` : ''} style="${isCultism ? 'cursor:pointer;' : ''}">
       <img src="${hidden||!card ? cardBack() : cardImg(card)}" alt="" />
-      <div class="sc-label">${isActive?'▶ Active':''} ${hidden?'(face-down)':card?stripBB(card.name):''}</div>
+      <div class="sc-label">${isActive?'▶ Active':''} ${hidden?'(face-down)':card?stripBB(card.name):''}${knownDownNote}</div>
     </div>`;
   }).join('');
   if (cultismCardId !== null) {
@@ -2939,8 +2992,8 @@ document.addEventListener('mousemove', e => {
   const tt = document.getElementById('card-tooltip');
   if (tt.style.display !== 'none') moveTooltip(e);
 });
-function addTooltipListeners(el, cardId, faceDown, isMine = false) {
-  if (faceDown && !isMine) return;
+function addTooltipListeners(el, cardId, faceDown, isMine = false, knownFaceDown = false) {
+  if (faceDown && !isMine && !knownFaceDown) return;
   el.addEventListener('mouseenter', e => showTooltip(e, cardId));
   el.addEventListener('mouseleave', hideTooltip);
 }

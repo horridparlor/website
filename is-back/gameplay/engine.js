@@ -88,10 +88,8 @@ const GameEngine = (() => {
     const currentCard = allCardsMap[currentTop.cardId];
     if (!currentCard) return { canEvolve: false, reason: 'Unknown base card' };
 
-    const isPrimary = slotStack === playerState.field.primary;
-
-    // Wizard: evolve into any card (but must be face-down)
-    if (isPrimary && hasWizardOnPrimary(playerState, allCardsMap)) {
+    // Wizard: evolve into any card (but must be face-down) — applies to any slot
+    if (cardHasKeyword(currentCard, 'Wizard')) {
       return { canEvolve: true, mustFaceDown: true };
     }
 

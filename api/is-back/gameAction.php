@@ -1114,10 +1114,35 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
                 if ($gIdx !== false) {
                     array_splice($p['graveyardIds'], $gIdx, 1);
                     if (!in_array($slot, ['left', 'right'])) $slot = 'left';
-                    // Occupied slot = evolve (stack on top); empty slot = fresh play. Both are valid.
-                    $p['field'][$slot][] = ['cardId' => $zombieId, 'faceDown' => false];
+                    // Occupied slot = evolve (stack on top); empty slot = fresh play.
+                    $faceDown      = false;
+                    $knownFaceDown = false;
+                    if (!empty($p['field'][$slot])) {
+                        $slotTop = end($p['field'][$slot]);
+                        if (!$slotTop['faceDown']) {
+                            // Monarchy cannot be evolved — skip placement.
+                            if ($engine->hasKeyword($slotTop['cardId'], 'monarchy')) {
+                                consumePendingEffect($state);
+                                return null;
+                            }
+                            // Wizard: evolution comes in face-down, but opponent already saw it.
+                            if ($engine->hasKeyword($slotTop['cardId'], 'wizard')) {
+                                $faceDown      = true;
+                                $knownFaceDown = true;
+                            }
+                        }
+                    }
+                    $entry = ['cardId' => $zombieId, 'faceDown' => $faceDown];
+                    if ($knownFaceDown) $entry['knownFaceDown'] = true;
+                    $p['field'][$slot][] = $entry;
                     $engine->recalcDemocracy($state, $playerIndex);
-                    $state['log'][] = $p['username'] . ' played a Zombie from graveyard (Necromancy).';
+                    $zombieCard = $engine->getCard($zombieId);
+                    $zombieName = $zombieCard ? $zombieCard['name'] : 'Zombie';
+                    if ($knownFaceDown) {
+                        $state['log'][] = $p['username'] . ' played ' . $zombieName . ' face-down over Wizard (Necromancy).';
+                    } else {
+                        $state['log'][] = $p['username'] . ' played a Zombie from graveyard (Necromancy).';
+                    }
                 }
             }
             consumePendingEffect($state);
