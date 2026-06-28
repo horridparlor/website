@@ -1183,6 +1183,7 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
                 'byPlayerIndex' => $playerIndex,
                 'targetPlayerIndex' => $targetPlayerIndex,
                 'slot' => $targetSlot,
+                'cardId' => (int)$target['cardId'],
                 'destroyType' => $destroyType,
             ];
             $state['log'][] = 'Facism destroyed a ' . ucfirst($destroyType) . ' from ' . $state['players'][$targetPlayerIndex]['username'] . ' (' . $targetSlot . ').';
@@ -1321,6 +1322,28 @@ function handleAcknowledgeNotification(array &$state, int $playerIndex, array $p
             $state['cardPlayAnimAcks'] = [0, 0];
         }
         $state['cardPlayAnimAcks'][$playerIndex] = max((int)($state['cardPlayAnimAcks'][$playerIndex] ?? 0), $stamp);
+        return null;
+    }
+
+    if ($kind === 'facism_destroy') {
+        $current = (int)($state['lastFacismDestroy']['ts'] ?? 0);
+        if ($current && $stamp === $current) {
+            if (!isset($state['lastFacismDestroyAcks']) || !is_array($state['lastFacismDestroyAcks'])) {
+                $state['lastFacismDestroyAcks'] = [0, 0];
+            }
+            $state['lastFacismDestroyAcks'][$playerIndex] = $stamp;
+        }
+        return null;
+    }
+
+    if ($kind === 'divine_destroy') {
+        $current = (int)($state['lastDivineDestroy']['ts'] ?? 0);
+        if ($current && $stamp === $current) {
+            if (!isset($state['lastDivineDestroyAcks']) || !is_array($state['lastDivineDestroyAcks'])) {
+                $state['lastDivineDestroyAcks'] = [0, 0];
+            }
+            $state['lastDivineDestroyAcks'][$playerIndex] = $stamp;
+        }
         return null;
     }
 
@@ -1511,6 +1534,7 @@ function resolvePassingPhase(array &$state, GameEngine $engine): void
             clearRoundScopedFlags($state);
             $state['phase'] = 'end_of_round';
             $state['roundWinnerId'] = $oppIdx;
+            $state['lastDivineDestroy'] = ['ts' => nextEventStamp(), 'divinePlayerIndex' => $oppIdx, 'faceDownPlayerIndex' => $passerId, 'divineCardId' => (int)$oppTop['id']];
             $state['log'][] = $state['players'][$oppIdx]['username'] . ' wins: Divine defeats the passing face-down primary.';
             return;
         }
@@ -1528,6 +1552,7 @@ function resolvePassingPhase(array &$state, GameEngine $engine): void
         clearRoundScopedFlags($state);
         $state['phase'] = 'end_of_round';
         $state['roundWinnerId'] = $passerId;
+        $state['lastDivineDestroy'] = ['ts' => nextEventStamp(), 'divinePlayerIndex' => $passerId, 'faceDownPlayerIndex' => $oppIdx, 'divineCardId' => (int)$passerTop['id']];
         $state['log'][] = $state['players'][$passerId]['username'] . ' wins: Divine defeats the face-down primary.';
         return;
     }
@@ -1592,6 +1617,9 @@ function enterRevealPhase(array &$state, GameEngine $engine): void
     $state['revealPhaseStep']           = 'opp_revealed';
     $state['revealPhaseRevealedCardId'] = $oppCardId;
     $state['revealPhaseDivineWin']      = $divineWin;
+    if ($divineWin) {
+        $state['lastDivineDestroy'] = ['ts' => nextEventStamp(), 'divinePlayerIndex' => $oppIdx, 'faceDownPlayerIndex' => $passerId, 'divineCardId' => $oppCardId];
+    }
 
     $msgs = ['', ''];
     if ($divineWin) {

@@ -85,6 +85,15 @@ function getGameState(Database $database): string
     if (!array_key_exists('lastFacismDestroy', $state)) {
         $state['lastFacismDestroy'] = null;
     }
+    if (!isset($state['lastFacismDestroyAcks']) || !is_array($state['lastFacismDestroyAcks'])) {
+        $state['lastFacismDestroyAcks'] = [0, 0];
+    }
+    if (!array_key_exists('lastDivineDestroy', $state)) {
+        $state['lastDivineDestroy'] = null;
+    }
+    if (!isset($state['lastDivineDestroyAcks']) || !is_array($state['lastDivineDestroyAcks'])) {
+        $state['lastDivineDestroyAcks'] = [0, 0];
+    }
     if (!array_key_exists('lastGreed', $state)) {
         $state['lastGreed'] = null;
     }

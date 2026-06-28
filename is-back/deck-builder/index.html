@@ -103,7 +103,7 @@
       </svg>
       <span>Hover or click a card<br>to see details here</span>
     </div>
-    <div id="focus-content" style="display:none;width:100%;max-width:300px;display:none;">
+    <div id="focus-content" style="display:none;width:100%;max-width:380px;">
       <div class="focus-card-img">
         <img id="focus-img" src="" alt="" />
       </div>
@@ -813,20 +813,20 @@
     });
 
     const typeOrder = ['rock', 'paper', 'scissors'];
-    const colorMap  = { rock:'#4CAF50', paper:'#2196F3', scissors:'#FF9800' };
 
     let html = '';
     typeOrder.forEach(t => {
       const grp = groups[t];
       if (!grp.length) return;
       grp.sort((a,b) => a.card.power - b.card.power);
-      const focused = focusedCard && grp.some(dc => dc.cardId === focusedCard.id);
-      html += `<div class="deck-type-group">
-        <div class="deck-type-label ${t}">
+      const isCollapsed = !!collapsedTypes[t];
+      html += `<div class="deck-type-group${isCollapsed ? ' collapsed' : ''}" data-type="${t}">
+        <div class="deck-type-label ${t}" data-type="${t}">
           ${capitalize(t)}
           <span class="type-count">${grp.reduce((s,dc)=>s+dc.quantity,0)}</span>
+          <span class="type-chevron">${isCollapsed ? '▸' : '▾'}</span>
         </div>
-        ${grp.map(dc => {
+        ${isCollapsed ? '' : grp.map(dc => {
           const repl = hasReplicate(dc.card);
           const kwNames = (dc.card.keywords||[]).filter(Boolean).map(kw => {
             const d = allKeywords.find(k=>k.name===kw);
@@ -851,6 +851,14 @@
 
     el.deckCardsList.innerHTML = html;
 
+    // Toggle collapse on type label click
+    el.deckCardsList.querySelectorAll('.deck-type-label[data-type]').forEach(label => {
+      label.addEventListener('click', () => {
+        const t = label.dataset.type;
+        collapsedTypes[t] = !collapsedTypes[t];
+        renderDeckList();
+      });
+    });
     // Attach remove listeners
     el.deckCardsList.querySelectorAll('.deck-card-remove').forEach(btn => {
       btn.addEventListener('click', e => {
