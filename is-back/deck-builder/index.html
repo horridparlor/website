@@ -62,6 +62,24 @@
           </select>
         </div>
       </div>
+      <div class="filters-row">
+        <div>
+          <div class="filter-label">Expansion</div>
+          <select id="f-expansion">
+            <option value="">Any</option>
+          </select>
+        </div>
+        <div>
+          <div class="filter-label">Sort By</div>
+          <select id="f-sort">
+            <option value="oldest">Oldest</option>
+            <option value="newest">Newest</option>
+            <option value="name">Name</option>
+            <option value="power-asc">Power ↑</option>
+            <option value="power-desc">Power ↓</option>
+          </select>
+        </div>
+      </div>
       <div class="card-count" id="card-count">Loading…</div>
       <div class="bulk-btns">
         <button class="btn btn-bulk" id="btn-select-visible" title="Add all visible cards to deck">+ Add to deck</button>
@@ -229,6 +247,7 @@
   let username       = localStorage.getItem('username');
   let isDirty        = false;
   let dataLoaded     = false;
+  let collapsedTypes = {};
 
   /* ── Infinite scroll state ──────────────────────────────────────── */
   const BATCH_SIZE   = 50;
@@ -267,6 +286,8 @@
     fKeyword:      document.getElementById('f-keyword'),
     fPowerMin:     document.getElementById('f-power-min'),
     fPowerMax:     document.getElementById('f-power-max'),
+    fExpansion:    document.getElementById('f-expansion'),
+    fSort:         document.getElementById('f-sort'),
     cardCount:     document.getElementById('card-count'),
     cardGrid:      document.getElementById('card-grid'),
 
@@ -329,21 +350,25 @@
   /* ── URL filter persistence ─────────────────────────────────────── */
   const controlsToURL = () => {
     const params = new URLSearchParams();
-    if (el.search.value)    params.set('search',   el.search.value);
-    if (el.fType.value)     params.set('type',     el.fType.value);
-    if (el.fKeyword.value)  params.set('keyword',  el.fKeyword.value);
-    if (el.fPowerMin.value) params.set('powerMin', el.fPowerMin.value);
-    if (el.fPowerMax.value) params.set('powerMax', el.fPowerMax.value);
+    if (el.search.value)     params.set('search',     el.search.value);
+    if (el.fType.value)      params.set('type',       el.fType.value);
+    if (el.fKeyword.value)   params.set('keyword',    el.fKeyword.value);
+    if (el.fPowerMin.value)  params.set('powerMin',   el.fPowerMin.value);
+    if (el.fPowerMax.value)  params.set('powerMax',   el.fPowerMax.value);
+    if (el.fExpansion.value) params.set('expansion',  el.fExpansion.value);
+    if (el.fSort.value && el.fSort.value !== 'oldest') params.set('sort', el.fSort.value);
     history.replaceState(null, '', params.toString() ? '?' + params.toString() : window.location.pathname);
   };
 
   const applyURLToControls = () => {
     const params = new URLSearchParams(window.location.search);
-    if (params.has('search'))   el.search.value      = params.get('search');
-    if (params.has('type'))     el.fType.value        = params.get('type');
-    if (params.has('keyword'))  el.fKeyword.value     = params.get('keyword');
-    if (params.has('powerMin')) el.fPowerMin.value    = params.get('powerMin');
-    if (params.has('powerMax')) el.fPowerMax.value    = params.get('powerMax');
+    if (params.has('search'))    el.search.value        = params.get('search');
+    if (params.has('type'))      el.fType.value          = params.get('type');
+    if (params.has('keyword'))   el.fKeyword.value       = params.get('keyword');
+    if (params.has('powerMin'))  el.fPowerMin.value      = params.get('powerMin');
+    if (params.has('powerMax'))  el.fPowerMax.value      = params.get('powerMax');
+    if (params.has('expansion')) el.fExpansion.value     = params.get('expansion');
+    if (params.has('sort'))      el.fSort.value          = params.get('sort');
   };
 
   /* ── Utilities ──────────────────────────────────────────────────── */
@@ -506,6 +531,11 @@
       if (!res.ok) return;
       const data = await res.json();
       expansions = data.expansions || [];
+      const visible = expansions.filter(e => shouldShowInDeckBuilder(e));
+      if (visible.length > 0) {
+        el.fExpansion.innerHTML = '<option value="">Any</option>' +
+          visible.map(e => `<option value="${e.id}">${esc(e.name)}</option>`).join('');
+      }
     } catch (_) { /* API unavailable → expansions stays [] → all cards shown */ }
   };
 
@@ -555,11 +585,15 @@
 
   /* ── Filter & render card grid ──────────────────────────────────── */
   const filterCards = () => {
-    const q    = norm(el.search.value);
-    const type = norm(el.fType.value);
-    const kw   = el.fKeyword.value;
-    const pMin = el.fPowerMin.value !== '' ? Number(el.fPowerMin.value) : null;
-    const pMax = el.fPowerMax.value !== '' ? Number(el.fPowerMax.value) : null;
+    const q     = norm(el.search.value);
+    const type  = norm(el.fType.value);
+    const kw    = el.fKeyword.value;
+    const pMin  = el.fPowerMin.value !== '' ? Number(el.fPowerMin.value) : null;
+    const pMax  = el.fPowerMax.value !== '' ? Number(el.fPowerMax.value) : null;
+    const expId = el.fExpansion.value !== '' ? Number(el.fExpansion.value) : null;
+    const sort  = el.fSort.value || 'oldest';
+
+    const expRange = expId !== null ? expansions.find(e => e.id === expId) : null;
 
     filteredCards = allCards.filter(c => {
       if (q && !norm(c.name).includes(q)) return false;
@@ -571,8 +605,17 @@
       }
       if (pMin !== null && c.power < pMin) return false;
       if (pMax !== null && c.power > pMax) return false;
+      if (expRange && (c.id < expRange.firstCardId || c.id > expRange.lastCardId)) return false;
       return true;
     });
+
+    switch (sort) {
+      case 'newest':     filteredCards.sort((a,b) => b.id - a.id); break;
+      case 'name':       filteredCards.sort((a,b) => removeBB(a.name).localeCompare(removeBB(b.name))); break;
+      case 'power-asc':  filteredCards.sort((a,b) => a.power - b.power); break;
+      case 'power-desc': filteredCards.sort((a,b) => b.power - a.power); break;
+      default:           filteredCards.sort((a,b) => a.id - b.id); break;
+    }
 
     el.cardCount.textContent = `${filteredCards.length} card${filteredCards.length !== 1 ? 's' : ''}`;
     renderCardGrid();
@@ -581,7 +624,8 @@
 
   const updateBulkResetBtn = () => {
     const anyActive = el.search.value !== '' || el.fType.value !== '' ||
-      el.fKeyword.value !== '' || el.fPowerMin.value !== '' || el.fPowerMax.value !== '';
+      el.fKeyword.value !== '' || el.fPowerMin.value !== '' || el.fPowerMax.value !== '' ||
+      el.fExpansion.value !== '' || (el.fSort.value !== '' && el.fSort.value !== 'oldest');
     el.btnResetFilters.disabled = !anyActive;
   };
 
@@ -1078,17 +1122,19 @@
   });
 
   el.btnResetFilters.addEventListener('click', () => {
-    el.search.value    = '';
-    el.fType.value     = '';
-    el.fKeyword.value  = '';
-    el.fPowerMin.value = '';
-    el.fPowerMax.value = '';
+    el.search.value      = '';
+    el.fType.value       = '';
+    el.fKeyword.value    = '';
+    el.fPowerMin.value   = '';
+    el.fPowerMax.value   = '';
+    el.fExpansion.value  = '';
+    el.fSort.value       = 'oldest';
     controlsToURL();
     filterCards();
   });
 
   [el.search].forEach(ctrl => ctrl.addEventListener('input', () => { controlsToURL(); filterCards(); }));
-  [el.fType, el.fKeyword, el.fPowerMin, el.fPowerMax].forEach(ctrl => ctrl.addEventListener('change', () => { controlsToURL(); filterCards(); }));
+  [el.fType, el.fKeyword, el.fPowerMin, el.fPowerMax, el.fExpansion, el.fSort].forEach(ctrl => ctrl.addEventListener('change', () => { controlsToURL(); filterCards(); }));
 
   /* ── Export / Import ────────────────────────────────────────────── */
   const triggerDownloadBlob = (blob, filename) => {
