@@ -555,6 +555,7 @@
       <div id="my-info">
         <div class="player-name" id="my-name">You</div>
         <div class="stat-badge">Prizes: <span id="my-prize-count">5</span></div>
+        <div class="stat-badge">Hand: <span id="my-hand">0</span></div>
         <div class="stat-badge">Deck: <span id="my-deck">55</span></div>
         <div class="grave-pile" id="my-grave-pile" onclick="showMyGrave()" title="Your graveyard">
           🗑️
@@ -1596,6 +1597,7 @@ function updatePlayerInfo(state, mi, oi) {
   const myFieldCount = ['primary','left','right'].reduce((n, s) => n + (me.field?.[s]?.length  || 0), 0);
   const myGraveCount = (me.graveyardIds || []).length;
   const myPrizeCount = me.prizeCount ?? (me.prizeIds ? me.prizeIds.length : 5);
+  document.getElementById('my-hand').textContent = myHandCount;
   document.getElementById('my-deck').textContent = me.deckCount ?? Math.max(0, DECK_SIZE - myFieldCount - myGraveCount - myPrizeCount - myHandCount);
 
   const oppHandCount  = opp.handCount ?? (Array.isArray(opp.handIds) ? opp.handIds.length : 0);
