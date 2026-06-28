@@ -10,9 +10,13 @@
 </head>
 <body>
 <header class="topbar">
-  <a class="home-link button home-btn" href="/">Home</a>
-  <div class="header-text">
+  <div class="topbar-left">
+    <a class="home-link" href="/">Home</a>
     <h1>Rakuel Is Back – Card Gallery</h1>
+  </div>
+  <div class="topbar-right">
+    <a href="../deck-builder/" class="btn btn-nav">Deck Builder →</a>
+    <a href="../gameplay/" class="btn btn-nav">Gameplay →</a>
   </div>
 </header>
 
@@ -94,6 +98,12 @@
         <option value="">Any</option>
         <option>2026</option>
         <option>2027</option>
+      </select>
+    </div>
+    <div id="decklist-filter-wrap" style="display:none;">
+      <label for="f-decklist">In Decklist</label>
+      <select id="f-decklist">
+        <option value="">Any</option>
       </select>
     </div>
     <div>
@@ -228,6 +238,7 @@
     const CARDS_URL      = API_URL + 'cards';
     const KEYWORDS_URL   = API_URL + 'keywords';
     const EXPANSIONS_URL = API_URL + 'expansions';
+    const DECKS_URL      = API_URL + 'decks';
     const qs = new URLSearchParams(location.search);
 
     const el = {
@@ -240,6 +251,8 @@
       keyword:        document.getElementById('f-keyword'),
       expansion:      document.getElementById('f-expansion'),
       releaseYear:    document.getElementById('f-releaseYear'),
+      decklist:       document.getElementById('f-decklist'),
+      decklistWrap:   document.getElementById('decklist-filter-wrap'),
       orderBy:        document.getElementById('f-orderBy'),
       direction:      document.getElementById('f-direction'),
       clear:          document.getElementById('clear-filters'),
@@ -290,6 +303,7 @@
     let view        = qs.get('view') || 'cards';
     const checkedIds  = new Set();
     let visibleCardIds = [];
+    let decklistCardIds = null; // null = no filter; Set of card IDs when a deck is selected
 
     const syncPowerIsVisibility = () => {
       document.getElementById('power-is-wrap').style.display = el.power.value !== '' ? '' : 'none';
@@ -352,6 +366,7 @@
       setQueryParam('keyword',     el.keyword.value);
       setQueryParam('expansion',   el.expansion.value);
       setQueryParam('releaseYear', el.releaseYear.value);
+      setQueryParam('decklist',    el.decklist.value);
       setQueryParam('orderBy',     el.orderBy.value);
       setQueryParam('direction',   el.direction.value);
       setQueryParam('view',        view);
@@ -624,8 +639,9 @@
           const cardExp      = getExpansionForCard(c.id);
           const setStatus    = getExpansionStatus(cardExp);
           const expansionOk  = setStatus !== 'null' && (expansion === null ? setStatus === 'released' : (cardExp && cardExp.id === expansion));
-          const yearOk      = !releaseYear || String(c.releaseYear) === releaseYear;
-          return nameOk && kwOk && typeOk && powerOk && kwCountOk && kwSpecificOk && expansionOk && yearOk;
+          const yearOk       = !releaseYear || String(c.releaseYear) === releaseYear;
+          const decklistOk   = !decklistCardIds || decklistCardIds.has(c.id);
+          return nameOk && kwOk && typeOk && powerOk && kwCountOk && kwSpecificOk && expansionOk && yearOk && decklistOk;
         });
         filteredKeywords = allKeywords;
       }
@@ -827,6 +843,8 @@
       el.keyword.value     = '';
       el.expansion.value   = '';
       el.releaseYear.value = '';
+      el.decklist.value    = '';
+      decklistCardIds      = null;
       el.orderBy.value     = 'oldest';
       el.direction.value   = 'asc';
       controlsToURL();
@@ -839,6 +857,50 @@
     el.keywordsBtn.addEventListener('click', () => { view = 'keywords'; ensureViewButtons(); controlsToURL(); filterCards(); });
     el.macrosBtn.addEventListener('click',   () => { view = 'macros';   ensureViewButtons(); controlsToURL(); filterCards(); });
     el.rulesBtn.addEventListener('click',    () => { view = 'rules';    ensureViewButtons(); controlsToURL(); filterCards(); });
+
+    // ── Decklist filter ───────────────────────────────────────────────────
+
+    const loadDeckCardIds = async (deckId) => {
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken || !deckId) { decklistCardIds = null; return; }
+      try {
+        const res = await fetch(DECKS_URL + '?id=' + deckId, {
+          headers: { 'Authorization': 'Bearer ' + authToken },
+        });
+        if (!res.ok) { decklistCardIds = null; return; }
+        const data = await res.json();
+        decklistCardIds = new Set((data.cards || []).map(c => c.cardId));
+      } catch (_) { decklistCardIds = null; }
+    };
+
+    const loadDecksForFilter = async () => {
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) return;
+      try {
+        const res = await fetch(DECKS_URL, {
+          headers: { 'Authorization': 'Bearer ' + authToken },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const decks = Array.isArray(data) ? data : (data.decks || []);
+        if (!decks.length) return;
+        el.decklistWrap.style.display = '';
+        const currentId = qs.get('decklist') ? Number(qs.get('decklist')) : '';
+        el.decklist.innerHTML = '<option value="">Any</option>' +
+          decks.map(d => `<option value="${d.id}">${escapeHtml(d.name)} (${d.totalCards || 0}/60)</option>`).join('');
+        if (currentId) {
+          el.decklist.value = currentId;
+          await loadDeckCardIds(currentId);
+        }
+      } catch (_) {}
+    };
+
+    el.decklist.addEventListener('change', async () => {
+      const deckId = el.decklist.value ? Number(el.decklist.value) : null;
+      await loadDeckCardIds(deckId);
+      controlsToURL();
+      filterCards();
+    });
 
     // ── Initial load ──────────────────────────────────────────────────────
 
@@ -870,6 +932,7 @@
         showToast('Failed to load cards. Please try refreshing.');
         allCards = [];
       }
+      await loadDecksForFilter();
       try {
         const res = await fetch(KEYWORDS_URL, { method: 'GET' });
         if (!res.ok) throw new Error('HTTP ' + res.status);
