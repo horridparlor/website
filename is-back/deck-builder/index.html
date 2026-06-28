@@ -1108,6 +1108,7 @@
   });
 
   el.deckCardsList.addEventListener('mouseover', e => {
+    if (isFocusLocked()) return;
     const row = e.target.closest('.deck-card-row[data-id]');
     if (!row) return;
     const id = Number(row.dataset.id);
