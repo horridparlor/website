@@ -1381,7 +1381,7 @@ function openInfernoidPurgeModal(effect, state) {
     const cardsHtml = targets.map(t => {
       const c = allCards[Number(t.cardId)];
       if (!c) return '';
-      return `<div class="modal-card-item" data-id="${c.id}" onclick="kwModalSelect(${c.id})">
+      return `<div class="modal-card-item" data-id="${c.id}" data-player="${t.playerIndex}">
         <img src="${cardImg(c)}" alt="${stripBB(c.name)}" onerror="this.src=''" />
         <div class="mci-name">${stripBB(c.name)}</div>
       </div>`;
@@ -1400,15 +1400,23 @@ function openInfernoidPurgeModal(effect, state) {
     buildSection(oppTargets, "Opponent's Graveyard") +
     buildSection(myTargets, 'Your Graveyard');
 
+  document.getElementById('kw-modal-cards').querySelectorAll('.modal-card-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const cardId = Number(el.dataset.id);
+      const fromPlayerIndex = Number(el.dataset.player);
+      resolvePendingKeyword({ keyword: 'infernoid_purge_respond', purgeCardId: cardId, fromPlayerIndex });
+      closeKwModal();
+    });
+  });
+
   const btns = document.getElementById('kw-modal-btns');
   btns.innerHTML = '';
   const skipBtn = document.createElement('button');
   skipBtn.className = 'm-cancel';
   skipBtn.textContent = 'Skip';
-  skipBtn.addEventListener('click', () => resolvePendingKeyword({ keyword: 'infernoid_purge_respond' }));
+  skipBtn.addEventListener('click', () => { resolvePendingKeyword({ keyword: 'infernoid_purge_respond' }); closeKwModal(); });
   btns.appendChild(skipBtn);
 
-  window._kwModalCallback = (cardId) => resolvePendingKeyword({ keyword: 'infernoid_purge_respond', purgeCardId: cardId });
   document.getElementById('kw-modal').classList.add('open');
 }
 

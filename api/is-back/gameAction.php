@@ -1427,13 +1427,17 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
             if (!$pending || $pending['type'] !== 'infernoid_purge') return 'No Infernoid Purge pending';
             if ((int)($pending['playerIndex'] ?? -1) !== $playerIndex) return 'Not your response';
             $purgeCardId = (int)($params['purgeCardId'] ?? 0);
+            $fromPlayerIndex = isset($params['fromPlayerIndex']) ? (int)$params['fromPlayerIndex'] : null;
             if ($purgeCardId) {
                 $found = false;
-                foreach ([0, 1] as $pIdx) {
+                $searchOrder = ($fromPlayerIndex !== null && in_array($fromPlayerIndex, [0, 1]))
+                    ? [$fromPlayerIndex]
+                    : [0, 1];
+                foreach ($searchOrder as $pIdx) {
                     $gIdx = array_search($purgeCardId, $state['players'][$pIdx]['graveyardIds']);
                     if ($gIdx !== false) {
                         array_splice($state['players'][$pIdx]['graveyardIds'], $gIdx, 1);
-                        $state['players'][$playerIndex]['purgedIds'][] = $purgeCardId;
+                        $state['players'][$pIdx]['purgedIds'][] = $purgeCardId;
                         $purgedCard = $engine->getCard($purgeCardId);
                         $state['log'][] = $state['players'][$playerIndex]['username'] . ' purged ' . ($purgedCard['name'] ?? '?') . ' (Infernoid)!';
                         $found = true;
