@@ -1193,7 +1193,6 @@ function isPendingResponder(effect, mi) {
     case 'watch_quick':
     case 'sus_respond':
     case 'infernoid_purge':
-    case 'poverty_discard':
     case 'equal_exchange':
     case 'mic_pass':
     case 'teleportation_discard':
@@ -1280,9 +1279,6 @@ function openPendingEffectModal(effect, state) {
       return;
     case 'infernoid_purge':
       openInfernoidPurgeModal(effect, state);
-      return;
-    case 'poverty_discard':
-      openPovertyDiscardModal(effect, state);
       return;
     case 'equal_exchange':
       openEqualExchangeModal(effect, state);
@@ -1376,22 +1372,6 @@ function openInfernoidPurgeModal(effect, state) {
   );
 }
 
-function openPovertyDiscardModal(effect, state) {
-  const me = state.players[myIndex];
-  const handCards = (me.handIds || []).map(id => allCards[id]).filter(Boolean);
-  if (!handCards.length) {
-    // No cards to discard — must skip (cancels evolve)
-    resolvePendingKeyword({ keyword: 'poverty_discard_respond', skip: true });
-    return;
-  }
-  openKwModalCustom(
-    'Poverty',
-    'Discard a card from hand to pay the evolution cost, or skip to cancel the evolution.',
-    handCards,
-    [{ label: 'Cancel evolution (skip discard)', className: 'm-cancel', onClick: () => resolvePendingKeyword({ keyword: 'poverty_discard_respond', skip: true }) }],
-    (cardId) => resolvePendingKeyword({ keyword: 'poverty_discard_respond', discardId: cardId })
-  );
-}
 
 function openEqualExchangeModal(effect, state) {
   const me = state.players[myIndex];
@@ -1481,7 +1461,7 @@ function openJustOkModal(effect, state) {
   const handCards = (me.handIds || []).map(id => allCards[id]).filter(Boolean);
   openKwModalCustom(
     'Just OK',
-    'You will draw a card, then discard one from your hand.',
+    'You drew a card. Now discard one from your hand.',
     handCards,
     [],
     (cardId) => resolvePendingKeyword({ keyword: 'just_ok_respond', discardId: cardId })
@@ -2497,6 +2477,38 @@ function onSlotClick(slot) {
     const result = GameEngine.canPlayCard(gameState, myIndex, selectedHandCardId, slot, false);
     if (result.canPlay) {
       const action = slotStack.length > 0 ? 'evolveCard' : 'playCard';
+      // Poverty: evolving into a poverty card requires discarding another card first
+      if (action === 'evolveCard' && !result.mustFaceDown && GameEngine.cardHasKeyword(allCards[selectedHandCardId], 'poverty')) {
+        const me = gameState.players[myIndex];
+        const capturedCardId = selectedHandCardId;
+        const capturedResult = result;
+        const otherHandCards = (me.handIds || [])
+          .filter(id => id !== capturedCardId)
+          .map(id => allCards[id]).filter(Boolean);
+        selectedHandCardId = null;
+        clearSlotHighlights();
+        if (!otherHandCards.length) {
+          showPhaseMsg('Need another card in hand to evolve (Poverty).', '#f85149', 2000);
+          return;
+        }
+        openKwModalCustom(
+          'Poverty',
+          'Discard a card from hand to pay the evolution cost, or cancel.',
+          otherHandCards,
+          [{ label: 'Cancel', className: 'm-cancel', onClick: () => {} }],
+          (discardId) => {
+            const handCardEl = document.querySelector(`.hand-card[data-id="${capturedCardId}"]`);
+            if (handCardEl) {
+              const fromRect = handCardEl.getBoundingClientRect();
+              const animType = computeMyAnimType(capturedCardId, slot, capturedResult.mustFaceDown, slotStack);
+              handCardEl.style.visibility = 'hidden';
+              flyCard(fromRect, `my-${slot}`, capturedCardId, animType);
+            }
+            sendAction('evolveCard', { cardId: capturedCardId, slot, faceDown: capturedResult.mustFaceDown, discardId });
+          }
+        );
+        return;
+      }
       // Animate immediately before sending action
       const handCardEl = document.querySelector(`.hand-card[data-id="${selectedHandCardId}"]`);
       if (handCardEl) {
@@ -3391,6 +3403,34 @@ document.getElementById('hand-scroll').addEventListener('dragstart', e => {
     if (result.canPlay) {
       const slotStack = gameState.players[myIndex].field[slot] || [];
       const act = slotStack.length > 0 ? 'evolveCard' : 'playCard';
+      // Poverty: evolving into a poverty card requires discarding another card first
+      if (act === 'evolveCard' && !result.mustFaceDown && GameEngine.cardHasKeyword(allCards[cardId], 'poverty')) {
+        const me = gameState.players[myIndex];
+        const otherHandCards = (me.handIds || [])
+          .filter(id => id !== cardId)
+          .map(id => allCards[id]).filter(Boolean);
+        if (!otherHandCards.length) {
+          showPhaseMsg('Need another card in hand to evolve (Poverty).', '#f85149', 2000);
+          return;
+        }
+        openKwModalCustom(
+          'Poverty',
+          'Discard a card from hand to pay the evolution cost, or cancel.',
+          otherHandCards,
+          [{ label: 'Cancel', className: 'm-cancel', onClick: () => {} }],
+          (discardId) => {
+            const handCardEl = document.querySelector(`.hand-card[data-id="${cardId}"]`);
+            if (handCardEl) {
+              const fromRect = handCardEl.getBoundingClientRect();
+              const animType = computeMyAnimType(cardId, slot, result.mustFaceDown, slotStack);
+              handCardEl.style.visibility = 'hidden';
+              flyCard(fromRect, `my-${slot}`, cardId, animType);
+            }
+            sendAction('evolveCard', { cardId, slot, faceDown: result.mustFaceDown, discardId });
+          }
+        );
+        return;
+      }
       const handCardEl = document.querySelector(`.hand-card[data-id="${cardId}"]`);
       if (handCardEl) {
         const fromRect = handCardEl.getBoundingClientRect();

@@ -75,8 +75,9 @@ class GameEngine
             shuffle($owner['deckIds']);
             $owner['graveyardIds'] = [];
             $state['log'][] = $owner['username'] . ' reshuffled graveyard into deck.';
-            // Trigger just-ok for each just-ok card being reshuffled
+            // Trigger just-ok for each just-ok card being reshuffled: draw immediately so modal shows updated hand
             foreach ($justOkCards as $joId) {
+                $this->drawCards($state, $deckOwnerIndex, 1);
                 enqueuePendingEffects($state, [['type' => 'just_ok', 'playerIndex' => $deckOwnerIndex, 'cardId' => (int)$joId]]);
             }
         }
@@ -943,15 +944,16 @@ function handleEvolveCard(array &$state, int $playerIndex, array $params, GameEn
         $engine->applyWhenEvolves($state, $playerIndex, $slot, $cardId, $currentTop['id']);
         $pending = $engine->applyWhenPlayed($state, $playerIndex, $slot, $cardId, $faceDown);
         if ($pending) enqueuePendingEffects($state, $pending);
-        // Poverty: evolving into this card requires discarding an additional card from hand
+        // Poverty: evolving into this card requires discarding a card from hand at evolve time
         if ($engine->hasKeyword($cardId, 'poverty')) {
-            enqueuePendingEffects($state, [[
-                'type' => 'poverty_discard',
-                'playerIndex' => $playerIndex,
-                'cardId' => $cardId,
-                'slot' => $slot,
-            ]]);
-            $state['log'][] = $p['username'] . ' must discard a card (Poverty).';
+            $discardId = (int)($params['discardId'] ?? 0);
+            if (!$discardId || !in_array($discardId, $p['handIds'])) {
+                return 'Poverty: must provide a card to discard from hand when evolving';
+            }
+            $engine->discardFromHand($state, $playerIndex, $discardId);
+            pushDiscardAnim($state, $discardId, $playerIndex, 'poverty');
+            checkAndApplyEqualExchange($state, $playerIndex, $discardId, $engine);
+            $state['log'][] = $p['username'] . ' discarded a card (Poverty).';
         }
     }
 
@@ -1112,7 +1114,7 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
                 if ($gIdx !== false) {
                     array_splice($p['graveyardIds'], $gIdx, 1);
                     if (!in_array($slot, ['left', 'right'])) $slot = 'left';
-                    if (!empty($p['field'][$slot])) $slot = ($slot === 'left' ? 'right' : 'left');
+                    // Occupied slot = evolve (stack on top); empty slot = fresh play. Both are valid.
                     $p['field'][$slot][] = ['cardId' => $zombieId, 'faceDown' => false];
                     $engine->recalcDemocracy($state, $playerIndex);
                     $state['log'][] = $p['username'] . ' played a Zombie from graveyard (Necromancy).';
@@ -1470,9 +1472,7 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
             $pending = getCurrentPendingEffect($state);
             if (!$pending || $pending['type'] !== 'just_ok') return 'No Just-OK pending';
             if ((int)($pending['playerIndex'] ?? -1) !== $playerIndex) return 'Not your response';
-            // Draw a card first
-            $engine->drawCards($state, $playerIndex, 1);
-            // Then discard a chosen card
+            // Card was already drawn when the effect was enqueued; now discard a chosen card
             $discardId = (int)($params['discardId'] ?? 0);
             if ($discardId && in_array($discardId, $state['players'][$playerIndex]['handIds'])) {
                 $engine->discardFromHand($state, $playerIndex, $discardId);
@@ -1499,8 +1499,9 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
             array_splice($state['players'][$playerIndex]['graveyardIds'], $gIdx, 1);
             $state['players'][$playerIndex]['deckIds'][] = $reshuffleId;
             shuffle($state['players'][$playerIndex]['deckIds']);
-            // Check just-ok
+            // Check just-ok: draw immediately so modal shows updated hand
             if ($engine->hasKeyword($reshuffleId, 'just-ok')) {
+                $engine->drawCards($state, $playerIndex, 1);
                 enqueuePendingEffects($state, [['type' => 'just_ok', 'playerIndex' => $playerIndex, 'cardId' => $reshuffleId]]);
             }
             $state['log'][] = $state['players'][$playerIndex]['username'] . ' reshuffled a card to deck (Mic Pass).';
