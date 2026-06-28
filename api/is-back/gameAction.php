@@ -68,11 +68,17 @@ class GameEngine
         $owner = &$state['players'][$deckOwnerIndex];
         if (empty($owner['deckIds'])) {
             if (empty($owner['graveyardIds'])) return false;
+            // Check for just-ok cards before reshuffling
+            $justOkCards = array_filter($owner['graveyardIds'], fn($cid) => $this->hasKeyword((int)$cid, 'just-ok'));
             // Reshuffle selected owner's graveyard into selected owner's deck.
             $owner['deckIds'] = $owner['graveyardIds'];
             shuffle($owner['deckIds']);
             $owner['graveyardIds'] = [];
             $state['log'][] = $owner['username'] . ' reshuffled graveyard into deck.';
+            // Trigger just-ok for each just-ok card being reshuffled
+            foreach ($justOkCards as $joId) {
+                enqueuePendingEffects($state, [['type' => 'just_ok', 'playerIndex' => $deckOwnerIndex, 'cardId' => (int)$joId]]);
+            }
         }
 
         $drawn = array_shift($owner['deckIds']);
@@ -163,6 +169,12 @@ class GameEngine
         $p = &$state['players'][$playerIndex];
         $top = $this->getTopCard($p['field']['primary']);
         if (!$top) return 0;
+        // Infinity: fully supported (left AND right occupied) → infinite power
+        if ($this->hasKeyword($top['id'], 'infinity')) {
+            $leftOk = !empty($p['field']['left']);
+            $rightOk = !empty($p['field']['right']);
+            if ($leftOk && $rightOk) return 999999999;
+        }
         $base = (int)$top['power'];
         return $base + (int)($p['effectivePowerBonus'] ?? 0);
     }
@@ -266,6 +278,48 @@ class GameEngine
                         $pendingEffects[] = ['type' => 'sahkotalo', 'playerIndex' => $playerIndex, 'cardId' => $cardId];
                     }
                     break;
+                case 'watch-quick':
+                    if (!$isFaceDown) {
+                        // Find all face-down cards on the field
+                        $faceDownTargets = [];
+                        foreach ([0, 1] as $pIdx) {
+                            foreach (['primary', 'left', 'right'] as $s) {
+                                $stack = $state['players'][$pIdx]['field'][$s] ?? [];
+                                if (!empty($stack)) {
+                                    $top = end($stack);
+                                    if (!empty($top['faceDown'])) {
+                                        $faceDownTargets[] = ['playerIndex' => $pIdx, 'slot' => $s];
+                                    }
+                                }
+                            }
+                        }
+                        if (!empty($faceDownTargets)) {
+                            $pendingEffects[] = ['type' => 'watch_quick', 'playerIndex' => $playerIndex, 'cardId' => $cardId, 'targets' => $faceDownTargets];
+                        }
+                    }
+                    break;
+                case 'infernoid':
+                    if ($slot !== 'primary' && !$isFaceDown) {
+                        $primaryTop = $this->getTopCard($state['players'][$playerIndex]['field']['primary']);
+                        if ($primaryTop && strtolower($primaryTop['type']) === strtolower($card['type'])) {
+                            $strongType = BEATS[strtolower($card['type'])] ?? null;
+                            if ($strongType) {
+                                $purgeTargets = [];
+                                foreach ([0, 1] as $pIdx) {
+                                    foreach ($state['players'][$pIdx]['graveyardIds'] as $gid) {
+                                        $gc = $this->getCard((int)$gid);
+                                        if (strtolower($gc['type'] ?? '') === $strongType) {
+                                            $purgeTargets[] = ['playerIndex' => $pIdx, 'cardId' => (int)$gid];
+                                        }
+                                    }
+                                }
+                                if (!empty($purgeTargets)) {
+                                    $pendingEffects[] = ['type' => 'infernoid_purge', 'playerIndex' => $playerIndex, 'cardId' => $cardId, 'strongType' => $strongType, 'purgeTargets' => $purgeTargets];
+                                }
+                            }
+                        }
+                    }
+                    break;
             }
         }
         // Wanderret: when supporting a wanderret
@@ -334,6 +388,21 @@ class GameEngine
 
     public function startNewRound(array &$state, int $firstPlayer): void
     {
+        // Record field state before clearing for exit animation
+        $fieldCards = [];
+        foreach ($state['players'] as $pIdx => $p) {
+            foreach (['primary', 'left', 'right'] as $slot) {
+                if (!empty($p['field'][$slot])) {
+                    $top = end($p['field'][$slot]);
+                    $fieldCards[] = ['playerIndex' => $pIdx, 'slot' => $slot, 'cardId' => (int)$top['cardId'], 'faceDown' => $top['faceDown'] ?? false];
+                }
+            }
+        }
+        if (!empty($fieldCards)) {
+            $state['lastFieldExit'] = ['ts' => nextEventStamp(), 'cards' => $fieldCards];
+            $state['lastFieldExitAcks'] = [0, 0];
+        }
+
         $state['roundNumber']++;
         $state['phase']       = 'start_of_round';
         $state['firstPlayer'] = $firstPlayer;
@@ -466,6 +535,64 @@ function clearRoundScopedFlags(array &$state): void
     unset($state['revealQueueNextAt']);
 }
 
+function checkAndApplyEqualExchange(array &$state, int $discardingPlayer, int $cardId, GameEngine $engine): void
+{
+    if (!$engine->hasKeyword($cardId, 'equal-exchange')) return;
+    $oppIdx = 1 - $discardingPlayer;
+    if (empty($state['players'][$oppIdx]['handIds'])) return;
+    if (count($state['players'][$oppIdx]['handIds']) === 1) {
+        $toDiscard = $state['players'][$oppIdx]['handIds'][0];
+        $engine->discardFromHand($state, $oppIdx, $toDiscard);
+        pushDiscardAnim($state, $toDiscard, $oppIdx, 'equal_exchange');
+        $state['log'][] = $state['players'][$oppIdx]['username'] . ' discarded a card (Equal Exchange).';
+    } else {
+        enqueuePendingEffects($state, [[
+            'type' => 'equal_exchange',
+            'playerIndex' => $oppIdx,
+            'sourceCardId' => $cardId,
+        ]]);
+        $state['log'][] = $state['players'][$oppIdx]['username'] . ' must discard a card (Equal Exchange).';
+    }
+}
+
+function handleSuck(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
+{
+    if ($state['phase'] !== 'main_phase') return 'Not in main phase';
+    if ($state['turn'] !== $playerIndex) return 'Not your turn';
+    $cardId = (int)($params['cardId'] ?? 0);
+    if (!$cardId || !in_array($cardId, $state['players'][$playerIndex]['handIds'])) return 'Card not in hand';
+    if (!$engine->hasKeyword($cardId, 'suck')) return 'Card does not have Suck';
+    $oppIdx = 1 - $playerIndex;
+    $oppField = $state['players'][$oppIdx]['field'];
+    if (empty($oppField['primary']) || empty($oppField['left']) || empty($oppField['right'])) {
+        return 'Opponent does not have a full field (primary + left + right)';
+    }
+    // Record field state before destroying for animation
+    $fieldCards = [];
+    foreach ([0, 1] as $pIdx) {
+        foreach (['primary', 'left', 'right'] as $slot) {
+            if (!empty($state['players'][$pIdx]['field'][$slot])) {
+                $top = end($state['players'][$pIdx]['field'][$slot]);
+                $fieldCards[] = ['playerIndex' => $pIdx, 'slot' => $slot, 'cardId' => (int)$top['cardId'], 'faceDown' => $top['faceDown'] ?? false];
+            }
+        }
+    }
+    // Discard suck card from hand
+    $engine->discardFromHand($state, $playerIndex, $cardId);
+    pushDiscardAnim($state, $cardId, $playerIndex, 'suck');
+    checkAndApplyEqualExchange($state, $playerIndex, $cardId, $engine);
+    // Destroy all field cards for both players
+    $engine->clearField($state, 0);
+    $engine->clearField($state, 1);
+    $engine->recalcDemocracy($state, 0);
+    $engine->recalcDemocracy($state, 1);
+    $ts = nextEventStamp();
+    $state['lastSuckDestroy'] = ['ts' => $ts, 'playerIndex' => $playerIndex, 'cardId' => $cardId, 'fieldCards' => $fieldCards];
+    $state['lastSuckDestroyAcks'] = [0, 0];
+    $state['log'][] = $state['players'][$playerIndex]['username'] . ' used Suck! All field cards destroyed.';
+    return null;
+}
+
 function hasFaceDownInPrimary(array $state, int $playerIndex): bool
 {
     $stack = $state['players'][$playerIndex]['field']['primary'] ?? [];
@@ -570,7 +697,7 @@ function handlePlayStartOfRound(array &$state, int $playerIndex, array $params, 
     $card = $engine->getCard($cardId);
     $kwLower = array_map('strtolower', $card['keywords']);
 
-    if (!in_array('greed', $kwLower) && !in_array('natural-selection', $kwLower)) {
+    if (!in_array('greed', $kwLower) && !in_array('natural-selection', $kwLower) && !in_array('mega-greed', $kwLower)) {
         return 'Card has no [Start of round] keyword';
     }
 
@@ -587,6 +714,26 @@ function handlePlayStartOfRound(array &$state, int $playerIndex, array $params, 
         $state['log'][] = $state['players'][$playerIndex]['username'] . ' used Greed! Dice result +2 → ' . $effective . '.';
         $state['lastGreed'] = ['ts' => nextEventStamp(), 'playerIndex' => $playerIndex, 'cardId' => $cardId, 'effective' => $effective];
         $state['lastGreedAcks'] = [0, 0];
+    }
+
+    if (in_array('mega-greed', $kwLower)) {
+        // Discard entire hand (card itself already discarded above), +1 dice per 2 discarded
+        $discardCount = 1; // mega-greed card itself
+        while (!empty($state['players'][$playerIndex]['handIds'])) {
+            $toDiscard = array_shift($state['players'][$playerIndex]['handIds']);
+            $state['players'][$playerIndex]['graveyardIds'][] = $toDiscard;
+            pushDiscardAnim($state, $toDiscard, $playerIndex, 'mega_greed');
+            checkAndApplyEqualExchange($state, $playerIndex, $toDiscard, $engine);
+            $discardCount++;
+        }
+        $bonusGain = (int)floor($discardCount / 2);
+        $state['players'][$playerIndex]['diceBonus'] = ($state['players'][$playerIndex]['diceBonus'] ?? 0) + $bonusGain;
+        $roll = $state['players'][$playerIndex]['diceRoll'];
+        $effective = min(12, max(2, $roll['total'] + $state['players'][$playerIndex]['diceBonus']));
+        $state['players'][$playerIndex]['diceRoll']['effective'] = $effective;
+        $state['lastGreed'] = ['ts' => nextEventStamp(), 'playerIndex' => $playerIndex, 'cardId' => $cardId, 'effective' => $effective];
+        $state['lastGreedAcks'] = [0, 0];
+        $state['log'][] = $state['players'][$playerIndex]['username'] . " used Mega-Greed! Discarded $discardCount cards (+$bonusGain). Dice → $effective.";
     }
 
     if (in_array('natural-selection', $kwLower)) {
@@ -796,6 +943,16 @@ function handleEvolveCard(array &$state, int $playerIndex, array $params, GameEn
         $engine->applyWhenEvolves($state, $playerIndex, $slot, $cardId, $currentTop['id']);
         $pending = $engine->applyWhenPlayed($state, $playerIndex, $slot, $cardId, $faceDown);
         if ($pending) enqueuePendingEffects($state, $pending);
+        // Poverty: evolving into this card requires discarding an additional card from hand
+        if ($engine->hasKeyword($cardId, 'poverty')) {
+            enqueuePendingEffects($state, [[
+                'type' => 'poverty_discard',
+                'playerIndex' => $playerIndex,
+                'cardId' => $cardId,
+                'slot' => $slot,
+            ]]);
+            $state['log'][] = $p['username'] . ' must discard a card (Poverty).';
+        }
     }
 
     if ($state['naturalSelection']) {
@@ -860,6 +1017,13 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
                 $p['deckIds'][] = $sid;
             }
             shuffle($p['deckIds']);
+            // Cultism animation notification
+            $cultismCardId = null;
+            foreach ($p['graveyardIds'] as $cid) {
+                if ($engine->hasKeyword((int)$cid, 'Cultism')) { $cultismCardId = (int)$cid; break; }
+            }
+            $state['lastCultism'] = ['ts' => nextEventStamp(), 'playerIndex' => $playerIndex, 'selectedIds' => $selectedIds, 'cultismCardId' => $cultismCardId];
+            $state['lastCultismAcks'] = [0, 0];
             // Draw a prize card if available
             if (!empty($p['prizeIds'])) {
                 $prize = array_shift($p['prizeIds']);
@@ -899,15 +1063,35 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
                 $state['log'][] = $state['players'][$playerIndex]['username'] . ' negated Rizz.';
             } else {
                 // Rizz resolves: reveal one face-down card of opponent
-                $rizzPlayer = $pending['playerIndex'];
                 $revealTarget = $params['revealSlot'] ?? null;
                 if ($revealTarget) {
-                    $field = $state['players'][$playerIndex]['field'];
-                    $slot  = $revealTarget;
-                    if (!empty($field[$slot])) {
-                        $topIdx = count($field[$slot]) - 1;
-                        if ($state['players'][$playerIndex]['field'][$slot][$topIdx]['faceDown']) {
-                            $state['players'][$playerIndex]['field'][$slot][$topIdx]['faceDown'] = false;
+                    $field = &$state['players'][$playerIndex]['field'];
+                    $rSlot = $revealTarget;
+                    if (!empty($field[$rSlot])) {
+                        $topIdx = count($field[$rSlot]) - 1;
+                        if ($state['players'][$playerIndex]['field'][$rSlot][$topIdx]['faceDown']) {
+                            // Check for sus
+                            $susCardId = null;
+                            foreach ($state['players'][$playerIndex]['handIds'] as $hid) {
+                                if ($engine->hasKeyword((int)$hid, 'sus')) { $susCardId = (int)$hid; break; }
+                            }
+                            if ($susCardId) {
+                                consumePendingEffect($state);
+                                enqueuePendingEffects($state, [[
+                                    'type' => 'sus_respond',
+                                    'playerIndex' => $playerIndex,
+                                    'susCardId' => $susCardId,
+                                    'revealPlayerIndex' => $playerIndex,
+                                    'revealSlot' => $rSlot,
+                                    'revealer' => 'rizz',
+                                ]]);
+                                $state['log'][] = $state['players'][$playerIndex]['username'] . ' has Sus — may intercept the reveal!';
+                                return null;
+                            }
+                            $state['players'][$playerIndex]['field'][$rSlot][$topIdx]['faceDown'] = false;
+                            $revealedId = (int)$state['players'][$playerIndex]['field'][$rSlot][$topIdx]['cardId'];
+                            $state['lastWatchQuickReveal'] = ['ts' => nextEventStamp(), 'revealedCardId' => $revealedId, 'revealedPlayerIndex' => $playerIndex, 'revealedSlot' => $rSlot];
+                            $state['lastWatchQuickRevealAcks'] = [0, 0];
                             $state['log'][] = 'Rizz revealed a face-down card!';
                         }
                     }
@@ -1138,6 +1322,230 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
             consumePendingEffect($state);
             return null;
         }
+        case 'watch_quick_respond': {
+            $pending = getCurrentPendingEffect($state);
+            if (!$pending || $pending['type'] !== 'watch_quick') return 'No Watch Quick pending';
+            if ((int)($pending['playerIndex'] ?? -1) !== $playerIndex) return 'Not your response';
+            $targetPlayerIndex = (int)($params['targetPlayerIndex'] ?? -1);
+            $targetSlot = $params['targetSlot'] ?? '';
+            if ($targetPlayerIndex >= 0 && in_array($targetSlot, ['primary', 'left', 'right'])) {
+                $targetStack = &$state['players'][$targetPlayerIndex]['field'][$targetSlot];
+                if (!empty($targetStack)) {
+                    $topIdx = count($targetStack) - 1;
+                    if (!empty($targetStack[$topIdx]['faceDown'])) {
+                        // Check for sus on the targeted player
+                        $susCardId = null;
+                        foreach ($state['players'][$targetPlayerIndex]['handIds'] as $hid) {
+                            if ($engine->hasKeyword((int)$hid, 'sus')) { $susCardId = (int)$hid; break; }
+                        }
+                        if ($susCardId) {
+                            consumePendingEffect($state);
+                            enqueuePendingEffects($state, [[
+                                'type' => 'sus_respond',
+                                'playerIndex' => $targetPlayerIndex,
+                                'susCardId' => $susCardId,
+                                'revealPlayerIndex' => $targetPlayerIndex,
+                                'revealSlot' => $targetSlot,
+                                'revealer' => 'watch_quick',
+                            ]]);
+                            $state['log'][] = $state['players'][$targetPlayerIndex]['username'] . ' has Sus — may intercept!';
+                            return null;
+                        }
+                        $targetStack[$topIdx]['faceDown'] = false;
+                        $revealedId = (int)$targetStack[$topIdx]['cardId'];
+                        $state['lastWatchQuickReveal'] = ['ts' => nextEventStamp(), 'revealedCardId' => $revealedId, 'revealedPlayerIndex' => $targetPlayerIndex, 'revealedSlot' => $targetSlot];
+                        $state['lastWatchQuickRevealAcks'] = [0, 0];
+                        $revCard = $engine->getCard($revealedId);
+                        $state['log'][] = $state['players'][$playerIndex]['username'] . ' revealed ' . ($revCard['name'] ?? '?') . ' (Watch Quick)!';
+                    }
+                }
+            }
+            consumePendingEffect($state);
+            return null;
+        }
+        case 'sus_respond': {
+            $pending = getCurrentPendingEffect($state);
+            if (!$pending || $pending['type'] !== 'sus_respond') return 'No Sus pending';
+            if ((int)($pending['playerIndex'] ?? -1) !== $playerIndex) return 'Not your response';
+            $useSus = !empty($params['useSus']);
+            $susCardId = (int)($pending['susCardId'] ?? 0);
+            if ($useSus && $susCardId && in_array($susCardId, $state['players'][$playerIndex]['handIds'])) {
+                $engine->discardFromHand($state, $playerIndex, $susCardId);
+                pushDiscardAnim($state, $susCardId, $playerIndex, 'sus');
+                $state['lastWatchQuickReveal'] = ['ts' => nextEventStamp(), 'revealedCardId' => $susCardId, 'revealedPlayerIndex' => $playerIndex, 'revealedSlot' => null, 'isSus' => true];
+                $state['lastWatchQuickRevealAcks'] = [0, 0];
+                $state['log'][] = $state['players'][$playerIndex]['username'] . ' revealed Sus from hand — face-down card protected!';
+            } else {
+                // Normal reveal of the original target
+                $revealSlot = $pending['revealSlot'] ?? null;
+                $revealPlayerIndex = (int)($pending['revealPlayerIndex'] ?? $playerIndex);
+                if ($revealSlot && !empty($state['players'][$revealPlayerIndex]['field'][$revealSlot])) {
+                    $stack = &$state['players'][$revealPlayerIndex]['field'][$revealSlot];
+                    $topIdx = count($stack) - 1;
+                    if (!empty($stack[$topIdx]['faceDown'])) {
+                        $stack[$topIdx]['faceDown'] = false;
+                        $revealedId = (int)$stack[$topIdx]['cardId'];
+                        $state['lastWatchQuickReveal'] = ['ts' => nextEventStamp(), 'revealedCardId' => $revealedId, 'revealedPlayerIndex' => $revealPlayerIndex, 'revealedSlot' => $revealSlot];
+                        $state['lastWatchQuickRevealAcks'] = [0, 0];
+                        $revCard = $engine->getCard($revealedId);
+                        $state['log'][] = $state['players'][$revealPlayerIndex]['username'] . "'s face-down card was revealed: " . ($revCard['name'] ?? '?') . '.';
+                    }
+                }
+            }
+            consumePendingEffect($state);
+            return null;
+        }
+        case 'infernoid_purge_respond': {
+            $pending = getCurrentPendingEffect($state);
+            if (!$pending || $pending['type'] !== 'infernoid_purge') return 'No Infernoid Purge pending';
+            if ((int)($pending['playerIndex'] ?? -1) !== $playerIndex) return 'Not your response';
+            $purgeCardId = (int)($params['purgeCardId'] ?? 0);
+            if ($purgeCardId) {
+                $found = false;
+                foreach ([0, 1] as $pIdx) {
+                    $gIdx = array_search($purgeCardId, $state['players'][$pIdx]['graveyardIds']);
+                    if ($gIdx !== false) {
+                        array_splice($state['players'][$pIdx]['graveyardIds'], $gIdx, 1);
+                        $state['players'][$playerIndex]['purgedIds'][] = $purgeCardId;
+                        $purgedCard = $engine->getCard($purgeCardId);
+                        $state['log'][] = $state['players'][$playerIndex]['username'] . ' purged ' . ($purgedCard['name'] ?? '?') . ' (Infernoid)!';
+                        $found = true;
+                        break;
+                    }
+                }
+                if (!$found) return 'Card not in any graveyard';
+            } else {
+                $state['log'][] = $state['players'][$playerIndex]['username'] . ' skipped Infernoid purge.';
+            }
+            consumePendingEffect($state);
+            return null;
+        }
+        case 'poverty_discard_respond': {
+            $pending = getCurrentPendingEffect($state);
+            if (!$pending || $pending['type'] !== 'poverty_discard') return 'No Poverty pending';
+            if ((int)($pending['playerIndex'] ?? -1) !== $playerIndex) return 'Not your response';
+            $discardId = (int)($params['discardId'] ?? 0);
+            $skip = !empty($params['skip']);
+            if ($skip) {
+                // Return the poverty card to hand, undo the evolve
+                $pSlot = $pending['slot'] ?? 'primary';
+                $pCardId = (int)($pending['cardId'] ?? 0);
+                $stack = &$state['players'][$playerIndex]['field'][$pSlot];
+                if (!empty($stack)) {
+                    $topEntry = end($stack);
+                    if ((int)($topEntry['cardId'] ?? 0) === $pCardId) {
+                        array_pop($stack);
+                        $state['players'][$playerIndex]['handIds'][] = $pCardId;
+                        $engine->recalcDemocracy($state, $playerIndex);
+                        $state['log'][] = $state['players'][$playerIndex]['username'] . ' cancelled evolution (Poverty) — card returned to hand.';
+                    }
+                }
+            } else {
+                if (!$discardId || !in_array($discardId, $state['players'][$playerIndex]['handIds'])) {
+                    return 'Must discard a card from hand or skip';
+                }
+                $engine->discardFromHand($state, $playerIndex, $discardId);
+                pushDiscardAnim($state, $discardId, $playerIndex, 'poverty');
+                checkAndApplyEqualExchange($state, $playerIndex, $discardId, $engine);
+                $state['log'][] = $state['players'][$playerIndex]['username'] . ' discarded a card (Poverty).';
+            }
+            consumePendingEffect($state);
+            return null;
+        }
+        case 'equal_exchange_respond': {
+            $pending = getCurrentPendingEffect($state);
+            if (!$pending || $pending['type'] !== 'equal_exchange') return 'No Equal Exchange pending';
+            if ((int)($pending['playerIndex'] ?? -1) !== $playerIndex) return 'Not your response';
+            $discardId = (int)($params['discardId'] ?? 0);
+            $handIds = $state['players'][$playerIndex]['handIds'];
+            if (!$discardId && count($handIds) === 1) $discardId = (int)$handIds[0];
+            if (!$discardId || !in_array($discardId, $handIds)) return 'Must discard a card from hand';
+            $engine->discardFromHand($state, $playerIndex, $discardId);
+            pushDiscardAnim($state, $discardId, $playerIndex, 'equal_exchange');
+            $state['log'][] = $state['players'][$playerIndex]['username'] . ' discarded a card (Equal Exchange).';
+            consumePendingEffect($state);
+            return null;
+        }
+        case 'just_ok_respond': {
+            $pending = getCurrentPendingEffect($state);
+            if (!$pending || $pending['type'] !== 'just_ok') return 'No Just-OK pending';
+            if ((int)($pending['playerIndex'] ?? -1) !== $playerIndex) return 'Not your response';
+            // Draw a card first
+            $engine->drawCards($state, $playerIndex, 1);
+            // Then discard a chosen card
+            $discardId = (int)($params['discardId'] ?? 0);
+            if ($discardId && in_array($discardId, $state['players'][$playerIndex]['handIds'])) {
+                $engine->discardFromHand($state, $playerIndex, $discardId);
+                pushDiscardAnim($state, $discardId, $playerIndex, 'just_ok');
+                checkAndApplyEqualExchange($state, $playerIndex, $discardId, $engine);
+                $state['log'][] = $state['players'][$playerIndex]['username'] . ' used Just-OK: drew and discarded.';
+            } else if (!empty($state['players'][$playerIndex]['handIds'])) {
+                return 'Must choose a card to discard';
+            } else {
+                $state['log'][] = $state['players'][$playerIndex]['username'] . ' used Just-OK: drew a card (no card to discard).';
+            }
+            consumePendingEffect($state);
+            return null;
+        }
+        case 'mic_pass_respond': {
+            $pending = getCurrentPendingEffect($state);
+            if (!$pending || $pending['type'] !== 'mic_pass') return 'No Mic Pass pending';
+            if ((int)($pending['playerIndex'] ?? -1) !== $playerIndex) return 'Not your response';
+            $reshuffleId = (int)($params['reshuffleId'] ?? 0);
+            $sameTypeCards = $pending['sameTypeCards'] ?? [];
+            if (!$reshuffleId || !in_array($reshuffleId, $sameTypeCards)) return 'Invalid card selection';
+            if (!in_array($reshuffleId, $state['players'][$playerIndex]['graveyardIds'])) return 'Card not in graveyard';
+            $gIdx = array_search($reshuffleId, $state['players'][$playerIndex]['graveyardIds']);
+            array_splice($state['players'][$playerIndex]['graveyardIds'], $gIdx, 1);
+            $state['players'][$playerIndex]['deckIds'][] = $reshuffleId;
+            shuffle($state['players'][$playerIndex]['deckIds']);
+            // Check just-ok
+            if ($engine->hasKeyword($reshuffleId, 'just-ok')) {
+                enqueuePendingEffects($state, [['type' => 'just_ok', 'playerIndex' => $playerIndex, 'cardId' => $reshuffleId]]);
+            }
+            $state['log'][] = $state['players'][$playerIndex]['username'] . ' reshuffled a card to deck (Mic Pass).';
+            $passerId2 = (int)($pending['passerId'] ?? (1 - $playerIndex));
+            consumePendingEffect($state);
+            // Re-check pass
+            $winner = $engine->checkWinRound($state, $passerId2);
+            if ($winner === $playerIndex) {
+                $state['phase'] = 'main_phase';
+                $state['turn']  = $passerId2;
+                $state['log'][] = 'Mic Pass countered — main phase resumes.';
+            }
+            return null;
+        }
+        case 'teleportation_discard_respond': {
+            $pending = getCurrentPendingEffect($state);
+            if (!$pending || $pending['type'] !== 'teleportation_discard') return 'No Teleportation discard pending';
+            if ((int)($pending['playerIndex'] ?? -1) !== $playerIndex) return 'Not your response';
+            $discardIds = array_values(array_unique(array_map('intval', $params['discardIds'] ?? [])));
+            $weakType = $pending['weakType'] ?? null;
+            // Must discard: 1 weak-type card OR 2 cards of any type
+            if (count($discardIds) === 0) return 'Must discard cards for Teleportation cost';
+            $isWeakTypeDiscard = count($discardIds) === 1 && $weakType
+                && in_array($discardIds[0], $state['players'][$playerIndex]['handIds'])
+                && strtolower($engine->getCard($discardIds[0])['type'] ?? '') === $weakType;
+            $isTwoCardDiscard = count($discardIds) === 2;
+            if (!$isWeakTypeDiscard && !$isTwoCardDiscard) return 'Must discard 1 weak-type OR 2 cards (Teleportation)';
+            foreach ($discardIds as $dId) {
+                if (!in_array($dId, $state['players'][$playerIndex]['handIds'])) return 'Card not in hand';
+                $engine->discardFromHand($state, $playerIndex, $dId);
+                pushDiscardAnim($state, $dId, $playerIndex, 'teleportation');
+                checkAndApplyEqualExchange($state, $playerIndex, $dId, $engine);
+            }
+            $state['log'][] = $state['players'][$playerIndex]['username'] . ' paid Teleportation cost (' . count($discardIds) . ' card(s)).';
+            $passerId3 = (int)($pending['passerId'] ?? (1 - $playerIndex));
+            consumePendingEffect($state);
+            // Re-check pass
+            $winner = $engine->checkWinRound($state, $passerId3);
+            if ($winner === $playerIndex) {
+                $state['phase'] = 'main_phase';
+                $state['turn']  = $passerId3;
+                $state['log'][] = 'Teleportation countered the pass.';
+            }
+            return null;
+        }
         case 'facism_resolve_respond': {
             $pending = getCurrentPendingEffect($state);
             if (!$pending || $pending['type'] !== 'facism_resolve') return 'No Facism pending';
@@ -1236,6 +1644,41 @@ function getTriggerableOpponentPassesEffects(array &$state, int $responderIndex,
         }
         if ($engine->hasKeyword($myTop['id'], 'mikontalo')) {
             $effects[] = ['keyword' => 'mikontalo', 'slot' => $slot];
+        }
+        if ($engine->hasKeyword($myTop['id'], 'mic-pass')) {
+            $myType = strtolower((string)($myTop['type'] ?? ''));
+            $hasSameType = false;
+            foreach ($responder['graveyardIds'] as $gid) {
+                $gc = $engine->getCard((int)$gid);
+                if (strtolower($gc['type'] ?? '') === $myType) { $hasSameType = true; break; }
+            }
+            if ($hasSameType) {
+                $effects[] = ['keyword' => 'mic-pass', 'slot' => $slot];
+            }
+        }
+    }
+
+    // Check hand for Teleportation (requires primary card on field)
+    if (!empty($responder['field']['primary'])) {
+        $teleFound = false;
+        foreach ($responder['handIds'] ?? [] as $handCardId) {
+            if ($engine->hasKeyword((int)$handCardId, 'teleportation')) {
+                $effects[] = ['keyword' => 'teleportation', 'slot' => 'hand', 'cardId' => (int)$handCardId];
+                $teleFound = true;
+                break;
+            }
+        }
+        if (!$teleFound) {
+            // Diagnostic: log what keywords hand cards have, to help detect missing DB keyword linkage
+            $handKwSummary = [];
+            foreach ($responder['handIds'] ?? [] as $hid) {
+                $hc = $engine->getCard((int)$hid);
+                $kws = implode('/', $hc['keywords'] ?? []);
+                $handKwSummary[] = ($hc['name'] ?? '#' . $hid) . ($kws ? "[$kws]" : '[no-kw]');
+            }
+            if ($handKwSummary) {
+                $state['log'][] = '[Debug] No Teleportation in hand. Cards: ' . implode(', ', $handKwSummary);
+            }
         }
     }
 
@@ -1343,6 +1786,42 @@ function handleAcknowledgeNotification(array &$state, int $playerIndex, array $p
                 $state['lastDivineDestroyAcks'] = [0, 0];
             }
             $state['lastDivineDestroyAcks'][$playerIndex] = $stamp;
+        }
+        return null;
+    }
+
+    if ($kind === 'suck_destroy') {
+        $current = (int)($state['lastSuckDestroy']['ts'] ?? 0);
+        if ($current && $stamp === $current) {
+            if (!isset($state['lastSuckDestroyAcks']) || !is_array($state['lastSuckDestroyAcks'])) $state['lastSuckDestroyAcks'] = [0, 0];
+            $state['lastSuckDestroyAcks'][$playerIndex] = $stamp;
+        }
+        return null;
+    }
+
+    if ($kind === 'field_exit') {
+        $current = (int)($state['lastFieldExit']['ts'] ?? 0);
+        if ($current && $stamp === $current) {
+            if (!isset($state['lastFieldExitAcks']) || !is_array($state['lastFieldExitAcks'])) $state['lastFieldExitAcks'] = [0, 0];
+            $state['lastFieldExitAcks'][$playerIndex] = $stamp;
+        }
+        return null;
+    }
+
+    if ($kind === 'watch_quick_reveal') {
+        $current = (int)($state['lastWatchQuickReveal']['ts'] ?? 0);
+        if ($current && $stamp === $current) {
+            if (!isset($state['lastWatchQuickRevealAcks']) || !is_array($state['lastWatchQuickRevealAcks'])) $state['lastWatchQuickRevealAcks'] = [0, 0];
+            $state['lastWatchQuickRevealAcks'][$playerIndex] = $stamp;
+        }
+        return null;
+    }
+
+    if ($kind === 'cultism') {
+        $current = (int)($state['lastCultism']['ts'] ?? 0);
+        if ($current && $stamp === $current) {
+            if (!isset($state['lastCultismAcks']) || !is_array($state['lastCultismAcks'])) $state['lastCultismAcks'] = [0, 0];
+            $state['lastCultismAcks'][$playerIndex] = $stamp;
         }
         return null;
     }
@@ -1504,6 +1983,65 @@ function handleOpponentPassesResponse(array &$state, int $playerIndex, array $pa
                 'passerId' => $passerId,
             ]]);
             $state['log'][] = $state['players'][$playerIndex]['username'] . ' must discard a card (Mikontalo).';
+            return null;
+        }
+        case 'mic-pass': {
+            $myTop = $engine->getTopCard($state['players'][$playerIndex]['field'][$slot]);
+            if (!$myTop) return 'No card in that slot';
+            if (!$engine->hasKeyword($myTop['id'], 'mic-pass')) return 'Card does not have Mic Pass';
+            $myType = strtolower((string)($myTop['type'] ?? ''));
+            $sameTypeCards = [];
+            foreach ($state['players'][$playerIndex]['graveyardIds'] as $gid) {
+                $gc = $engine->getCard((int)$gid);
+                if (strtolower($gc['type'] ?? '') === $myType) $sameTypeCards[] = (int)$gid;
+            }
+            if (empty($sameTypeCards)) return 'No same-type cards in graveyard';
+            if (count($sameTypeCards) === 1) {
+                // Auto-reshuffle
+                $reshuffleId = $sameTypeCards[0];
+                $gIdx = array_search($reshuffleId, $state['players'][$playerIndex]['graveyardIds']);
+                if ($gIdx !== false) array_splice($state['players'][$playerIndex]['graveyardIds'], $gIdx, 1);
+                $state['players'][$playerIndex]['deckIds'][] = $reshuffleId;
+                shuffle($state['players'][$playerIndex]['deckIds']);
+                if ($engine->hasKeyword($reshuffleId, 'just-ok')) {
+                    enqueuePendingEffects($state, [['type' => 'just_ok', 'playerIndex' => $playerIndex, 'cardId' => $reshuffleId]]);
+                }
+                $state['log'][] = $state['players'][$playerIndex]['username'] . ' reshuffled a card (Mic Pass).';
+            } else {
+                enqueuePendingEffects($state, [[
+                    'type' => 'mic_pass',
+                    'playerIndex' => $playerIndex,
+                    'passerId' => $passerId,
+                    'cardType' => $myType,
+                    'sameTypeCards' => $sameTypeCards,
+                ]]);
+                $state['log'][] = $state['players'][$playerIndex]['username'] . ' uses Mic Pass — choose a card to reshuffle.';
+            }
+            return null;
+        }
+        case 'teleportation': {
+            $tCardId = (int)($params['cardId'] ?? 0);
+            if (!$tCardId || !in_array($tCardId, $state['players'][$playerIndex]['handIds'])) return 'Teleportation card not in hand';
+            if (!$engine->hasKeyword($tCardId, 'teleportation')) return 'Card does not have Teleportation';
+            if (empty($state['players'][$playerIndex]['field']['primary'])) return 'No primary card to replace';
+            // Remove from hand
+            $hIdx = array_search($tCardId, $state['players'][$playerIndex]['handIds']);
+            array_splice($state['players'][$playerIndex]['handIds'], $hIdx, 1);
+            // Push to primary stack face-up
+            $state['players'][$playerIndex]['field']['primary'][] = ['cardId' => $tCardId, 'faceDown' => false];
+            addCardPlayAnim($state, $playerIndex, $tCardId, 'primary', 'evolve');
+            $engine->recalcDemocracy($state, $playerIndex);
+            $tCard = $engine->getCard($tCardId);
+            $weakType = WEAK_TYPE[strtolower($tCard['type'] ?? '')] ?? null;
+            $state['log'][] = $state['players'][$playerIndex]['username'] . ' used Teleportation!';
+            enqueuePendingEffects($state, [[
+                'type' => 'teleportation_discard',
+                'playerIndex' => $playerIndex,
+                'passerId' => $passerId,
+                'cardId' => $tCardId,
+                'weakType' => $weakType,
+            ]]);
+            $state['log'][] = $state['players'][$playerIndex]['username'] . ' must discard 1 ' . ucfirst($weakType ?? '?') . ' OR 2 cards (Teleportation cost).';
             return null;
         }
         case 'skip': {
@@ -1957,6 +2495,7 @@ function performAction(Database $database): string
         // Main phase
         'playCard'                 => handlePlayCard($state, $playerIndex, $paramsArr, $engine),
         'evolveCard'               => handleEvolveCard($state, $playerIndex, $paramsArr, $engine),
+        'useSuck'                  => handleSuck($state, $playerIndex, $paramsArr, $engine),
         'useKeyword'               => handleUseKeyword($state, $playerIndex, $paramsArr, $engine),
         'acknowledgeNotification'  => handleAcknowledgeNotification($state, $playerIndex, $paramsArr),
         'reorderHand'              => handleReorderHand($state, $playerIndex, $paramsArr),

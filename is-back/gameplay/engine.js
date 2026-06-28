@@ -308,10 +308,29 @@ const GameEngine = (() => {
             results.push({ slot, cardId: top.cardId, keyword: 'Herwood' });
           } else if (kwLow === 'mikontalo') {
             results.push({ slot, cardId: top.cardId, keyword: 'Mikontalo' });
+          } else if (kwLow === 'mic-pass') {
+            const myType = card.type.toLowerCase();
+            const hasSameTypeInGrave = (player.graveyardIds || []).some(gid => {
+              const gc = allCardsMap[gid];
+              return gc && gc.type && gc.type.toLowerCase() === myType;
+            });
+            if (hasSameTypeInGrave) results.push({ slot, cardId: top.cardId, keyword: 'Mic-Pass' });
           }
         }
       }
     }
+
+    // Check hand for Teleportation (requires primary card on field)
+    if (player.field.primary && player.field.primary.length > 0) {
+      for (const handId of player.handIds || []) {
+        const handCard = allCardsMap[handId];
+        if (handCard && cardHasKeyword(handCard, 'teleportation')) {
+          results.push({ slot: 'hand', cardId: handId, keyword: 'Teleportation' });
+          break;
+        }
+      }
+    }
+
     return results;
   }
 
@@ -425,7 +444,7 @@ const GameEngine = (() => {
     return (playerState.graveyardIds || []).filter(id => cardHasKeyword(allCardsMap[id], 'little-sister'));
   }
 
-  // ─── Boosted power for a slot (Democracy + future modifiers) ─────────────────
+  // ─── Boosted power for a slot (Democracy + Infinity) ─────────────────
   function computeSlotPower(state, playerIndex, slot, allCardsMap) {
     const field = state.players[playerIndex].field;
     const stack = field[slot] || [];
@@ -434,13 +453,22 @@ const GameEngine = (() => {
     const card = allCardsMap[top.cardId];
     if (!card || card.power == null) return null;
     let power = parseInt(card.power) || 0;
-    if (slot === 'primary' && cardHasKeyword(card, 'democracy')) {
-      for (const s of ['left', 'right']) {
-        const suppStack = field[s] || [];
-        const suppTop = suppStack[suppStack.length - 1];
-        if (suppTop && !suppTop.faceDown) {
-          const suppCard = allCardsMap[suppTop.cardId];
-          if (suppCard) power += parseInt(suppCard.power) || 0;
+    if (slot === 'primary') {
+      // Infinity: fully supported (both left AND right occupied) → infinite power
+      if (cardHasKeyword(card, 'infinity')) {
+        const leftFull = (field.left || []).length > 0;
+        const rightFull = (field.right || []).length > 0;
+        if (leftFull && rightFull) return 999999999;
+      }
+      // Democracy: add supporting card powers
+      if (cardHasKeyword(card, 'democracy')) {
+        for (const s of ['left', 'right']) {
+          const suppStack = field[s] || [];
+          const suppTop = suppStack[suppStack.length - 1];
+          if (suppTop && !suppTop.faceDown) {
+            const suppCard = allCardsMap[suppTop.cardId];
+            if (suppCard) power += parseInt(suppCard.power) || 0;
+          }
         }
       }
     }
@@ -470,7 +498,7 @@ const GameEngine = (() => {
         if (!player.startOfRoundUsed) {
           const sorCards = (player.handIds || []).filter(id => {
             const c = allCardsMap[id];
-            return c && c.keywords && c.keywords.some(k => k && (k.toLowerCase() === 'greed' || k.toLowerCase() === 'natural-selection'));
+            return c && c.keywords && c.keywords.some(k => k && (k.toLowerCase() === 'greed' || k.toLowerCase() === 'natural-selection' || k.toLowerCase() === 'mega-greed'));
           });
           sorCards.forEach(id => actions.push({ type: 'useStartOfRound', cardId: id }));
         }
