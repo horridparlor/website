@@ -2477,8 +2477,10 @@ function onSlotClick(slot) {
     const result = GameEngine.canPlayCard(gameState, myIndex, selectedHandCardId, slot, false);
     if (result.canPlay) {
       const action = slotStack.length > 0 ? 'evolveCard' : 'playCard';
-      // Poverty: evolving into a poverty card requires discarding another card first
-      if (action === 'evolveCard' && !result.mustFaceDown && GameEngine.cardHasKeyword(allCards[selectedHandCardId], 'poverty')) {
+      // Poverty: evolving FROM a poverty card (on the field) requires discarding another hand card first
+      const slotTopEntry = slotStack.length > 0 ? slotStack[slotStack.length - 1] : null;
+      const slotTopCard = slotTopEntry && !slotTopEntry.faceDown ? allCards[slotTopEntry.cardId] : null;
+      if (action === 'evolveCard' && !result.mustFaceDown && slotTopCard && GameEngine.cardHasKeyword(slotTopCard, 'poverty')) {
         const me = gameState.players[myIndex];
         const capturedCardId = selectedHandCardId;
         const capturedResult = result;
@@ -3403,8 +3405,10 @@ document.getElementById('hand-scroll').addEventListener('dragstart', e => {
     if (result.canPlay) {
       const slotStack = gameState.players[myIndex].field[slot] || [];
       const act = slotStack.length > 0 ? 'evolveCard' : 'playCard';
-      // Poverty: evolving into a poverty card requires discarding another card first
-      if (act === 'evolveCard' && !result.mustFaceDown && GameEngine.cardHasKeyword(allCards[cardId], 'poverty')) {
+      // Poverty: evolving FROM a poverty card (on the field) requires discarding another hand card first
+      const ddTopEntry = slotStack.length > 0 ? slotStack[slotStack.length - 1] : null;
+      const ddTopCard = ddTopEntry && !ddTopEntry.faceDown ? allCards[ddTopEntry.cardId] : null;
+      if (act === 'evolveCard' && !result.mustFaceDown && ddTopCard && GameEngine.cardHasKeyword(ddTopCard, 'poverty')) {
         const me = gameState.players[myIndex];
         const otherHandCards = (me.handIds || [])
           .filter(id => id !== cardId)

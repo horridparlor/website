@@ -944,8 +944,8 @@ function handleEvolveCard(array &$state, int $playerIndex, array $params, GameEn
         $engine->applyWhenEvolves($state, $playerIndex, $slot, $cardId, $currentTop['id']);
         $pending = $engine->applyWhenPlayed($state, $playerIndex, $slot, $cardId, $faceDown);
         if ($pending) enqueuePendingEffects($state, $pending);
-        // Poverty: evolving into this card requires discarding a card from hand at evolve time
-        if ($engine->hasKeyword($cardId, 'poverty')) {
+        // Poverty: evolving FROM this card (the current top) requires discarding a card from hand
+        if ($engine->hasKeyword((int)$currentTop['id'], 'poverty')) {
             $discardId = (int)($params['discardId'] ?? 0);
             if (!$discardId || !in_array($discardId, $p['handIds'])) {
                 return 'Poverty: must provide a card to discard from hand when evolving';
