@@ -950,229 +950,6 @@
     const REQUEST_DELAY_MS = 100;
     const STORAGE_KEY = "anime-gacha-query-list-v1";
 
-    const EXAMPLE_QUERIES = `Astro Boy
-Speed Racer
-Lupin III Part I
-Future Boy Conan
-Galaxy Express 999
-Mobile Suit Gundam
-Rose of Versailles
-Anne of Green Gables
-Space Battleship Yamato
-Captain Harlock
-The Castle of Cagliostro
-Urusei Yatsura
-Macross
-Nausicaa of the Valley of the Wind
-Fist of the North Star
-Touch
-Angel's Egg
-Vampire Hunter D
-Castle in the Sky
-Saint Seiya
-Maison Ikkoku
-Akira
-My Neighbor Totoro
-Grave of the Fireflies
-Patlabor
-Kiki's Delivery Service
-Ranma 1/2
-Dragon Ball
-Dragon Ball Z
-Legend of the Galactic Heroes
-City Hunter
-Only Yesterday
-Roujin Z
-Porco Rosso
-Yu Yu Hakusho
-Slam Dunk
-Ninja Scroll
-Ocean Waves
-Blue Seed
-Magic Knight Rayearth
-DNA2
-Ghost Sweeper Mikami
-The Irresponsible Captain Tylor
-Memories
-Ghost in the Shell
-Neon Genesis Evangelion
-Whisper of the Heart
-Rurouni Kenshin
-The Vision of Escaflowne
-Martian Successor Nadesico
-Revolutionary Girl Utena
-Berserk (1997)
-Princess Mononoke
-Perfect Blue
-Serial Experiments Lain
-Cowboy Bebop
-Initial D First Stage
-Great Teacher Onizuka
-Cardcaptor Sakura
-Trigun
-Master Keaton
-Boogiepop Phantom
-Now and Then, Here and There
-One Piece
-Jin-Roh: The Wolf Brigade
-Excel Saga
-Digimon Adventure
-The Big O
-Blood: The Last Vampire
-Love Hina
-InuYasha
-Hajime no Ippo
-Vampire Hunter D: Bloodlust
-FLCL
-Read or Die
-Millennium Actress
-Spirited Away
-Hellsing
-Azumanga Daioh
-Princess Tutu
-Haibane Renmei
-Ghost in the Shell: Stand Alone Complex
-Naruto
-Texhnolyze
-Planetes
-Kino's Journey
-Wolf's Rain
-Fullmetal Alchemist
-Gungrave
-Paranoia Agent
-Monster
-Samurai Champloo
-Beck: Mongolian Chop Squad
-Elfen Lied
-Howl's Moving Castle
-Gankutsuou: The Count of Monte Cristo
-School Rumble
-Mushi-Shi
-Honey and Clover
-Eureka Seven
-Blood+
-Aria the Animation
-Black Cat
-Ouran High School Host Club
-Black Lagoon
-The Melancholy of Haruhi Suzumiya
-Welcome to the N.H.K.
-Death Note
-Code Geass: Lelouch of the Rebellion
-Nana
-Ergo Proxy
-Paprika
-5 Centimeters per Second
-Baccano!
-Claymore
-Lucky Star
-Darker than Black
-Moribito: Guardian of the Spirit
-Sword of the Stranger
-Kaiji
-Gurren Lagann
-Dennou Coil
-Ef: A Tale of Memories
-Higurashi: When They Cry
-Detroit Metal City
-Toradora!
-Spice and Wolf
-Soul Eater
-Kurozuka
-The Sky Crawlers
-Ponyo
-Summer Wars
-Redline
-K-On!
-Bakemonogatari
-Fullmetal Alchemist: Brotherhood
-A Certain Scientific Railgun
-The Tatami Galaxy
-Angel Beats!
-Highschool of the Dead
-Rainbow
-Durarara!!
-Panty & Stocking with Garterbelt
-The Garden of Sinners
-Puella Magi Madoka Magica
-Steins;Gate
-Anohana: The Flower We Saw That Day
-Blue Exorcist
-Tiger & Bunny
-Usagi Drop
-Nichijou
-Chihayafuru
-Fate/Zero
-Hunter x Hunter (2011)
-The Daily Lives of High School Boys
-Kids on the Slope
-Another
-Psycho-Pass
-JoJo's Bizarre Adventure
-From the New World
-Wolf Children
-The Wind Rises
-Attack on Titan
-Kill la Kill
-Silver Spoon
-Log Horizon
-Nagi-Asu: A Lull in the Sea
-Barakamon
-No Game No Life
-Ping Pong the Animation
-Parasyte: The Maxim
-Your Lie in April
-Mushishi: The Next Passage
-Haikyuu!!
-Monthly Girls' Nozaki-kun
-Space Dandy
-Yona of the Dawn
-Terror in Resonance
-Shirobako
-The Boy and the Beast
-One Punch Man
-Death Parade
-Food Wars!
-The Anthem of the Heart
-Erased
-Mob Psycho 100
-March Comes in Like a Lion
-A Silent Voice
-Your Name
-Re:Zero - Starting Life in Another World
-Konosuba
-Showa Genroku Rakugo Shinju
-91 Days
-Drifters
-Land of the Lustrous
-Made in Abyss
-Girls' Last Tour
-The Ancient Magus' Bride
-In This Corner of the World
-Violet Evergarden
-A Place Further Than the Universe
-Devilman Crybaby
-Megalo Box
-Banana Fish
-Run with the Wind
-Rascal Does Not Dream of Bunny Girl Senpai
-Dororo
-The Promised Neverland
-Vinland Saga
-Beastars
-Weathering with You
-Keep Your Hands Off Eizouken!
-Akudama Drive
-Odd Taxi
-Ranking of Kings
-Sonny Boy
-To Your Eternity
-Belle
-Cyberpunk: Edgerunners
-Bocchi the Rock!
-Frieren: Beyond Journey's End
-Delicious in Dungeon
-Apothecary Diaries`;
 
     const RANKS = {
       1: { label: "Common", particles: 28, rings: 2, duration: 1300, symbols: ["✦", "•", "✧"] },
@@ -1203,11 +980,18 @@ Apothecary Diaries`;
 
     let pullHistory = [];
     let isPulling = false;
+    let exampleQueries = "";
+
+    async function loadExampleQueries() {
+      const res = await fetch("./myanimelist-top-animes-2026-06-30.txt");
+      exampleQueries = (await res.text()).trim();
+    }
 
     init();
 
-    function init() {
-      queryInput.value = localStorage.getItem(STORAGE_KEY) || EXAMPLE_QUERIES;
+    async function init() {
+      await loadExampleQueries();
+      queryInput.value = localStorage.getItem(STORAGE_KEY) || exampleQueries;
       updateLineCount();
       renderHistory();
 
@@ -1218,7 +1002,7 @@ Apothecary Diaries`;
 
       pullButton.addEventListener("click", pullAnime);
       exampleButton.addEventListener("click", () => {
-        queryInput.value = EXAMPLE_QUERIES;
+        queryInput.value = exampleQueries;
         localStorage.setItem(STORAGE_KEY, queryInput.value);
         updateLineCount();
         setStatus("Example restored", "Press Pull anime to fetch a random title.");
