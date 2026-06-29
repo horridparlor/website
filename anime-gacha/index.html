@@ -676,8 +676,8 @@
 
     .history-list {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 10px;
+      grid-template-columns: 1fr;
+      gap: 8px;
     }
 
     .history-empty {
@@ -697,6 +697,13 @@
       border-radius: 12px;
       background: var(--panel-strong);
       border: 1px solid var(--line);
+      cursor: pointer;
+      transition: background 140ms ease, border-color 140ms ease;
+    }
+
+    .history-item:hover {
+      background: var(--field);
+      border-color: var(--accent);
     }
 
     .history-item img {
@@ -949,6 +956,7 @@
     const API_URL = "https://api.jikan.moe/v4/anime";
     const REQUEST_DELAY_MS = 100;
     const STORAGE_KEY = "anime-gacha-query-list-v1";
+    const HISTORY_KEY = "anime-gacha-history-v1";
 
 
     const RANKS = {
@@ -993,6 +1001,9 @@
       await loadExampleQueries();
       queryInput.value = localStorage.getItem(STORAGE_KEY) || exampleQueries;
       updateLineCount();
+
+      const savedHistory = localStorage.getItem(HISTORY_KEY);
+      if (savedHistory) pullHistory = JSON.parse(savedHistory);
       renderHistory();
 
       queryInput.addEventListener("input", () => {
@@ -1009,7 +1020,14 @@
       });
       clearHistoryButton.addEventListener("click", () => {
         pullHistory = [];
+        localStorage.removeItem(HISTORY_KEY);
         renderHistory();
+      });
+      historyList.addEventListener("click", e => {
+        const item = e.target.closest(".history-item[data-index]");
+        if (!item || isPulling) return;
+        const anime = pullHistory[parseInt(item.dataset.index, 10)];
+        if (anime) showFromHistory(anime);
       });
     }
 
@@ -1243,7 +1261,18 @@
     function addToHistory(anime) {
       pullHistory.unshift({ ...anime, pulledAt: new Date().toLocaleTimeString() });
       pullHistory = pullHistory.slice(0, 8);
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(pullHistory));
       renderHistory();
+    }
+
+    function showFromHistory(anime) {
+      summonStage.className = `summon-stage rank-${anime.rank}`;
+      stageContent.innerHTML = "";
+      effectsLayer.innerHTML = "";
+      ringLayer.innerHTML = "";
+      flashLayer.innerHTML = "";
+      summonOverlay.classList.remove("is-active");
+      revealAnime(anime);
     }
 
     function shuffleArray(items) {
@@ -1261,8 +1290,8 @@
         return;
       }
 
-      historyList.innerHTML = pullHistory.map(anime => `
-        <div class="history-item">
+      historyList.innerHTML = pullHistory.map((anime, i) => `
+        <div class="history-item" data-index="${i}">
           <img src="${escapeAttribute(anime.imageUrl)}" alt="" loading="lazy" />
           <div>
             <b>${escapeHtml(anime.displayTitle)}</b>
