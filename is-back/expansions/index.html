@@ -125,6 +125,7 @@
     <div class="field">
       <label for="edit-gallery">Show Expansion In Card Gallery</label>
       <select id="edit-gallery">
+        <option value="">Auto</option>
         <option value="0">No (invisible unless released)</option>
         <option value="1">Yes (shown in filter, hidden in default view)</option>
       </select>
@@ -133,7 +134,7 @@
     <div class="field">
       <label for="edit-deckbuilder">Show In Deck Builder</label>
       <select id="edit-deckbuilder">
-        <option value="">Auto (show if released)</option>
+        <option value="">Auto</option>
         <option value="1">Yes (always show)</option>
         <option value="0">No (always hide)</option>
       </select>
@@ -280,8 +281,8 @@
           <td><span class="range-badge">${e.firstCardId}–${e.lastCardId}</span></td>
           <td>${count}</td>
           <td>${badge(e.isReleased)}</td>
-          <td>${badge(e.showExpansionInCardGallery)}</td>
-          <td>${badge(e.showInDeckBuilder)}</td>
+          <td>${badge(e.isReleased ? null : e.showExpansionInCardGallery)}</td>
+          <td>${badge(e.isReleased ? null : e.showInDeckBuilder)}</td>
           <td>
             <div class="row-actions">
               <button class="btn btn-blue btn-sm" style="padding:5px 12px;font-size:13px;" data-id="${e.id}" data-action="edit">Edit</button>
@@ -329,9 +330,10 @@
     document.getElementById('edit-first').value   = '';
     document.getElementById('edit-last').value    = '';
     document.getElementById('edit-released').value     = '0';
-    document.getElementById('edit-gallery').value      = '0';
+    document.getElementById('edit-gallery').value      = '';
     document.getElementById('edit-deckbuilder').value  = '';
     document.getElementById('overlap-warning').style.display = 'none';
+    syncAutoFields();
     document.getElementById('modal-edit').classList.remove('hidden');
   };
 
@@ -345,16 +347,34 @@
     document.getElementById('edit-first').value   = e.firstCardId;
     document.getElementById('edit-last').value    = e.lastCardId;
     document.getElementById('edit-released').value     = e.isReleased ? '1' : '0';
-    document.getElementById('edit-gallery').value      = e.showExpansionInCardGallery ? '1' : '0';
+    document.getElementById('edit-gallery').value      =
+      e.showExpansionInCardGallery === null ? '' : (e.showExpansionInCardGallery ? '1' : '0');
     document.getElementById('edit-deckbuilder').value  =
       e.showInDeckBuilder === null ? '' : (e.showInDeckBuilder ? '1' : '0');
     document.getElementById('overlap-warning').style.display = 'none';
+    syncAutoFields();
     document.getElementById('modal-edit').classList.remove('hidden');
   };
 
   const closeEditModal = () => document.getElementById('modal-edit').classList.add('hidden');
 
+  const syncAutoFields = () => {
+    const released = document.getElementById('edit-released').value === '1';
+    const gallery  = document.getElementById('edit-gallery');
+    const deckBld  = document.getElementById('edit-deckbuilder');
+    if (released) {
+      gallery.value   = '';
+      deckBld.value   = '';
+      gallery.disabled  = true;
+      deckBld.disabled  = true;
+    } else {
+      gallery.disabled  = false;
+      deckBld.disabled  = false;
+    }
+  };
+
   document.getElementById('btn-edit-cancel').addEventListener('click', closeEditModal);
+  document.getElementById('edit-released').addEventListener('change', syncAutoFields);
   document.getElementById('edit-first').addEventListener('input', checkOverlapWarning);
   document.getElementById('edit-last').addEventListener('input', checkOverlapWarning);
 
@@ -377,6 +397,7 @@
       return;
     }
 
+    const galVal = document.getElementById('edit-gallery').value;
     const dbVal  = document.getElementById('edit-deckbuilder').value;
     const body   = {
       action:                    isCreate ? 'create' : 'update',
@@ -384,7 +405,7 @@
       firstCardId,
       lastCardId,
       isReleased:                document.getElementById('edit-released').value === '1',
-      showExpansionInCardGallery: document.getElementById('edit-gallery').value === '1',
+      showExpansionInCardGallery: galVal === '' ? null : (galVal === '1'),
       showInDeckBuilder:         dbVal === '' ? null : (dbVal === '1'),
     };
     if (!isCreate) body.id = parseInt(idVal, 10);

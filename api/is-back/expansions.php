@@ -87,8 +87,10 @@ function postExpansions(Database $database): string {
     $name                       = isset($data->name) && $data->name !== '' ? strval($data->name) : null;
     $firstCardId                = isset($data->firstCardId) ? intval($data->firstCardId) : null;
     $lastCardId                 = isset($data->lastCardId)  ? intval($data->lastCardId)  : null;
-    $isReleased                 = isset($data->isReleased)                 ? intval((bool) $data->isReleased)                 : 0;
-    $showExpansionInCardGallery = isset($data->showExpansionInCardGallery) ? intval((bool) $data->showExpansionInCardGallery) : 0;
+    $isReleased                 = isset($data->isReleased) ? intval((bool) $data->isReleased) : 0;
+    $showExpansionInCardGallery = property_exists($data, 'showExpansionInCardGallery') && !is_null($data->showExpansionInCardGallery)
+        ? intval((bool) $data->showExpansionInCardGallery)
+        : 0;
     $showInDeckBuilder          = property_exists($data, 'showInDeckBuilder') && !is_null($data->showInDeckBuilder)
         ? intval((bool) $data->showInDeckBuilder)
         : null;
@@ -150,7 +152,7 @@ function postExpansions(Database $database): string {
             'firstCardId'               => Database::getIntReplacement($firstCardId),
             'lastCardId'                => Database::getIntReplacement($lastCardId),
             'isReleased'                => Database::getIntReplacement($isReleased),
-            'showExpansionInCardGallery' => Database::getIntReplacement($showExpansionInCardGallery),
+            'showExpansionInCardGallery' => nullableIntReplacement($showExpansionInCardGallery),
             'showInDeckBuilder'         => nullableIntReplacement($showInDeckBuilder),
         ]
     );
