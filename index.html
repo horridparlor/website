@@ -316,26 +316,30 @@ function toggleMobileNav() {
     tick();
   }));
 
-  vp.addEventListener('mouseenter', () => { hovering = true; });
-  vp.addEventListener('mouseleave', () => { hovering = false; });
+  const isTouch = window.matchMedia('(pointer: coarse)').matches;
 
-  vp.addEventListener('pointerdown', e => {
-    dragStartX = e.clientX;
-    dragStartP = pos;
-    dragActive = false;
-    targetPos = null;
-  });
-  vp.addEventListener('pointermove', e => {
-    if (dragStartX === null) return;
-    const dx = e.clientX - dragStartX;
-    if (!dragActive && Math.abs(dx) > 6) { dragActive = true; }
-    if (dragActive) targetPos = null;
-    if (dragActive) pos = dragStartP - dx;
-  });
-  vp.addEventListener('pointerup', () => {
-    dragStartX = null;
-    setTimeout(() => { dragActive = false; }, 50);
-  });
+  if (!isTouch) {
+    vp.addEventListener('mouseenter', () => { hovering = true; });
+    vp.addEventListener('mouseleave', () => { hovering = false; });
+
+    vp.addEventListener('pointerdown', e => {
+      dragStartX = e.clientX;
+      dragStartP = pos;
+      dragActive = false;
+      targetPos = null;
+    });
+    vp.addEventListener('pointermove', e => {
+      if (dragStartX === null) return;
+      const dx = e.clientX - dragStartX;
+      if (!dragActive && Math.abs(dx) > 6) { dragActive = true; }
+      if (dragActive) targetPos = null;
+      if (dragActive) pos = dragStartP - dx;
+    });
+    vp.addEventListener('pointerup', () => {
+      dragStartX = null;
+      setTimeout(() => { dragActive = false; }, 50);
+    });
+  }
 
   function tick() {
     if (targetPos !== null && !dragActive) {

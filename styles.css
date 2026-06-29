@@ -526,7 +526,7 @@ footer {
   }
   .site-nav.mobile-open { display: block; }
   .site-nav::after { min-height: 0; }
-  .desc-section { padding: 1.5rem 1.2rem; margin: 1.5rem 0.75rem 1.5rem; }
+  .desc-section { padding: 1.5rem 1.2rem; margin: 2.5rem 0.75rem 1.5rem; }
 }
 
 /* ── Album Carousel ─────────────────────────────────────────────────────────── */
@@ -539,6 +539,7 @@ footer {
   position: relative;
   padding: 1.2rem 0 1.8rem;
   cursor: grab;
+  touch-action: pan-y;
   -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%);
   mask-image: linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%);
   user-select: none;
