@@ -102,9 +102,9 @@
       <label>&nbsp;</label>
       <button id="clear-filters" class="button clear-btn" type="button">Clear</button>
     </div>
-    <div class="mark-up">
+    <div>
     <label>&nbsp;</label>
-      <a id="share-link" class="button" href="#">Share</a>
+      <a id="share-link" class="button share-btn" href="#">Share</a>
     </div>
     <div>
       <label>&nbsp;</label>
@@ -247,7 +247,9 @@
     let allCards = [];
     let allKeywords = [];
     let macros = [];
-    let view = qs.get('view') || 'gallery' || 'keywords' || 'macros';
+    const DEFAULT_VIEW = 'gallery';
+    const DEFAULT_ORDER_BY = 'newest';
+    let view = qs.get('view') || DEFAULT_VIEW;
 
     // Helpers
     const showToast = (msg) => {
@@ -275,7 +277,7 @@
       el.rarity.value = qs.get('rarity') || '';
       el.releaseVersion.value = qs.get('releaseVersion') || '';
       el.releaseYear.value = qs.get('releaseYear') || '';
-      el.orderBy.value = qs.get('orderBy') || 'newest';
+      el.orderBy.value = qs.get('orderBy') || DEFAULT_ORDER_BY;
     };
 
     const controlsToURL = () => {
@@ -286,8 +288,25 @@
       setQueryParam('rarity', el.rarity.value);
       setQueryParam('releaseVersion', el.releaseVersion.value);
       setQueryParam('releaseYear', el.releaseYear.value);
-      setQueryParam('orderBy', el.orderBy.value);
-      setQueryParam('view', view);
+      setQueryParam('orderBy', el.orderBy.value === DEFAULT_ORDER_BY ? '' : el.orderBy.value);
+      setQueryParam('view', view === DEFAULT_VIEW ? '' : view);
+    };
+
+    const hasNonDefaultFilters = () => {
+      return Boolean(
+        el.name.value.trim() ||
+        el.keywords.value.trim() ||
+        el.type.value ||
+        el.house.value ||
+        el.rarity.value ||
+        el.releaseVersion.value ||
+        el.releaseYear.value ||
+        el.orderBy.value !== DEFAULT_ORDER_BY
+      );
+    };
+
+    const updateClearButtonState = () => {
+      el.clear.disabled = !hasNonDefaultFilters();
     };
 
     const normalize = (s) => (s || '').toString().toLowerCase();
@@ -565,6 +584,7 @@
       let orderedMacros = macros;
 
       render(orderedCards, orderedKeywords, orderedMacros);
+      updateClearButtonState();
     };
 
     const ensureViewButtons = () => {
@@ -695,7 +715,7 @@
       el.rarity.value = '';
       el.releaseVersion.value = '';
       el.releaseYear.value = '';
-      el.orderBy.value = 'newest';
+      el.orderBy.value = DEFAULT_ORDER_BY;
       controlsToURL();
       filterCards();
     });
@@ -728,6 +748,7 @@
     // Initial load
     (async function init() {
       applyURLToControls();
+      updateClearButtonState();
       ensureViewButtons();
       try {
         const res = await fetch(CARDS_URL, { method: 'GET' });
@@ -791,11 +812,29 @@
     e.preventDefault(); // stop it from navigating
 
     const url = window.location.href; // get current page URL
+    const toast = document.getElementById('toast');
+    const showCopyToast = (message) => {
+      if (!toast) return;
+      toast.textContent = message;
+      toast.classList.remove('copy-toast-active');
+      toast.style.display = 'block';
+
+      // Restart animation if user clicks Share repeatedly.
+      void toast.offsetWidth;
+      toast.classList.add('copy-toast-active');
+
+      if (toast._hideTimer) clearTimeout(toast._hideTimer);
+      toast._hideTimer = setTimeout(() => {
+        toast.classList.remove('copy-toast-active');
+        toast.style.display = 'none';
+      }, 1900);
+    };
     navigator.clipboard.writeText(url)
             .then(() => {
-              alert('URL copied to clipboard!');
+              showCopyToast('Share link copied to clipboard.');
             })
             .catch(err => {
+              showCopyToast('Failed to copy share link.');
               console.error('Failed to copy URL:', err);
             });
   });
