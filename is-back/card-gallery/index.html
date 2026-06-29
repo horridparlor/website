@@ -373,9 +373,7 @@
       } else {
         url.searchParams.set(key, value);
       }
-      let urlStr = url.toString().replace(/\?$/, '');
-      if (url.search === '' && urlStr.endsWith('/')) urlStr = urlStr.slice(0, -1);
-      history.replaceState({}, '', urlStr);
+      history.replaceState({}, '', url);
     };
 
     const applyURLToControls = () => {
@@ -404,9 +402,9 @@
       setQueryParam('expansion',   el.expansion.value);
       setQueryParam('releaseYear', el.releaseYear.value);
       setQueryParam('decklist',    el.decklist.value);
-      setQueryParam('orderBy',     el.orderBy.value !== 'oldest'  ? el.orderBy.value  : '');
-      setQueryParam('direction',   el.direction.value !== 'asc'   ? el.direction.value : '');
-      setQueryParam('view',        view !== 'cards'               ? view               : '');
+      setQueryParam('orderBy',     el.orderBy.value);
+      setQueryParam('direction',   el.direction.value);
+      setQueryParam('view',        view);
     };
 
     const normalize  = (s) => (s || '').toString().toLowerCase();
@@ -547,8 +545,8 @@
 
     const removeBbcodeTags = (s) => s.replace(/\[[^\]]*\]/g, '');
     const cardImgName    = (c) => { const cleaned = removeBbcodeTags(c.name); const n = cleaned.startsWith('The ') ? cleaned.slice(4) : cleaned; return `${c.id} - ${n}`; };
-    const cardArtPathV   = (c, av) => { const suffix = (av && av > 1) ? ` (${av})` : ''; return `/is-back/card-art/${encodeURIComponent(cardImgName(c) + suffix)}.png`; };
-    const cardFinalPathV = (c, av) => { const suffix = (av && av > 1) ? ` (${av})` : ''; return `/is-back/card-images/${encodeURIComponent(cardImgName(c) + suffix)}.png`; };
+    const cardArtPathV   = (c, av) => { const suffix = (av && av > 1) ? ` (${av})` : ''; return `../card-art/${encodeURIComponent(cardImgName(c) + suffix)}.png`; };
+    const cardFinalPathV = (c, av) => { const suffix = (av && av > 1) ? ` (${av})` : ''; return `../card-images/${encodeURIComponent(cardImgName(c) + suffix)}.png`; };
     const cardArtPath   = (c) => cardArtPathV(c, galleryArtVersions[c.id] || 1);
     const cardFinalPath = (c) => cardFinalPathV(c, galleryArtVersions[c.id] || 1);
 
