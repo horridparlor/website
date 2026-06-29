@@ -19,8 +19,10 @@
 
     <div class="sidebar-top">
       <div class="sidebar-brand">
-        <h1 class="sidebar-title">Rakuel</h1>
-        <a href="mailto:eero@rakuel.com" class="sidebar-email">eero@rakuel.com</a>
+        <div class="sidebar-brand-text">
+          <h1 class="sidebar-title">Rakuel</h1>
+          <a href="mailto:eero@rakuel.com" class="sidebar-email">eero@rakuel.com</a>
+        </div>
       </div>
 
       <img src="/images/overlay.png" alt="Rakuel" class="sidebar-img" />
@@ -230,11 +232,9 @@ function toggleMobileNav() {
   let pos        = 0;
   let SET_W      = 0;
   let hovering   = false;
-  let stopped    = false;
   let dragActive = false;
   let dragStartX = null;
   let dragStartP = 0;
-  let resumeTimer = null;
   let targetPos  = null;
 
   for (let c = 0; c < COPIES; c++) {
@@ -257,9 +257,6 @@ function toggleMobileNav() {
         if (dragActive) return;
         selectAlbum(idx);
         centerAlbum(idx, true);
-        stopped = true;
-        clearTimeout(resumeTimer);
-        resumeTimer = setTimeout(() => { stopped = false; }, 1250);
       });
       track.appendChild(card);
     });
@@ -331,7 +328,7 @@ function toggleMobileNav() {
   vp.addEventListener('pointermove', e => {
     if (dragStartX === null) return;
     const dx = e.clientX - dragStartX;
-    if (!dragActive && Math.abs(dx) > 6) { dragActive = true; stopped = false; }
+    if (!dragActive && Math.abs(dx) > 6) { dragActive = true; }
     if (dragActive) targetPos = null;
     if (dragActive) pos = dragStartP - dx;
   });
@@ -349,7 +346,7 @@ function toggleMobileNav() {
       } else {
         pos += d * 0.18;
       }
-    } else if (!stopped && !dragActive) {
+    } else if (!dragActive) {
       pos += AUTO_SCROLL_SPEED * (hovering ? HOVER_SLOW_FACTOR : 1);
     }
     pos = normalizePos(pos);

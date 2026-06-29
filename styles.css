@@ -291,6 +291,10 @@ footer {
   order: 1;
 }
 
+.sidebar-brand-text {
+  width: fit-content;
+}
+
 @keyframes glow-pulse {
   0%   { filter: drop-shadow(0 0 6px  rgba(0,255,204,0.08)); }
   4%   { filter: drop-shadow(0 0 12px rgba(0,255,204,0.22)); }
@@ -357,6 +361,20 @@ footer {
   margin: 0;
   margin-left: 0.625rem;
   line-height: 1;
+}
+
+@media (min-width: 701px) {
+  .sidebar-brand-text { margin: 0 auto; }
+
+  .sidebar-title {
+    width: auto;
+    margin-left: 0;
+    text-align: left;
+  }
+
+  .sidebar-email {
+    margin-left: 0;
+  }
 }
 
 .sidebar-subtitle {
