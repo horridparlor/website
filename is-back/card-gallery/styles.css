@@ -96,7 +96,7 @@
     gap: .75rem;
     padding: 1rem 2rem 0 2rem;
 }
-.filters-wrap label { font-size: .9rem; color: #aaa; }
+.filters-wrap label { font-size: .9rem; color: #aaa; padding-left: 2px; }
 .filters-wrap > div:last-child { padding-top: .4rem; }
 .filter-count { font-size: .85rem; color: #ccc; display: inline; margin-right: .5rem; }
 .filters-wrap > div {
