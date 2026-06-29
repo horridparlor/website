@@ -99,8 +99,13 @@
 .filters-wrap label { font-size: .9rem; color: #aaa; }
 .filters-wrap > div:last-child { padding-top: .4rem; }
 .filter-count { font-size: .85rem; color: #ccc; display: inline; margin-right: .5rem; }
+.filters-wrap > div {
+    min-width: 0;
+}
 .filters-wrap input, .filters-wrap select {
     width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     background: #1a1a1a;
     color: #fff;
     border: 1px solid #333;
