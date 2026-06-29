@@ -490,7 +490,25 @@
       localStorage.setItem('username', username);
       updateUserUI();
       await initData();
-      loadDecks();
+      await loadDecks();
+      if (savedDecks.length) {
+        const first = savedDecks[0];
+        setLoading('Loading deck…');
+        const cards = await loadDeckCards(first.id);
+        currentDeck = {
+          id:    first.id,
+          name:  first.name,
+          cards: cards.map(c => ({ cardId: c.cardId, quantity: c.quantity || 1, artVersion: c.artVersion || 1 })),
+        };
+        currentDeck.cards.forEach(dc => { localArtVersions[dc.cardId] = dc.artVersion || 1; });
+        el.deckNameInput.value = currentDeck.name;
+        isDirty = false;
+        renderDeckSelector();
+        el.deckSelector.value = currentDeck.id;
+        updateDeckUI();
+        updateStats();
+        setLoading(null);
+      }
     } catch (e) {
       el.loginError.textContent = 'Network error.';
     } finally {
