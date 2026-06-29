@@ -139,7 +139,7 @@
 </div>
 
 <!-- Success modal -->
-<div id="contact-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:1000;align-items:center;justify-content:center;padding:1rem;">
+<div id="contact-modal" style="display:none;--contact-modal-sidebar-width:0px;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:1000;align-items:center;justify-content:center;padding:1rem 1rem 1rem calc(var(--contact-modal-sidebar-width) + 1rem);box-sizing:border-box;">
   <div style="background:#1a1a1a;border:2px solid #00ffcc;border-radius:18px;padding:2.5rem 2rem;max-width:440px;width:100%;text-align:center;box-shadow:0 0 60px rgba(0,255,204,0.25);position:relative;margin-top:18vh;">
     <div style="font-size:3.5rem;line-height:1;margin-bottom:0.8rem;">💌</div>
     <h2 style="font-family:'Anton',sans-serif;color:#00ffcc;margin:0 0 1rem;font-size:1.8rem;">Viesti saapui perille!</h2>
@@ -376,6 +376,16 @@ function toggleMobileNav() {
 })();
 
 // ── Contact form ──────────────────────────────────────────────────────────────
+function updateContactModalLayout() {
+  const modal = document.getElementById('contact-modal');
+  const sidebar = document.querySelector('.sidebar');
+  const sidebarWidth = window.innerWidth > 700 && sidebar ? sidebar.getBoundingClientRect().width : 0;
+  modal.style.setProperty('--contact-modal-sidebar-width', `${Math.round(sidebarWidth)}px`);
+}
+
+updateContactModalLayout();
+window.addEventListener('resize', updateContactModalLayout);
+
 document.getElementById('contact-form').addEventListener('submit', async e => {
   e.preventDefault();
   const email   = document.getElementById('contact-email').value.trim();
