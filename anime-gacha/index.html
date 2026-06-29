@@ -48,7 +48,7 @@
     button, textarea { font: inherit; }
 
     .app-shell {
-      width: min(1160px, calc(100% - 32px));
+      width: min(1480px, calc(100% - 32px));
       margin: 0 auto;
       padding: 24px 0 44px;
     }
@@ -141,7 +141,7 @@
 
     .layout {
       display: grid;
-      grid-template-columns: 360px minmax(0, 1fr);
+      grid-template-columns: minmax(420px, 34%) minmax(0, 1fr);
       gap: 16px;
       align-items: start;
     }
@@ -805,7 +805,7 @@
     }
 
     @media (max-width: 650px) {
-      .app-shell { width: min(100% - 20px, 1160px); padding-top: 18px; }
+      .app-shell { width: min(100% - 20px, 1480px); padding-top: 18px; }
       .hero-card, .rules, .controls-card, .summon-card, .history-card { border-radius: 16px; }
       .rules { padding: 16px; }
       .button-row { grid-template-columns: 1fr; }
