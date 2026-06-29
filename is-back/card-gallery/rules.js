@@ -587,17 +587,9 @@ a{color:#1c1c1c;text-decoration:underline}
 .rules-glossary dt{display:block;font-family:Arial,sans-serif;font-weight:700;font-size:10pt;color:#1c1c1c;border-left:3pt solid #666;background:#f5f5f5;padding:4pt 8pt;border-radius:0 4px 4px 0;margin-top:10pt;page-break-after:avoid}
 .rules-glossary dd{display:block;margin-left:12pt;color:#333;line-height:1.65;font-size:10pt;margin-bottom:3pt;padding:0!important;border:none!important}
 
-/* ── Running footer on every page ──────────────────── */
-.pdf-footer{position:fixed;bottom:0;left:0;right:0;height:20pt;padding:0 22mm;display:flex;justify-content:space-between;align-items:center;border-top:.5pt solid #e0e0e0;background:#fff;font-family:Arial,sans-serif;font-size:7.5pt;color:#bbb}
-.pdf-footer a{color:#666;text-decoration:none}
 </style>
 </head>
 <body>
-
-<div class="pdf-footer">
-  <span>Exported ${exportDate}</span>
-  <a href="${ONLINE_URL}">${ONLINE_URL}</a>
-</div>
 
 <div class="cover">
   <div class="cover-body">
