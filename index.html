@@ -301,7 +301,8 @@ function toggleMobileNav() {
   function getEmbedHeight(release, type) {
     const tracks = Number(release.trackCount);
     if (!Number.isFinite(tracks) || tracks <= 0) return 380;
-    return Math.max(380, 120 + tracks * 54);
+    const h = Math.max(380, 120 + tracks * 54);
+    return window.innerWidth <= 700 ? Math.min(h, 380) : h;
   }
 
   // Measure actual SET_W after DOM layout

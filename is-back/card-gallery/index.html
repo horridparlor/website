@@ -17,11 +17,14 @@
   <div class="topbar-right">
     <a href="../deck-builder/" class="btn btn-nav">Deck Builder →</a>
     <a href="../gameplay/" class="btn btn-nav">Gameplay →</a>
+    <button id="filter-toggle-btn" class="filter-toggle-btn" type="button" aria-expanded="false" aria-controls="filters-section">
+      ☰ Filters <span id="filter-badge" class="filter-badge"></span>
+    </button>
   </div>
 </header>
 
 <!-- Filters -->
-<section class="filters">
+<section class="filters" id="filters-section">
   <div class="filters-wrap" id="filters">
     <div>
       <label for="f-name">Name</label>
@@ -279,6 +282,9 @@
       toast:          document.getElementById('toast'),
       empty:          document.getElementById('empty'),
       filterCount:    document.getElementById('filter-count'),
+      filtersSection: document.getElementById('filters-section'),
+      filterToggleBtn: document.getElementById('filter-toggle-btn'),
+      filterBadge:    document.getElementById('filter-badge'),
     };
 
     const CARDS_ORDER_OPTIONS = [
@@ -305,6 +311,34 @@
     let visibleCardIds = [];
     let decklistCardIds = null; // null = no filter; Set of card IDs when a deck is selected
     const galleryArtVersions = {}; // cardId → current art version (1-based)
+
+    const countActiveFilters = () => {
+      let n = 0;
+      if (el.name.value.trim())    n++;
+      if (el.keywords.value.trim()) n++;
+      if (el.type.value)           n++;
+      if (el.power.value)          n++;
+      if (el.kwCount.value)        n++;
+      if (el.keyword.value)        n++;
+      if (el.expansion.value)      n++;
+      if (el.releaseYear.value)    n++;
+      if (el.decklist.value)       n++;
+      return n;
+    };
+
+    const updateFilterBadge = () => {
+      const n = countActiveFilters();
+      el.filterBadge.textContent = n;
+      el.filterBadge.classList.toggle('visible', n > 0);
+    };
+
+    if (el.filterToggleBtn) {
+      el.filterToggleBtn.addEventListener('click', () => {
+        const isOpen = el.filtersSection.classList.toggle('filters-open');
+        el.filterToggleBtn.classList.toggle('active', isOpen);
+        el.filterToggleBtn.setAttribute('aria-expanded', String(isOpen));
+      });
+    }
 
     const syncPowerIsVisibility = () => {
       document.getElementById('power-is-wrap').style.display = el.power.value !== '' ? '' : 'none';
@@ -691,6 +725,7 @@
       el.filterCount.textContent = `(${n} ${word}${n !== 1 ? 's' : ''})`;
 
       render(allDisplay, filteredIds, orderedKeywords, macros);
+      updateFilterBadge();
     };
 
     // ── Render ────────────────────────────────────────────────────────────
