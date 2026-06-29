@@ -14,6 +14,7 @@ function getCards(Database $database): string
             card.name,
             cardType.name type,
             card.power,
+            card.altArts,
             keyword1.name keyword1,
             keyword2.name keyword2,
             keyword3.name keyword3,
@@ -43,6 +44,7 @@ function getCards(Database $database): string
             unset($card[$field]);
         }
         $card['keywords'] = $keywords;
+        $card['altArts'] = isset($card['altArts']) && $card['altArts'] !== null ? (int)$card['altArts'] : null;
         $finalCards[] = $card;
     }
 

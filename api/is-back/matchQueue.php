@@ -10,8 +10,8 @@ include(__DIR__ . "/gameHelper.php");
 
 function createMatch(Database $database, array $waitingEntry, array $joiningUser, int $joiningDeckId): array
 {
-    $p1DeckIds = getDeckCardIds($database, $waitingEntry['deckId']);
-    $p2DeckIds = getDeckCardIds($database, $joiningDeckId);
+    $p1Result = getDeckCardIds($database, $waitingEntry['deckId']);
+    $p2Result = getDeckCardIds($database, $joiningDeckId);
 
     // Create match record
     $database->query(
@@ -32,8 +32,10 @@ function createMatch(Database $database, array $waitingEntry, array $joiningUser
     $stateJson = buildInitialGameState(
         ['userId' => $waitingEntry['userId'], 'username' => $waitingEntry['username']],
         ['userId' => $joiningUser['userId'], 'username' => $joiningUser['username']],
-        $p1DeckIds,
-        $p2DeckIds
+        $p1Result['ids'],
+        $p2Result['ids'],
+        $p1Result['artVersionMap'],
+        $p2Result['artVersionMap']
     );
 
     $database->query(

@@ -17,7 +17,7 @@ function getDecks(Database $database): string
         $sql = <<<SQL
             SELECT
                 d.id, d.name, d.createdAt, d.updatedAt,
-                dc.cardId, dc.quantity,
+                dc.cardId, dc.quantity, dc.artVersion,
                 c.name cardName,
                 ct.name cardType,
                 c.power,
@@ -50,12 +50,13 @@ function getDecks(Database $database): string
             if (!$row['cardId']) continue;
             $kws = array_values(array_filter([$row['keyword1'], $row['keyword2'], $row['keyword3']]));
             $deck['cards'][] = [
-                'cardId'   => (int)$row['cardId'],
-                'quantity' => (int)$row['quantity'],
-                'name'     => $row['cardName'],
-                'type'     => $row['cardType'],
-                'power'    => (int)$row['power'],
-                'keywords' => $kws,
+                'cardId'     => (int)$row['cardId'],
+                'quantity'   => (int)$row['quantity'],
+                'artVersion' => (int)($row['artVersion'] ?? 1),
+                'name'       => $row['cardName'],
+                'type'       => $row['cardType'],
+                'power'      => (int)$row['power'],
+                'keywords'   => $kws,
             ];
             $total += (int)$row['quantity'];
         }
@@ -152,8 +153,8 @@ function manageDeck(Database $database): string
         ]);
         $newId = $database->getInsertId();
         $database->query(
-            'INSERT INTO isBack_deckCard (deckId, cardId, quantity)
-             SELECT :newId, cardId, quantity FROM isBack_deckCard WHERE deckId = :oldId',
+            'INSERT INTO isBack_deckCard (deckId, cardId, quantity, artVersion)
+             SELECT :newId, cardId, quantity, artVersion FROM isBack_deckCard WHERE deckId = :oldId',
             [
                 'newId' => ['value' => $newId, 'type' => \PDO::PARAM_INT],
                 'oldId' => ['value' => $id, 'type' => \PDO::PARAM_INT],
@@ -208,12 +209,14 @@ function manageDeck(Database $database): string
             $cardId = (int)($entry['cardId'] ?? 0);
             $qty    = max(1, (int)($entry['quantity'] ?? 1));
             if (!$cardId) continue;
+            $artVersion = max(1, (int)($entry['artVersion'] ?? 1));
             $database->query(
-                'INSERT INTO isBack_deckCard (deckId, cardId, quantity) VALUES (:deckId, :cardId, :qty)',
+                'INSERT INTO isBack_deckCard (deckId, cardId, quantity, artVersion) VALUES (:deckId, :cardId, :qty, :av)',
                 [
                     'deckId' => ['value' => $id, 'type' => \PDO::PARAM_INT],
                     'cardId' => ['value' => $cardId, 'type' => \PDO::PARAM_INT],
                     'qty'    => ['value' => $qty, 'type' => \PDO::PARAM_INT],
+                    'av'     => ['value' => $artVersion, 'type' => \PDO::PARAM_INT],
                 ]
             );
         }

@@ -5,19 +5,24 @@
 function getDeckCardIds(\system\Database $database, int $deckId): array
 {
     $rows = $database->query(
-        'SELECT cardId, quantity FROM isBack_deckCard WHERE deckId = :deckId',
+        'SELECT cardId, quantity, artVersion FROM isBack_deckCard WHERE deckId = :deckId',
         ['deckId' => ['value' => $deckId, 'type' => \PDO::PARAM_INT]]
     );
     $ids = [];
+    $artVersionMap = [];
     foreach ($rows as $row) {
+        $cardId = (int)$row['cardId'];
+        $av = (int)($row['artVersion'] ?? 1);
+        if ($av < 1) $av = 1;
+        $artVersionMap[$cardId] = $av;
         for ($i = 0; $i < (int)$row['quantity']; $i++) {
-            $ids[] = (int)$row['cardId'];
+            $ids[] = $cardId;
         }
     }
-    return $ids;
+    return ['ids' => $ids, 'artVersionMap' => $artVersionMap];
 }
 
-function buildInitialGameState(array $p1, array $p2, array $p1DeckIds, array $p2DeckIds): string
+function buildInitialGameState(array $p1, array $p2, array $p1DeckIds, array $p2DeckIds, array $p1ArtVersionMap = [], array $p2ArtVersionMap = []): string
 {
     shuffle($p1DeckIds);
     shuffle($p2DeckIds);
@@ -49,6 +54,7 @@ function buildInitialGameState(array $p1, array $p2, array $p1DeckIds, array $p2
                 'startOfRoundUsed'    => false,
                 'surrendered'         => false,
                 'effectivePowerBonus' => 0,
+                'artVersionMap'       => $p1ArtVersionMap,
             ],
             [
                 'userId'              => $p2['userId'],
@@ -66,6 +72,7 @@ function buildInitialGameState(array $p1, array $p2, array $p1DeckIds, array $p2
                 'startOfRoundUsed'    => false,
                 'surrendered'         => false,
                 'effectivePowerBonus' => 0,
+                'artVersionMap'       => $p2ArtVersionMap,
             ],
         ],
         'pendingEffects' => [],
@@ -91,8 +98,8 @@ function buildInitialGameState(array $p1, array $p2, array $p1DeckIds, array $p2
 
 function insertNextGame(\system\Database $database, int $matchId, array $deckRows, int $gameNumber): void
 {
-    $p1DeckIds = getDeckCardIds($database, (int)$deckRows['player1DeckId']);
-    $p2DeckIds = getDeckCardIds($database, (int)$deckRows['player2DeckId']);
+    $p1Result = getDeckCardIds($database, (int)$deckRows['player1DeckId']);
+    $p2Result = getDeckCardIds($database, (int)$deckRows['player2DeckId']);
 
     // Get usernames
     $users = $database->query(
@@ -109,8 +116,10 @@ function insertNextGame(\system\Database $database, int $matchId, array $deckRow
     $stateJson = buildInitialGameState(
         ['userId' => (int)$deckRows['player1Id'], 'username' => $userMap[$deckRows['player1Id']] ?? 'Player 1'],
         ['userId' => (int)$deckRows['player2Id'], 'username' => $userMap[$deckRows['player2Id']] ?? 'Player 2'],
-        $p1DeckIds,
-        $p2DeckIds
+        $p1Result['ids'],
+        $p2Result['ids'],
+        $p1Result['artVersionMap'],
+        $p2Result['artVersionMap']
     );
 
     $database->query(

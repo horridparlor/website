@@ -20,6 +20,7 @@ CREATE TABLE isBack_card (
     name VARCHAR(255) NOT NULL,
     cardTypeId INT NOT NULL,
     power INT NOT NULL,
+    altArts INT NULL DEFAULT NULL,
 
     keywordId INT NULL,
     keyword2Id INT NULL,
@@ -85,6 +86,7 @@ CREATE TABLE IF NOT EXISTS isBack_deckCard (
     deckId INT NOT NULL,
     cardId INT NOT NULL,
     quantity INT NOT NULL DEFAULT 1,
+    artVersion INT NOT NULL DEFAULT 1,
     PRIMARY KEY (id),
     UNIQUE KEY uq_isBack_deckCard (deckId, cardId),
     CONSTRAINT fk_isBack_deckCard_deck FOREIGN KEY (deckId) REFERENCES isBack_deck(id) ON DELETE CASCADE,

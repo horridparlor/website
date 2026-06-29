@@ -304,6 +304,7 @@
     const checkedIds  = new Set();
     let visibleCardIds = [];
     let decklistCardIds = null; // null = no filter; Set of card IDs when a deck is selected
+    const galleryArtVersions = {}; // cardId → current art version (1-based)
 
     const syncPowerIsVisibility = () => {
       document.getElementById('power-is-wrap').style.display = el.power.value !== '' ? '' : 'none';
@@ -509,9 +510,11 @@
     };
 
     const removeBbcodeTags = (s) => s.replace(/\[[^\]]*\]/g, '');
-    const cardImgName   = (c) => { const cleaned = removeBbcodeTags(c.name); const n = cleaned.startsWith('The ') ? cleaned.slice(4) : cleaned; return `${c.id} - ${n}`; };
-    const cardArtPath   = (c) => `../card-art/${encodeURIComponent(cardImgName(c))}.png`;
-    const cardFinalPath = (c) => `../card-images/${encodeURIComponent(cardImgName(c))}.png`;
+    const cardImgName    = (c) => { const cleaned = removeBbcodeTags(c.name); const n = cleaned.startsWith('The ') ? cleaned.slice(4) : cleaned; return `${c.id} - ${n}`; };
+    const cardArtPathV   = (c, av) => { const suffix = (av && av > 1) ? ` (${av})` : ''; return `../card-art/${encodeURIComponent(cardImgName(c) + suffix)}.png`; };
+    const cardFinalPathV = (c, av) => { const suffix = (av && av > 1) ? ` (${av})` : ''; return `../card-images/${encodeURIComponent(cardImgName(c) + suffix)}.png`; };
+    const cardArtPath   = (c) => cardArtPathV(c, galleryArtVersions[c.id] || 1);
+    const cardFinalPath = (c) => cardFinalPathV(c, galleryArtVersions[c.id] || 1);
 
     const DL_ICON = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="1" x2="7" y2="9.5"/><polyline points="4,7 7,10 10,7"/><line x1="2" y1="13" x2="12" y2="13"/></svg>`;
 
@@ -726,7 +729,7 @@
           const isPinned  = isChecked && !filteredIds.has(c.id);
 
           return `
-      <article class="card${isChecked ? ' selected' : ''}${isPinned ? ' pinned' : ''}" data-id="${c.id}" aria-label="Card ${escapeHtml(c.name)}">
+      <article class="card${isChecked ? ' selected' : ''}${isPinned ? ' pinned' : ''}" data-id="${c.id}" data-alt-arts="${c.altArts || 0}" aria-label="Card ${escapeHtml(c.name)}">
         <img alt="${escapeHtml(c.name)}" src="${cardArtPath(c)}" loading="lazy" onerror="this.src=''; this.style.height='0';" />
         <div class="meta">
           <div><strong>#${c.id}</strong> — ${escapeHtml(c.name)}</div>
@@ -742,8 +745,10 @@
         const displayCards = showCardBack ? [CARD_BACK, ...cards] : cards;
         el.cardsWrap.innerHTML = displayCards.map(c => {
           const isSelected = checkedIds.has(c.id);
+          const av = galleryArtVersions[c.id] || 1;
+          const altLabel = (c.altArts && av > 1) ? ` (Alt ${av - 1}/${c.altArts})` : '';
           return `
-      <div class="card-img-item${isSelected ? ' selected' : ''}" data-id="${c.id}" title="${escapeHtml(c.name)}">
+      <div class="card-img-item${isSelected ? ' selected' : ''}" data-id="${c.id}" title="${escapeHtml(c.name)}${escapeHtml(altLabel)}">
         <img alt="${escapeHtml(c.name)}" src="${cardFinalPath(c)}" loading="lazy" onerror="this.style.display='none';" draggable="false" />
       </div>
     `;
@@ -812,6 +817,20 @@
       filterCards();
     });
 
+    el.gallery.addEventListener('auxclick', (e) => {
+      if (e.button !== 1) return;
+      e.preventDefault();
+      const article = e.target.closest('article.card[data-id]');
+      if (!article) return;
+      const id = Number(article.dataset.id);
+      const card = allCards.find(c => c.id === id);
+      if (!card || !card.altArts) return;
+      const maxV = card.altArts + 1;
+      const cur = galleryArtVersions[id] || 1;
+      galleryArtVersions[id] = (cur % maxV) + 1;
+      filterCards();
+    });
+
     // ── Cards tab click → toggle selected ────────────────────────────────
 
     el.cardsWrap.addEventListener('click', (e) => {
@@ -820,6 +839,20 @@
       const id = Number(item.dataset.id);
       if (checkedIds.has(id)) { checkedIds.delete(id); } else { checkedIds.add(id); }
       updateBulkBar();
+      filterCards();
+    });
+
+    el.cardsWrap.addEventListener('auxclick', (e) => {
+      if (e.button !== 1) return;
+      e.preventDefault();
+      const item = e.target.closest('.card-img-item[data-id]');
+      if (!item) return;
+      const id = Number(item.dataset.id);
+      const card = allCards.find(c => c.id === id);
+      if (!card || !card.altArts) return;
+      const maxV = card.altArts + 1;
+      const cur = galleryArtVersions[id] || 1;
+      galleryArtVersions[id] = (cur % maxV) + 1;
       filterCards();
     });
 

@@ -249,6 +249,7 @@
   let dataLoaded     = false;
   let collapsedTypes   = {};
   let focusLockedUntil = 0;
+  const localArtVersions = {}; // cardId → chosen art version (1-based)
 
   /* ── Infinite scroll state ──────────────────────────────────────── */
   const BATCH_SIZE   = 50;
@@ -399,7 +400,28 @@
     const n = cleaned.startsWith('The ') ? cleaned.slice(4) : cleaned;
     return `${c.id} - ${n}`;
   };
-  const cardPath = c => `../card-images/${encodeURIComponent(cardImgName(c))}.png`;
+  const cardPath = (c, avOverride) => {
+    const name = cardImgName(c);
+    const av = avOverride !== undefined ? avOverride : (localArtVersions[c.id] || 1);
+    const suffix = av > 1 ? ` (${av})` : '';
+    return `../card-images/${encodeURIComponent(name + suffix)}.png`;
+  };
+  const cycleCardArtVersion = (card) => {
+    if (!card || !card.altArts || card.altArts < 1) return;
+    const maxV = card.altArts + 1;
+    const cur = localArtVersions[card.id] || 1;
+    const next = (cur % maxV) + 1;
+    localArtVersions[card.id] = next;
+    const deckEntry = currentDeck.cards.find(dc => dc.cardId === card.id);
+    if (deckEntry) {
+      deckEntry.artVersion = next;
+      isDirty = true;
+      saveDraft();
+    }
+    updateDeckUI();
+    refreshCardGrid();
+    if (focusedCard && focusedCard.id === card.id) setFocus(card);
+  };
   const fmtPower = p => String(Number(p)).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
   const capitalize = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 
@@ -664,6 +686,8 @@
     const repl = hasReplicate(c);
     cardEl.classList.toggle('in-deck', qty > 0);
     cardEl.classList.toggle('focused', !!(focusedCard && focusedCard.id === c.id));
+    const img = cardEl.querySelector('img');
+    if (img) img.src = cardPath(c);
     const old = cardEl.querySelector('.badge-qty');
     if (old) old.remove();
     if (qty > 1 || (qty === 1 && repl)) { const b = document.createElement('span'); b.className = 'badge-qty'; b.textContent = `×${qty}`; cardEl.appendChild(b); }
@@ -724,6 +748,19 @@
 
     el.focusImg.src = cardPath(card);
     el.focusImg.alt = removeBB(card.name);
+    let altArtEl = document.getElementById('focus-alt-art');
+    if (!altArtEl) {
+      altArtEl = document.createElement('div');
+      altArtEl.id = 'focus-alt-art';
+      altArtEl.style.cssText = 'font-size:0.75rem;color:#8b949e;text-align:center;margin-top:4px;';
+      el.focusImg.parentNode.insertBefore(altArtEl, el.focusImg.nextSibling);
+    }
+    if (card.altArts && card.altArts > 0) {
+      const av = localArtVersions[card.id] || 1;
+      altArtEl.textContent = `Art ${av} of ${card.altArts + 1} — middle-click to cycle`;
+    } else {
+      altArtEl.textContent = '';
+    }
     el.focusName.textContent = removeBB(card.name);
 
     const typeLc = norm(card.type);
@@ -771,7 +808,7 @@
       if (!repl) { removeCard(card.id); return; }
       existing.quantity++;
     } else {
-      currentDeck.cards.push({ cardId: card.id, quantity: 1 });
+      currentDeck.cards.push({ cardId: card.id, quantity: 1, artVersion: localArtVersions[card.id] || 1 });
     }
     isDirty = true;
     saveDraft();
@@ -947,8 +984,9 @@
     currentDeck = {
       id:    deckId,
       name:  deckMeta ? deckMeta.name : 'Deck',
-      cards: cards.map(c => ({ cardId: c.cardId, quantity: c.quantity || 1 })),
+      cards: cards.map(c => ({ cardId: c.cardId, quantity: c.quantity || 1, artVersion: c.artVersion || 1 })),
     };
+    currentDeck.cards.forEach(dc => { localArtVersions[dc.cardId] = dc.artVersion || 1; });
     el.deckNameInput.value = currentDeck.name;
     isDirty = false;
     saveDraft();
@@ -1098,6 +1136,16 @@
     removeCard(id);
   });
 
+  el.cardGrid.addEventListener('auxclick', e => {
+    if (e.button !== 1) return;
+    e.preventDefault();
+    const card = e.target.closest('.grid-card[data-id]');
+    if (!card) return;
+    const id = Number(card.dataset.id);
+    const c = allCards.find(x => x.id === id);
+    if (c) cycleCardArtVersion(c);
+  });
+
   el.cardGrid.addEventListener('mouseover', e => {
     if (isFocusLocked()) return;
     const card = e.target.closest('.grid-card[data-id]');
@@ -1126,6 +1174,16 @@
     row.addEventListener('animationend', () => row.classList.remove('click-flash'), { once: true });
   });
 
+  el.deckCardsList.addEventListener('auxclick', e => {
+    if (e.button !== 1) return;
+    e.preventDefault();
+    const row = e.target.closest('.deck-card-row[data-id]');
+    if (!row) return;
+    const id = Number(row.dataset.id);
+    const c = allCards.find(x => x.id === id);
+    if (c) cycleCardArtVersion(c);
+  });
+
   /* ── Focus buttons ──────────────────────────────────────────────── */
   el.focusBtnAdd.addEventListener('click', () => {
     if (focusedCard) addCard(focusedCard);
@@ -1134,13 +1192,19 @@
     if (focusedCard) removeCard(focusedCard.id);
   });
 
+  el.focusImg.addEventListener('auxclick', e => {
+    if (e.button !== 1) return;
+    e.preventDefault();
+    if (focusedCard) cycleCardArtVersion(focusedCard);
+  });
+
   /* ── Filter events ──────────────────────────────────────────────── */
   el.btnSelectVisible.addEventListener('click', () => {
     let added = 0;
     filteredCards.forEach(card => {
       const repl = hasReplicate(card);
       const existing = currentDeck.cards.find(dc => dc.cardId === card.id);
-      if (!existing) { currentDeck.cards.push({ cardId: card.id, quantity: 1 }); added++; }
+      if (!existing) { currentDeck.cards.push({ cardId: card.id, quantity: 1, artVersion: localArtVersions[card.id] || 1 }); added++; }
       else if (repl)  { existing.quantity++; added++; }
     });
     if (added) { isDirty = true; saveDraft(); updateDeckUI(); filterCards(); }
@@ -1185,7 +1249,10 @@
     if (!currentDeck.cards.length) { showToast('Deck is empty', 'warn'); return; }
     const lines = currentDeck.cards.map(dc => {
       const card = allCards.find(c => c.id === dc.cardId);
-      return card ? `${dc.quantity}x ${removeBB(card.name)}` : null;
+      if (!card) return null;
+      const av = dc.artVersion || localArtVersions[dc.cardId] || 1;
+      const artSuffix = av > 1 ? ` (Art ${av})` : '';
+      return `${dc.quantity}x ${removeBB(card.name)}${artSuffix}`;
     }).filter(Boolean);
     triggerDownloadBlob(
       new Blob([lines.join('\n')], { type: 'text/plain' }),
@@ -1204,7 +1271,7 @@
       const line = raw.trim();
       if (!line || line.startsWith('#') || line.startsWith('//')) return;
 
-      let qty = 1, name = '';
+      let qty = 1, name = '', artVersion = 1;
       let m = line.match(/^(\d+)x\s+(.+)$/i);
       if (m) { qty = parseInt(m[1], 10); name = m[2].trim(); }
       else {
@@ -1213,15 +1280,21 @@
         else { name = line; }
       }
 
+      // Parse art version suffix, e.g. " (Art 2)"
+      const avMatch = name.match(/^(.*)\s+\(Art\s+(\d+)\)$/i);
+      if (avMatch) { name = avMatch[1].trim(); artVersion = parseInt(avMatch[2], 10); }
+
       const card = nameMap[name.toLowerCase().trim()];
       if (!card) { notFound.push(line); return; }
+
+      if (artVersion > 1) localArtVersions[card.id] = artVersion;
 
       const repl = hasReplicate(card);
       const existing = newCards.find(dc => dc.cardId === card.id);
       if (existing) {
         if (repl) existing.quantity += qty;
       } else {
-        newCards.push({ cardId: card.id, quantity: repl ? qty : 1 });
+        newCards.push({ cardId: card.id, quantity: repl ? qty : 1, artVersion });
       }
     });
 
@@ -1320,6 +1393,7 @@
         const exists = draft.id ? savedDecks.find(d => d.id === draft.id) : true;
         if (exists !== undefined) {
           currentDeck = { id: draft.id || null, name: draft.name || 'New Deck', cards: draft.cards || [] };
+          currentDeck.cards.forEach(dc => { localArtVersions[dc.cardId] = dc.artVersion || 1; });
           el.deckNameInput.value = currentDeck.name;
           isDirty = false;
           renderDeckSelector();
@@ -1329,7 +1403,8 @@
           if (savedDecks.length) {
             const first = savedDecks[0];
             const cards = await loadDeckCards(first.id);
-            currentDeck = { id: first.id, name: first.name, cards: cards.map(c => ({ cardId: c.cardId, quantity: c.quantity || 1 })) };
+            currentDeck = { id: first.id, name: first.name, cards: cards.map(c => ({ cardId: c.cardId, quantity: c.quantity || 1, artVersion: c.artVersion || 1 })) };
+            currentDeck.cards.forEach(dc => { localArtVersions[dc.cardId] = dc.artVersion || 1; });
             el.deckNameInput.value = currentDeck.name;
             isDirty = false;
             renderDeckSelector();
@@ -1340,7 +1415,8 @@
         const first = savedDecks[0];
         setLoading('Loading deck…');
         const cards = await loadDeckCards(first.id);
-        currentDeck = { id: first.id, name: first.name, cards: cards.map(c => ({ cardId: c.cardId, quantity: c.quantity || 1 })) };
+        currentDeck = { id: first.id, name: first.name, cards: cards.map(c => ({ cardId: c.cardId, quantity: c.quantity || 1, artVersion: c.artVersion || 1 })) };
+        currentDeck.cards.forEach(dc => { if (dc.artVersion > 1) localArtVersions[dc.cardId] = dc.artVersion; });
         el.deckNameInput.value = currentDeck.name;
         isDirty = false;
         renderDeckSelector();

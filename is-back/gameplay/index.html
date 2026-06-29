@@ -829,11 +829,17 @@ function resolveTypeTokens(desc, cardType) {
     .replace(/%SAME_TYPE/g,    article(info.same))
     .replace(/%STRONG_TYPE/g,  article(info.strong));
 }
-function cardImg(card) {
+function cardImg(card, playerIdx) {
   if (!card) return '';
   const nm = stripBB(card.name);
   const n  = nm.startsWith('The ') ? nm.slice(4) : nm;
-  return `../card-images/${encodeURIComponent(`${card.id} - ${n}`)}.png`;
+  const base = `${card.id} - ${n}`;
+  let av = 1;
+  if (playerIdx !== undefined && gameState) {
+    av = gameState.players?.[playerIdx]?.artVersionMap?.[card.id] || 1;
+  }
+  const suffix = av > 1 ? ` (${av})` : '';
+  return `../card-images/${encodeURIComponent(base + suffix)}.png`;
 }
 function cardBack() { return '../card-images/0%20-%20Card%20Back.png'; }
 
@@ -2001,7 +2007,7 @@ function renderSlot(el, stack, canInteract, owner, forceReveal = false) {
       : (showBoost ? `<div class="power-boost-badge">⚡${fmt(boostedPow)}</div>` : '');
     const wasDown = top.faceDown && forceReveal;
     el.innerHTML = `
-      <img src="${cardImg(card)}" alt="${stripBB(card.name)}" onerror="this.src=''" />
+      <img src="${cardImg(card, owner)}" alt="${stripBB(card.name)}" onerror="this.src=''" />
       ${boostBadge}
       ${stack.length > 1 ? `<div class="stack-count">×${stack.length}</div>` : ''}
       ${wasDown ? `<div class="face-down-label">Was face-down</div>` : ''}
@@ -2088,9 +2094,9 @@ function updateHand(state, mi) {
       <div class="${cls}" data-id="${id}" data-sor="${isSOR?1:0}"
            onclick="onHandCardClick(${id})"
            oncontextmenu="onHandCardRightClick(event,${id})"
-           onmouseenter="showTooltip(event,${id},true)"
+           onmouseenter="showTooltip(event,${id},true,${mi})"
            onmouseleave="hideTooltip()">
-        <img src="${cardImg(card)}" alt="${stripBB(card.name)}" onerror="this.src=''" />
+        <img src="${cardImg(card, mi)}" alt="${stripBB(card.name)}" onerror="this.src=''" />
       </div>`;
   }).join('');
 
@@ -2735,7 +2741,8 @@ function showGrave(playerIndex) {
     `${isMine ? 'Your' : 'Opponent\'s'} Graveyard (${cards.length})`,
     cards.map(c => ({ cardId: c.id, faceDown: false })),
     isMine,
-    cultismCardId
+    cultismCardId,
+    playerIndex
   );
 }
 
@@ -2769,7 +2776,7 @@ function openCultismModal(me) {
   const list = document.getElementById('kw-modal-cards');
   list.innerHTML = lsEntries.map(({ graveIdx, card }) => `
     <div class="modal-card-item" data-grave-idx="${graveIdx}">
-      <img src="${cardImg(card)}" alt="${stripBB(card.name)}" onerror="this.src=''" />
+      <img src="${cardImg(card, myIndex)}" alt="${stripBB(card.name)}" onerror="this.src=''" />
       <div class="mci-name">${stripBB(card.name)}</div>
     </div>`).join('');
   const btns = document.getElementById('kw-modal-btns');
@@ -2823,10 +2830,11 @@ function showStack(playerIndex, slot) {
   if (!stack.length) return;
   const isMine = playerIndex === myIndex;
   const label = isMine ? 'Your' : (p.username || 'Opponent\'s');
-  showStackPopup(`${label} ${slot} (${stack.length} card${stack.length>1?'s':''})`, stack, isMine);
+  showStackPopup(`${label} ${slot} (${stack.length} card${stack.length>1?'s':''})`, stack, isMine, null, playerIndex);
 }
-function showStackPopup(title, stack, isMine = false, cultismCardId = null) {
+function showStackPopup(title, stack, isMine = false, cultismCardId = null, playerIndex = undefined) {
   document.getElementById('stack-title').textContent = title;
+  const pi = playerIndex !== undefined ? playerIndex : (isMine ? myIndex : 1 - myIndex);
   const container = document.getElementById('stack-cards');
   container.innerHTML = [...stack].reverse().map((entry, i) => {
     const card = allCards[entry.cardId];
@@ -2835,7 +2843,7 @@ function showStackPopup(title, stack, isMine = false, cultismCardId = null) {
     const isCultism = cultismCardId !== null && entry.cardId === cultismCardId;
     const knownDownNote = entry.knownFaceDown && !isMine ? ' (face-down)' : '';
     return `<div class="sc-card${isCultism ? ' cultism-trigger' : ''}" ${isCultism ? `data-cultism="${cultismCardId}"` : ''} style="${isCultism ? 'cursor:pointer;' : ''}">
-      <img src="${hidden||!card ? cardBack() : cardImg(card)}" alt="" />
+      <img src="${hidden||!card ? cardBack() : cardImg(card, pi)}" alt="" />
       <div class="sc-label">${isActive?'▶ Active':''} ${hidden?'(face-down)':card?stripBB(card.name):''}${knownDownNote}</div>
     </div>`;
   }).join('');
@@ -2856,11 +2864,11 @@ document.getElementById('stack-popup').addEventListener('click', e => { if (e.ta
 // ── Tooltip ───────────────────────────────────────────────────────────────────
 let tooltipTimeout;
 let tooltipFireInterval = null;
-function showTooltip(e, cardId, fromHandHover = false) {
+function showTooltip(e, cardId, fromHandHover = false, playerIdx = undefined) {
   const card = allCards[cardId];
   if (!card) return;
   const tt = document.getElementById('card-tooltip');
-  document.getElementById('ct-img').src = cardImg(card);
+  document.getElementById('ct-img').src = cardImg(card, playerIdx);
   document.getElementById('ct-name').textContent  = stripBB(card.name);
   document.getElementById('ct-type').textContent  = `${card.type} • #${card.id}`;
   const kws = (card.keywords || []).filter(Boolean);
@@ -3002,7 +3010,8 @@ document.addEventListener('mousemove', e => {
 });
 function addTooltipListeners(el, cardId, faceDown, isMine = false, knownFaceDown = false) {
   if (faceDown && !isMine && !knownFaceDown) return;
-  el.addEventListener('mouseenter', e => showTooltip(e, cardId));
+  const pi = isMine ? myIndex : 1 - myIndex;
+  el.addEventListener('mouseenter', e => showTooltip(e, cardId, false, pi));
   el.addEventListener('mouseleave', hideTooltip);
 }
 
@@ -3390,8 +3399,8 @@ function updateSorOverlay(state, mi) {
       const c = allCards[id];
       if (!c) return '';
       return `<div class="sor-card-item" onclick="sendAction('useStartOfRound',{cardId:${id}})"
-                   onmouseenter="showTooltip(event,${id})" onmouseleave="hideTooltip()">
-        <img src="${cardImg(c)}" alt="${stripBB(c.name)}" onerror="this.src=''" />
+                   onmouseenter="showTooltip(event,${id},false,${mi})" onmouseleave="hideTooltip()">
+        <img src="${cardImg(c, mi)}" alt="${stripBB(c.name)}" onerror="this.src=''" />
         <div class="sor-card-name">${stripBB(c.name)}</div>
       </div>`;
     }).join('');
@@ -3848,7 +3857,7 @@ function showSuckAnimation(evt) {
     const flyEl = document.createElement('div');
     flyEl.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;z-index:891;border-radius:6px;overflow:hidden;`;
     const img = document.createElement('img');
-    img.src = card ? cardImg(card) : cardBack();
+    img.src = card ? cardImg(card, fc.playerIndex) : cardBack();
     img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
     flyEl.appendChild(img);
     document.body.appendChild(flyEl);
@@ -3891,7 +3900,7 @@ function showFieldExitAnimation(evt) {
     const flyEl = document.createElement('div');
     flyEl.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;z-index:880;border-radius:6px;overflow:hidden;pointer-events:none;animation:${goLeft ? 'fieldExitLeft' : 'fieldExitRight'} 0.7s ${i * 60}ms ease-in forwards;`;
     const img = document.createElement('img');
-    img.src = card ? cardImg(card) : cardBack();
+    img.src = card ? cardImg(card, fc.playerIndex) : cardBack();
     img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
     flyEl.appendChild(img);
     document.body.appendChild(flyEl);
@@ -3923,7 +3932,7 @@ function flyCardCustom(fromRect, toRect, cardId, animType) {
   el.className = 'cpa-card';
   el.style.cssText = `left:${fromRect.left}px;top:${fromRect.top}px;width:${fromRect.width}px;height:${fromRect.height}px;`;
   const img = document.createElement('img');
-  img.src = showBack ? cardBack() : cardImg(allCards[cardId]);
+  img.src = showBack ? cardBack() : cardImg(allCards[cardId], myIndex);
   el.appendChild(img);
   document.body.appendChild(el);
 
