@@ -283,12 +283,18 @@
     return { 'Authorization': 'Bearer ' + token };
   }
 
+  function toLocalDateStr(d) {
+    return d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  }
+
   function setDefaultDates() {
     const today = new Date();
     const month = new Date();
     month.setDate(today.getDate() - 30);
-    document.getElementById('dateTo').value = today.toISOString().slice(0, 10);
-    document.getElementById('dateFrom').value = month.toISOString().slice(0, 10);
+    document.getElementById('dateTo').value = toLocalDateStr(today);
+    document.getElementById('dateFrom').value = toLocalDateStr(month);
   }
 
   function resetFilters() {
