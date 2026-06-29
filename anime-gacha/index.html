@@ -672,7 +672,9 @@
       padding: 2px 6px;
     }
 
-    .history-card { margin-top: 16px; }
+    .history-card {
+      margin-top: 16px;
+    }
 
     .history-list {
       display: grid;
@@ -704,6 +706,18 @@
     .history-item:hover {
       background: var(--field);
       border-color: var(--accent);
+    }
+
+    .history-item.is-current {
+      cursor: default;
+      opacity: 0.72;
+      background: var(--field);
+      border-color: var(--line-strong);
+    }
+
+    .history-item.is-current:hover {
+      background: var(--field);
+      border-color: var(--line-strong);
     }
 
     .history-item img {
@@ -989,6 +1003,7 @@
     let pullHistory = [];
     let isPulling = false;
     let exampleQueries = "";
+    let currentHistoryAnimeKey = null;
 
     async function loadExampleQueries() {
       const res = await fetch("./myanimelist-top-animes-2026-06-30.txt");
@@ -1020,12 +1035,13 @@
       });
       clearHistoryButton.addEventListener("click", () => {
         pullHistory = [];
+        currentHistoryAnimeKey = null;
         localStorage.removeItem(HISTORY_KEY);
         renderHistory();
       });
       historyList.addEventListener("click", e => {
         const item = e.target.closest(".history-item[data-index]");
-        if (!item || isPulling) return;
+        if (!item || isPulling || item.classList.contains("is-current")) return;
         const anime = pullHistory[parseInt(item.dataset.index, 10)];
         if (anime) showFromHistory(anime);
       });
@@ -1259,8 +1275,10 @@
     }
 
     function addToHistory(anime) {
-      pullHistory.unshift({ ...anime, pulledAt: new Date().toLocaleTimeString() });
+      const historyAnime = { ...anime, pulledAt: new Date().toLocaleTimeString() };
+      pullHistory.unshift(historyAnime);
       pullHistory = pullHistory.slice(0, 8);
+      currentHistoryAnimeKey = getHistoryAnimeKey(historyAnime);
       localStorage.setItem(HISTORY_KEY, JSON.stringify(pullHistory));
       renderHistory();
     }
@@ -1272,7 +1290,13 @@
       ringLayer.innerHTML = "";
       flashLayer.innerHTML = "";
       summonOverlay.classList.remove("is-active");
+      currentHistoryAnimeKey = getHistoryAnimeKey(anime);
+      renderHistory();
       revealAnime(anime);
+    }
+
+    function getHistoryAnimeKey(anime) {
+      return `${anime.id ?? "unknown"}::${anime.pulledAt ?? ""}`;
     }
 
     function shuffleArray(items) {
@@ -1290,15 +1314,18 @@
         return;
       }
 
-      historyList.innerHTML = pullHistory.map((anime, i) => `
-        <div class="history-item" data-index="${i}">
+      historyList.innerHTML = pullHistory.map((anime, i) => {
+        const isCurrent = getHistoryAnimeKey(anime) === currentHistoryAnimeKey;
+        return `
+        <div class="history-item${isCurrent ? " is-current" : ""}" data-index="${i}" ${isCurrent ? "aria-disabled=\"true\"" : ""}>
           <img src="${escapeAttribute(anime.imageUrl)}" alt="" loading="lazy" />
           <div>
             <b>${escapeHtml(anime.displayTitle)}</b>
-            <span>${stars(anime.rank)} · Score ${anime.score === null ? "N/A" : anime.score.toFixed(2)} · ${escapeHtml(anime.pulledAt)}</span>
+            <span>${stars(anime.rank)} · Score ${anime.score === null ? "N/A" : anime.score.toFixed(2)} · ${escapeHtml(anime.pulledAt)}${isCurrent ? " · Current" : ""}</span>
           </div>
         </div>
-      `).join("");
+      `;
+      }).join("");
     }
 
     function stars(rank) {
