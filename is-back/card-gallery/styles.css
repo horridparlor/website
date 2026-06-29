@@ -416,7 +416,7 @@ th { color: #00ffcc; position: sticky; top: 0; background: #0f0f0f; }
 }
 
 .rules-toc {
-    flex: 0 0 220px;
+    flex: 0 0 250px;
     position: sticky;
     top: 4rem;
     background-color: #1a1a1a;
