@@ -445,6 +445,7 @@ const RULES_SECTIONS = [
 ];
 
 window.RulesModule = (() => {
+  // ── On-page rendering ──────────────────────────────────────────────────
   function buildTOC() {
     const items = RULES_SECTIONS.map((s, i) => {
       const subItems = s.subtitles.length
@@ -460,25 +461,190 @@ window.RulesModule = (() => {
       <nav class="rules-toc" aria-label="Table of Contents">
         <div class="rules-toc-heading">Contents</div>
         <ol class="rules-toc-list">${items}</ol>
+        <div class="rules-toc-export-wrap">
+          <button class="rules-export-btn" id="rules-export-btn" type="button">
+            <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10v2h10v-2M7 1v8M4.5 6.5L7 9l2.5-2.5"/></svg>
+            Export as PDF
+          </button>
+        </div>
       </nav>
     `;
   }
 
+  const ARROW_SVG = `<svg class="rules-collapse-arrow" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,5 7,9 11,5"/></svg>`;
+  const SUB_ARROW_SVG = `<svg class="rules-sub-arrow" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,5 7,9 11,5"/></svg>`;
+
   function buildSection(s, i) {
     const subContent = s.subtitles.map(sub => `
       <div class="rules-subsection" id="${sub.id}">
-        <h3 class="rules-subtitle">${sub.title}</h3>
+        <h3 class="rules-subtitle">${sub.title}${SUB_ARROW_SVG}</h3>
         <div class="rules-subcontent">${sub.content || ''}</div>
       </div>
     `).join('');
     return `
       <section class="rules-section" id="${s.id}">
-        <h2 class="rules-section-title"><span class="rules-num">${i + 1}.</span> ${s.title}</h2>
-        <div class="rules-body">${s.content || ''}</div>
-        ${subContent}
-        <a class="rules-back-to-top" href="#rules-top">↑ Back to top</a>
+        <h2 class="rules-section-title"><span class="rules-num">${i + 1}.</span> ${s.title}${ARROW_SVG}</h2>
+        <div class="rules-section-body">
+          <div class="rules-body">${s.content || ''}</div>
+          ${subContent}
+          <a class="rules-back-to-top" href="#rules-top">↑ Back to top</a>
+        </div>
       </section>
     `;
+  }
+
+  // ── PDF export ─────────────────────────────────────────────────────────
+  const ONLINE_URL = 'https://rakuel.com/is-back/card-gallery/?view=rules';
+  const MONTHS = ['January','February','March','April','May','June','July',
+                  'August','September','October','November','December'];
+
+  function getExportDate() {
+    const d = new Date();
+    return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  }
+
+  function buildPDFHTML(exportDate) {
+    const tocHTML = RULES_SECTIONS.map((s, i) => {
+      const subs = s.subtitles.length
+        ? `<ul>${s.subtitles.map(sub =>
+            `<li><a href="#pdf-${sub.id}">${sub.title}</a></li>`
+          ).join('')}</ul>`
+        : '';
+      return `<li><a href="#pdf-${s.id}">${i + 1}. ${s.title}</a>${subs}</li>`;
+    }).join('');
+
+    const sectionsHTML = RULES_SECTIONS.map((s, i) => {
+      const subsHTML = s.subtitles.map(sub => `
+        <div class="section-sub" id="pdf-${sub.id}">
+          <h3>${sub.title}</h3>
+          ${sub.content || ''}
+        </div>
+      `).join('');
+      return `
+        <section id="pdf-${s.id}">
+          <h2><span class="sec-num">${i + 1}.</span>${s.title}</h2>
+          ${s.content || ''}
+          ${subsHTML}
+        </section>
+      `;
+    }).join('');
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Rakuel Is Back – Official Rules</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html{font-size:11pt}
+body{font-family:Georgia,'Times New Roman',serif;color:#1c1c1c;background:#fff;line-height:1.75}
+
+@page{size:A4;margin:18mm 22mm 22mm 22mm}
+@page :first{margin:0}
+
+/* ── Cover ─────────────────────────────────────────── */
+.cover{background:linear-gradient(150deg,#050e1a 0%,#0a2218 55%,#071510 100%);color:#fff;min-height:100vh;display:flex;flex-direction:column;justify-content:space-between;page-break-after:always;position:relative;overflow:hidden}
+.cover::before{content:'RIB';position:absolute;font-family:'Arial Black',Impact,sans-serif;font-size:280pt;font-weight:900;color:rgba(0,255,204,.04);top:48%;left:50%;transform:translate(-50%,-50%);letter-spacing:-.05em;user-select:none;pointer-events:none}
+.cover-body{padding:54px 60px 0;position:relative;z-index:1}
+.cover-eyebrow{font-family:Arial,sans-serif;font-size:8pt;letter-spacing:.38em;text-transform:uppercase;color:#00ffcc;opacity:.7;margin-bottom:54px}
+.cover-game-title{font-family:'Arial Black',Impact,sans-serif;font-size:64pt;font-weight:900;line-height:.92;letter-spacing:-.03em;color:#00ffcc;text-shadow:0 0 80px rgba(0,255,204,.35)}
+.cover-game-sub{font-family:'Arial Black',Impact,sans-serif;font-size:30pt;font-weight:900;color:rgba(255,255,255,.82);margin-top:8px}
+.cover-rule-line{width:76px;height:3px;background:linear-gradient(90deg,#00ffcc,#00ccff);border-radius:2px;margin:30px 0}
+.cover-label{font-family:Arial,sans-serif;font-size:11pt;letter-spacing:.22em;text-transform:uppercase;color:rgba(255,255,255,.48)}
+.cover-footer{position:relative;z-index:1}
+.cover-footer-inner{display:flex;justify-content:space-between;align-items:center;padding:12px 60px;border-top:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.95);font-family:Arial,sans-serif;font-size:8pt;color:#666}
+.cover-footer-inner strong{color:#1c1c1c}
+.cover-footer-inner a{color:#005a3c;text-decoration:none;font-weight:600}
+
+/* ── TOC ───────────────────────────────────────────── */
+.toc-page{page-break-after:always;padding-top:.5rem}
+.toc-h{font-family:Arial,sans-serif;font-size:19pt;font-weight:700;color:#005a3c;border-bottom:2pt solid #005a3c;padding-bottom:7pt;margin-bottom:18pt}
+.toc-list{list-style:none;padding:0}
+.toc-list>li{margin-bottom:7pt}
+.toc-list>li>a{font-family:Arial,sans-serif;font-size:10.5pt;font-weight:600;color:#1c1c1c;text-decoration:none}
+.toc-list>li>a:hover{color:#005a3c}
+.toc-list ul{list-style:none;padding-left:16pt;margin-top:3pt}
+.toc-list ul li{margin-bottom:2pt}
+.toc-list ul li a{font-family:Arial,sans-serif;font-size:9pt;color:#555;text-decoration:none}
+.toc-list ul li a:hover{color:#005a3c}
+
+/* ── Sections ──────────────────────────────────────── */
+section{page-break-before:always;padding-top:.25rem}
+section h2{font-family:Arial,sans-serif;font-size:17pt;font-weight:700;color:#005a3c;margin-bottom:14pt;padding-bottom:6pt;border-bottom:2pt solid #cdeae2;page-break-after:avoid}
+.sec-num{color:#00997a;margin-right:7pt;font-size:15pt;opacity:.75}
+.section-sub{margin-top:16pt}
+.section-sub h3{font-family:Arial,sans-serif;font-size:11.5pt;font-weight:700;color:#003d7a;margin-bottom:7pt;page-break-after:avoid}
+p{margin-bottom:.8em}
+ul,ol{margin-left:22pt;margin-bottom:.8em}
+ul ul,ol ol,ul ol,ol ul{margin-top:.25em;margin-bottom:.25em}
+li{margin-bottom:.22em}
+strong{font-weight:700}
+em{font-style:italic}
+a{color:#005a3c;text-decoration:underline}
+
+/* ── Glossary override ─────────────────────────────── */
+.rules-glossary{display:block!important;background:none!important}
+.rules-glossary dt{display:block;font-family:Arial,sans-serif;font-weight:700;font-size:10pt;color:#005a3c;border-left:3pt solid #00aa77;background:#f2faf7;padding:4pt 8pt;border-radius:0 4px 4px 0;margin-top:10pt;page-break-after:avoid}
+.rules-glossary dd{display:block;margin-left:12pt;color:#333;line-height:1.65;font-size:10pt;margin-bottom:3pt;padding:0!important;border:none!important}
+
+/* ── Running footer on every page ──────────────────── */
+.pdf-footer{position:fixed;bottom:0;left:0;right:0;height:20pt;padding:0 22mm;display:flex;justify-content:space-between;align-items:center;border-top:.5pt solid #e0e0e0;background:#fff;font-family:Arial,sans-serif;font-size:7.5pt;color:#bbb}
+.pdf-footer a{color:#009977;text-decoration:none}
+</style>
+</head>
+<body>
+
+<div class="pdf-footer">
+  <span>Exported ${exportDate}</span>
+  <a href="${ONLINE_URL}">${ONLINE_URL}</a>
+</div>
+
+<div class="cover">
+  <div class="cover-body">
+    <div class="cover-eyebrow">Trading Card Game</div>
+    <div class="cover-game-title">Rakuel</div>
+    <div class="cover-game-sub">Is Back</div>
+    <div class="cover-rule-line"></div>
+    <div class="cover-label">Official Rulebook</div>
+  </div>
+  <div class="cover-footer">
+    <div class="cover-footer-inner">
+      <span>Exported: <strong>${exportDate}</strong></span>
+      <span>Latest version: <a href="${ONLINE_URL}">${ONLINE_URL}</a></span>
+    </div>
+  </div>
+</div>
+
+<div class="toc-page">
+  <h2 class="toc-h">Table of Contents</h2>
+  <ol class="toc-list">
+    ${tocHTML}
+  </ol>
+</div>
+
+${sectionsHTML}
+
+<script>
+window.addEventListener('load', function () {
+  setTimeout(function () { window.print(); }, 600);
+});
+</script>
+</body>
+</html>`;
+  }
+
+  function exportAsPDF() {
+    const exportDate = getExportDate();
+    const html = buildPDFHTML(exportDate);
+    const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, '_blank');
+    if (!win) {
+      URL.revokeObjectURL(url);
+      alert('Pop-up blocked. Please allow pop-ups for this site in your browser, then click "Export as PDF" again.');
+      return;
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
   }
 
   return {
@@ -491,6 +657,25 @@ window.RulesModule = (() => {
           </div>
         </div>
       `;
+
+      // PDF export
+      const btn = container.querySelector('#rules-export-btn');
+      if (btn) btn.addEventListener('click', exportAsPDF);
+
+      // Collapsible sections
+      container.querySelectorAll('.rules-section-title').forEach(title => {
+        title.addEventListener('click', () => {
+          title.closest('.rules-section').classList.toggle('collapsed');
+        });
+      });
+
+      // Collapsible subsections
+      container.querySelectorAll('.rules-subtitle').forEach(title => {
+        title.addEventListener('click', (e) => {
+          e.stopPropagation();
+          title.closest('.rules-subsection').classList.toggle('collapsed');
+        });
+      });
     },
   };
 })();

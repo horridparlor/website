@@ -579,3 +579,91 @@ th { color: #00ffcc; position: sticky; top: 0; background: #0f0f0f; }
     }
     .rules-glossary dd { border-bottom: none; padding-bottom: 1rem; }
 }
+
+/* Rules PDF export button */
+.rules-toc-export-wrap {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #2a2a2a;
+}
+.rules-export-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    background: linear-gradient(135deg, #0b2519 0%, #0f3224 100%);
+    border: 1px solid rgba(0, 255, 204, 0.2);
+    color: #00ffcc;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s, border-color 0.15s;
+    font-family: inherit;
+}
+.rules-export-btn:hover {
+    background: linear-gradient(135deg, #0f3224 0%, #164030 100%);
+    border-color: rgba(0, 255, 204, 0.45);
+    box-shadow: 0 0 12px rgba(0, 255, 204, 0.12);
+}
+
+/* Collapsible sections */
+.rules-section-title {
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.rules-section-title:hover { color: #00ffcc; }
+.rules-collapse-arrow {
+    display: inline-flex;
+    align-items: center;
+    margin-left: auto;
+    opacity: 0.45;
+    transition: transform 0.2s ease, opacity 0.15s;
+    flex-shrink: 0;
+}
+.rules-section.collapsed .rules-collapse-arrow { transform: rotate(-180deg); }
+.rules-section-title:hover .rules-collapse-arrow { opacity: 0.75; }
+.rules-section-body {
+    overflow: hidden;
+    transition: max-height 0.3s ease, opacity 0.25s ease;
+    max-height: 9999px;
+    opacity: 1;
+}
+.rules-section.collapsed .rules-section-body {
+    max-height: 0;
+    opacity: 0;
+}
+
+/* Collapsible subsections */
+.rules-subtitle {
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+}
+.rules-subtitle:hover { color: #00ccff; }
+.rules-sub-arrow {
+    display: inline-flex;
+    align-items: center;
+    margin-left: auto;
+    opacity: 0.35;
+    transition: transform 0.18s ease, opacity 0.15s;
+    flex-shrink: 0;
+}
+.rules-subsection.collapsed .rules-sub-arrow { transform: rotate(-180deg); }
+.rules-subtitle:hover .rules-sub-arrow { opacity: 0.65; }
+.rules-subcontent {
+    overflow: hidden;
+    transition: max-height 0.25s ease, opacity 0.2s ease;
+    max-height: 9999px;
+    opacity: 1;
+}
+.rules-subsection.collapsed .rules-subcontent {
+    max-height: 0;
+    opacity: 0;
+}
