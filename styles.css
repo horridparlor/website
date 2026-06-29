@@ -568,6 +568,7 @@ footer {
   border-left: 2px solid transparent;
   transition: color 0.12s, border-color 0.12s;
 }
+.nav-cat-links .nav-link:first-child { margin-top: 0.3rem; }
 .nav-link:hover { color: #ddd; border-left-color: #00ffcc; }
 .nav-link--admin { color: #9a9a9a; }
 .nav-link--admin:hover { color: #ff0066; border-left-color: #ff0066; }
