@@ -151,8 +151,6 @@
     .cards-grid {
         gap: 0.75rem;
     }
-    .card-img-item { border-radius: 22px; }
-    .cards-grid img { border-radius: 22px; }
 }
 
 .view-toggle {
@@ -330,7 +328,7 @@
     cursor: pointer;
     /* crop the 20px print bleed: visible area is 1086×1512 */
     aspect-ratio: 1086 / 1512;
-    border-radius: 45px;
+    border-radius: min(45px, 12%);
     overflow: hidden;
     background: #111;
     transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -359,7 +357,7 @@
     height: 102.646%; /* 1552/1512 * 100 */
     display: block;
     user-select: none;
-    border-radius: 45px;
+    border-radius: min(45px, 12%);
 }
 
 /* Data form table */
@@ -421,12 +419,19 @@ th { color: #00ffcc; position: sticky; top: 0; background: #0f0f0f; }
     flex: 0 0 220px;
     position: sticky;
     top: 4rem;
-    background: #1a1a1a;
+    background-color: #1a1a1a;
+    background-image:
+        radial-gradient(500px circle at 140% -20%, rgba(56,139,253,0.12), transparent 60%),
+        radial-gradient(350px circle at -40% 120%, rgba(0,255,204,0.08), transparent 55%),
+        radial-gradient(rgba(255,255,255,0.055) 1px, transparent 1px);
+    background-size: auto, auto, 20px 20px;
+    background-repeat: no-repeat, no-repeat, repeat;
     border: 1px solid #333;
     border-radius: 12px;
     padding: 1rem 1.25rem;
     max-height: calc(100vh - 6rem);
     overflow-y: auto;
+    box-sizing: border-box;
 }
 .rules-toc-heading {
     font-size: .8rem;
