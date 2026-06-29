@@ -1100,6 +1100,8 @@
       const altTitle = englishTitle && englishTitle.toLowerCase() !== title.toLowerCase() ? englishTitle : "";
       const imageUrl = raw.images?.webp?.large_image_url || raw.images?.jpg?.large_image_url || raw.images?.jpg?.image_url || "";
 
+      const episodes = raw.episodes ? Number(raw.episodes) : null;
+
       return {
         id: raw.mal_id,
         query,
@@ -1108,6 +1110,7 @@
         imageUrl,
         score: Number.isFinite(score) ? score : null,
         rank: getRank(score),
+        episodes,
         url: raw.url || ""
       };
     }
@@ -1255,6 +1258,7 @@
 
     function revealAnime(anime) {
       const scoreText = anime.score === null ? "N/A" : anime.score.toFixed(2);
+      const epsText = anime.episodes === 1 ? "Movie" : anime.episodes ? `${anime.episodes} eps` : "N/A";
       stageContent.innerHTML = `
         <article class="result-card" aria-label="Pulled anime result">
           <div class="poster-wrap">
@@ -1267,7 +1271,7 @@
             <div class="score-row">
               <div class="chip"><small>Score</small> ${scoreText}</div>
               <div class="chip"><small>Rank</small> ${anime.rank}★</div>
-              <div class="chip"><small>Chance</small> Uniform</div>
+              <div class="chip"><small>Episodes</small> ${epsText}</div>
             </div>
             <p class="source-query">Fetched from query: <code>${escapeHtml(anime.query)}</code></p>
           </div>
