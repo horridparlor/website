@@ -13,7 +13,19 @@
       --orange: #d29922; --red: #da3633; --gold: #f0c040;
       --rock: #2a4a2a; --rock-b: #3fb950; --paper: #1a2d4a; --paper-b: #58a6ff; --scissors: #4a2d0a; --scissors-b: #f0883e;
     }
-    html, body { height: 100%; background: #08090a; color: var(--text); font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; overflow: hidden; }
+    html, body {
+      height: 100%;
+      background-color: #111;
+      background-image:
+        linear-gradient(to bottom, rgba(17,17,17,0.85), #111),
+        radial-gradient(#333 1px, transparent 1px);
+      background-size: 100% 100%, 20px 20px;
+      background-repeat: no-repeat, repeat;
+      background-position: top left, top left;
+      color: var(--text);
+      font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      overflow: hidden;
+    }
 
     /* ── Phase overlay ── */
     #phase-overlay {
