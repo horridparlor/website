@@ -1305,7 +1305,7 @@
       const card = nameMap[name.toLowerCase().trim()];
       if (!card) { notFound.push(line); return; }
 
-      if (artVersion > 1) localArtVersions[card.id] = artVersion;
+      localArtVersions[card.id] = artVersion;
 
       const repl = hasReplicate(card);
       const existing = newCards.find(dc => dc.cardId === card.id);
