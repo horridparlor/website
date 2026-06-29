@@ -96,9 +96,8 @@
     gap: .75rem;
     padding: 1rem 2rem 0 2rem;
 }
-.filters-wrap label { font-size: .9rem; color: #aaa; padding-left: 2px; }
-.filters-wrap > div:last-child { padding-top: .4rem; }
-.filter-count { font-size: .85rem; color: #ccc; display: inline; margin-right: .5rem; }
+.filters-wrap label { font-size: .9rem; color: #aaa; padding-left: 2px; margin-bottom: 4px; display: block; }
+.filters-wrap .clear-btn { width: 100%; box-sizing: border-box; }
 .filters-wrap > div {
     min-width: 0;
 }
@@ -397,16 +396,16 @@ th { color: #00ffcc; position: sticky; top: 0; background: #0f0f0f; }
 #keywords-export-btn { white-space: nowrap; }
 
 .clear-btn {
-    background: linear-gradient(90deg, #ffcc00, #ff6699);
-    color: #fff;
-    box-shadow: 0 0 10px #ff9966;
-    border: none;
+    background: #1e1214;
+    color: #cc7788;
+    border: 1px solid #4a2233;
     padding: 0.5rem 1rem;
     border-radius: 8px;
     cursor: pointer;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
-.clear-btn:hover { transform: scale(1.05); box-shadow: 0 0 20px #ff6699; }
+.clear-btn:hover:not(:disabled) { background: #271520; border-color: #aa4466; color: #ee8899; }
+.clear-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* ── Rules view ──────────────────────────────────────────────────────── */
 .rules-wrap {

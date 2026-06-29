@@ -128,8 +128,7 @@
       </select>
     </div>
     <div>
-      <label>&nbsp;</label>
-      <span id="filter-count" class="filter-count"></span>
+      <label id="filter-count" class="filter-count"></label>
       <button id="clear-filters" class="button clear-btn" type="button">Clear</button>
     </div>
   </div>
@@ -314,15 +313,17 @@
 
     const countActiveFilters = () => {
       let n = 0;
-      if (el.name.value.trim())    n++;
-      if (el.keywords.value.trim()) n++;
-      if (el.type.value)           n++;
-      if (el.power.value)          n++;
-      if (el.kwCount.value)        n++;
-      if (el.keyword.value)        n++;
-      if (el.expansion.value)      n++;
-      if (el.releaseYear.value)    n++;
-      if (el.decklist.value)       n++;
+      if (el.name.value.trim())             n++;
+      if (el.keywords.value.trim())         n++;
+      if (el.type.value)                    n++;
+      if (el.power.value)                   n++;
+      if (el.kwCount.value)                 n++;
+      if (el.keyword.value)                 n++;
+      if (el.expansion.value)               n++;
+      if (el.releaseYear.value)             n++;
+      if (el.decklist.value)                n++;
+      if (el.orderBy.value !== 'oldest')    n++;
+      if (el.direction.value !== 'asc')     n++;
       return n;
     };
 
@@ -330,6 +331,7 @@
       const n = countActiveFilters();
       el.filterBadge.textContent = n;
       el.filterBadge.classList.toggle('visible', n > 0);
+      el.clear.disabled = n === 0;
     };
 
     if (el.filterToggleBtn) {

@@ -91,7 +91,7 @@ body {
 .filters-bar input:focus,
 .filters-bar select:focus { border-color: #00ffcc; }
 .filters-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.6rem; }
-.filter-label { font-size: 0.75rem; color: #888; margin-bottom: 2px; padding-left: 2px; }
+.filter-label { font-size: 0.75rem; color: #888; margin-bottom: 6px; padding-left: 2px; }
 .card-count { font-size: 0.8rem; color: #666; text-align: center; }
 .bulk-btns {
   display: flex;

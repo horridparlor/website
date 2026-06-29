@@ -255,6 +255,7 @@ function toggleMobileNav() {
         </div>`;
       card.addEventListener('click', () => {
         if (dragActive) return;
+        if (idx === activeIdx) return;
         selectAlbum(idx);
         centerAlbum(idx, true);
       });
@@ -262,7 +263,11 @@ function toggleMobileNav() {
     });
   }
 
+  let activeIdx = -1;
+
   function selectAlbum(idx) {
+    if (idx === activeIdx) return;
+    activeIdx = idx;
     track.querySelectorAll('.album-card').forEach(c =>
       c.classList.toggle('active', Number(c.dataset.idx) === idx));
     const a = albums[idx];
