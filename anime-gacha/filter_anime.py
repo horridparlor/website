@@ -22,6 +22,7 @@ RULES = [
     ("Final / Finale",             re.compile(r'\b(final|finale)\b', re.IGNORECASE)),
     ("Ordinal word (first…)",      re.compile(r'\b(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth)\b', re.IGNORECASE)),
     ("After Story",                re.compile(r'\bafter\s+story\b', re.IGNORECASE)),
+    ("Episode",                    re.compile(r'\bepisodes?\b', re.IGNORECASE)),
 ]
 
 
