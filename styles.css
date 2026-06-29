@@ -296,52 +296,52 @@ footer {
 }
 
 @keyframes glow-pulse {
-  0%   { filter: drop-shadow(0 0 6px  rgba(0,255,204,0.08)); }
-  4%   { filter: drop-shadow(0 0 12px rgba(0,255,204,0.22)); }
-  9%   { filter: drop-shadow(0 0 7px  rgba(0,255,204,0.10)); }
-  14%  { filter: drop-shadow(0 0 17px rgba(0,255,204,0.31)); }
-  20%  { filter: drop-shadow(0 0 11px rgba(0,255,204,0.18)); }
-  26%  { filter: drop-shadow(0 0 21px rgba(0,255,204,0.39)); }
-  31%  { filter: drop-shadow(0 0 14px rgba(0,255,204,0.24)); }
-  37%  { filter: drop-shadow(0 0 8px  rgba(0,255,204,0.11)); }
-  43%  { filter: drop-shadow(0 0 23px rgba(0,255,204,0.44)); }
-  49%  { filter: drop-shadow(0 0 17px rgba(0,255,204,0.30)); }
-  55%  { filter: drop-shadow(0 0 26px rgba(0,255,204,0.50)); }
-  60%  { filter: drop-shadow(0 0 19px rgba(0,255,204,0.34)); }
-  65%  { filter: drop-shadow(0 0 10px rgba(0,255,204,0.15)); }
-  70%  { filter: drop-shadow(0 0 29px rgba(0,255,204,0.55)); }
-  74%  { filter: drop-shadow(0 0 22px rgba(0,255,204,0.40)); }
-  79%  { filter: drop-shadow(0 0 34px rgba(0,255,204,0.63)); }
-  83%  { filter: drop-shadow(0 0 28px rgba(0,255,204,0.50)); }
-  86%  { filter: drop-shadow(0 0 38px rgba(0,255,204,0.70)); }
-  91%  { filter: drop-shadow(0 0 15px rgba(0,255,204,0.24)); }
-  95%  { filter: drop-shadow(0 0 9px  rgba(0,255,204,0.12)); }
-  100% { filter: drop-shadow(0 0 6px  rgba(0,255,204,0.08)); }
+  0%   { filter: drop-shadow(0 0 8px  rgba(0,255,204,0.20)); }
+  4%   { filter: drop-shadow(0 0 12px rgba(0,255,204,0.28)); }
+  9%   { filter: drop-shadow(0 0 8px  rgba(0,255,204,0.20)); }
+  14%  { filter: drop-shadow(0 0 17px rgba(0,255,204,0.35)); }
+  20%  { filter: drop-shadow(0 0 11px rgba(0,255,204,0.24)); }
+  26%  { filter: drop-shadow(0 0 21px rgba(0,255,204,0.42)); }
+  31%  { filter: drop-shadow(0 0 14px rgba(0,255,204,0.28)); }
+  37%  { filter: drop-shadow(0 0 8px  rgba(0,255,204,0.20)); }
+  43%  { filter: drop-shadow(0 0 23px rgba(0,255,204,0.46)); }
+  49%  { filter: drop-shadow(0 0 17px rgba(0,255,204,0.33)); }
+  55%  { filter: drop-shadow(0 0 26px rgba(0,255,204,0.52)); }
+  60%  { filter: drop-shadow(0 0 19px rgba(0,255,204,0.36)); }
+  65%  { filter: drop-shadow(0 0 10px rgba(0,255,204,0.22)); }
+  70%  { filter: drop-shadow(0 0 29px rgba(0,255,204,0.57)); }
+  74%  { filter: drop-shadow(0 0 22px rgba(0,255,204,0.42)); }
+  79%  { filter: drop-shadow(0 0 34px rgba(0,255,204,0.65)); }
+  83%  { filter: drop-shadow(0 0 28px rgba(0,255,204,0.52)); }
+  86%  { filter: drop-shadow(0 0 38px rgba(0,255,204,0.72)); }
+  91%  { filter: drop-shadow(0 0 15px rgba(0,255,204,0.28)); }
+  95%  { filter: drop-shadow(0 0 9px  rgba(0,255,204,0.22)); }
+  100% { filter: drop-shadow(0 0 8px  rgba(0,255,204,0.20)); }
 }
 
 /* Mobile image is ~1/3 the desktop size; scale radius and alpha by 1/3, duration 3× slower. */
 @keyframes glow-pulse-mobile {
-  0%   { filter: drop-shadow(0 0 2px  rgba(0,255,204,0.03)); }
-  4%   { filter: drop-shadow(0 0 4px  rgba(0,255,204,0.07)); }
-  9%   { filter: drop-shadow(0 0 2px  rgba(0,255,204,0.03)); }
-  14%  { filter: drop-shadow(0 0 6px  rgba(0,255,204,0.10)); }
-  20%  { filter: drop-shadow(0 0 4px  rgba(0,255,204,0.06)); }
-  26%  { filter: drop-shadow(0 0 7px  rgba(0,255,204,0.13)); }
-  31%  { filter: drop-shadow(0 0 5px  rgba(0,255,204,0.08)); }
-  37%  { filter: drop-shadow(0 0 3px  rgba(0,255,204,0.04)); }
-  43%  { filter: drop-shadow(0 0 8px  rgba(0,255,204,0.15)); }
-  49%  { filter: drop-shadow(0 0 6px  rgba(0,255,204,0.10)); }
-  55%  { filter: drop-shadow(0 0 9px  rgba(0,255,204,0.17)); }
-  60%  { filter: drop-shadow(0 0 6px  rgba(0,255,204,0.11)); }
-  65%  { filter: drop-shadow(0 0 3px  rgba(0,255,204,0.05)); }
-  70%  { filter: drop-shadow(0 0 10px rgba(0,255,204,0.19)); }
-  74%  { filter: drop-shadow(0 0 7px  rgba(0,255,204,0.13)); }
-  79%  { filter: drop-shadow(0 0 11px rgba(0,255,204,0.21)); }
-  83%  { filter: drop-shadow(0 0 9px  rgba(0,255,204,0.17)); }
-  86%  { filter: drop-shadow(0 0 13px rgba(0,255,204,0.23)); }
-  91%  { filter: drop-shadow(0 0 5px  rgba(0,255,204,0.08)); }
-  95%  { filter: drop-shadow(0 0 3px  rgba(0,255,204,0.04)); }
-  100% { filter: drop-shadow(0 0 2px  rgba(0,255,204,0.03)); }
+  0%   { filter: drop-shadow(0 0 3px  rgba(0,255,204,0.08)); }
+  4%   { filter: drop-shadow(0 0 4px  rgba(0,255,204,0.11)); }
+  9%   { filter: drop-shadow(0 0 3px  rgba(0,255,204,0.08)); }
+  14%  { filter: drop-shadow(0 0 6px  rgba(0,255,204,0.13)); }
+  20%  { filter: drop-shadow(0 0 4px  rgba(0,255,204,0.09)); }
+  26%  { filter: drop-shadow(0 0 7px  rgba(0,255,204,0.15)); }
+  31%  { filter: drop-shadow(0 0 5px  rgba(0,255,204,0.10)); }
+  37%  { filter: drop-shadow(0 0 3px  rgba(0,255,204,0.08)); }
+  43%  { filter: drop-shadow(0 0 8px  rgba(0,255,204,0.17)); }
+  49%  { filter: drop-shadow(0 0 6px  rgba(0,255,204,0.12)); }
+  55%  { filter: drop-shadow(0 0 9px  rgba(0,255,204,0.19)); }
+  60%  { filter: drop-shadow(0 0 6px  rgba(0,255,204,0.13)); }
+  65%  { filter: drop-shadow(0 0 3px  rgba(0,255,204,0.09)); }
+  70%  { filter: drop-shadow(0 0 10px rgba(0,255,204,0.21)); }
+  74%  { filter: drop-shadow(0 0 7px  rgba(0,255,204,0.15)); }
+  79%  { filter: drop-shadow(0 0 11px rgba(0,255,204,0.23)); }
+  83%  { filter: drop-shadow(0 0 9px  rgba(0,255,204,0.19)); }
+  86%  { filter: drop-shadow(0 0 13px rgba(0,255,204,0.26)); }
+  91%  { filter: drop-shadow(0 0 5px  rgba(0,255,204,0.10)); }
+  95%  { filter: drop-shadow(0 0 3px  rgba(0,255,204,0.08)); }
+  100% { filter: drop-shadow(0 0 3px  rgba(0,255,204,0.08)); }
 }
 
 .sidebar-img {
@@ -370,6 +370,7 @@ footer {
     align-items: flex-start;
     width: fit-content;
     margin: 0 auto;
+    transform: translateX(-0.5rem);
   }
 
   .sidebar-title {
