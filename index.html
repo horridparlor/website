@@ -289,11 +289,9 @@ function toggleNavCat(id) {
   }
 
   function getEmbedHeight(release, type) {
-    if (type === 'track') return 152;
     const tracks = Number(release.trackCount);
     if (!Number.isFinite(tracks) || tracks <= 0) return 380;
-    // Keep singles compact, and let long albums grow enough to avoid iframe scrolling.
-    return 120 + tracks * 54;
+    return Math.max(380, 120 + tracks * 54);
   }
 
   // Measure actual SET_W after DOM layout
