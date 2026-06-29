@@ -123,7 +123,10 @@
       <form class="contact-form" id="contact-form">
         <input type="email" id="contact-email" placeholder="Sähköpostiosoitteesi" required />
         <textarea id="contact-message" rows="5" placeholder="Kerro keikkatarjouksestasi..." required></textarea>
-        <input type="submit" id="contact-submit" value="Lähetä!" />
+        <button type="submit" id="contact-submit" class="contact-submit-btn">
+          <span class="material-icons" aria-hidden="true">send</span>
+          <span class="contact-submit-label">Lähetä</span>
+        </button>
         <div id="contact-status" style="font-size:0.95rem;min-height:1.4em;"></div>
       </form>
     </section>
@@ -222,6 +225,8 @@ function toggleMobileNav() {
   const vp     = document.getElementById('carouselViewport');
   const embedEl = document.getElementById('activeAlbumEmbed');
 
+  const AUTO_SCROLL_SPEED = 0.45;
+  const HOVER_SLOW_FACTOR = 0.32;
   let pos        = 0;
   let SET_W      = 0;
   let hovering   = false;
@@ -344,8 +349,8 @@ function toggleMobileNav() {
       } else {
         pos += d * 0.18;
       }
-    } else if (!hovering && !stopped && !dragActive) {
-      pos += 0.45;
+    } else if (!stopped && !dragActive) {
+      pos += AUTO_SCROLL_SPEED * (hovering ? HOVER_SLOW_FACTOR : 1);
     }
     pos = normalizePos(pos);
     track.style.transform = `translateX(-${pos}px)`;
@@ -371,7 +376,11 @@ document.getElementById('contact-form').addEventListener('submit', async e => {
   const message = document.getElementById('contact-message').value.trim();
   const status  = document.getElementById('contact-status');
   const submit  = document.getElementById('contact-submit');
-  submit.disabled = true; submit.value = 'Lähetetään…'; status.textContent = '';
+  const submitLabel = submit.querySelector('.contact-submit-label');
+  submit.disabled = true;
+  submit.classList.add('is-loading');
+  if (submitLabel) submitLabel.textContent = 'Lähetetään...';
+  status.textContent = '';
   try {
     const res  = await fetch('/api/contact/message', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -390,7 +399,11 @@ document.getElementById('contact-form').addEventListener('submit', async e => {
     }
   } catch {
     status.style.color = '#ff4466'; status.textContent = 'Verkkovirhe. Yritä uudelleen.';
-  } finally { submit.disabled = false; submit.value = 'Lähetä!'; }
+  } finally {
+    submit.disabled = false;
+    submit.classList.remove('is-loading');
+    if (submitLabel) submitLabel.textContent = 'Lähetä';
+  }
 });
 document.getElementById('contact-modal').addEventListener('click', e => {
   if (e.target === document.getElementById('contact-modal'))
