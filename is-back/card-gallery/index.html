@@ -301,11 +301,15 @@
       { value: 'least-common', label: 'Least Common' },
     ];
 
+    const DEFAULT_VIEW = 'cards';
+    const DEFAULT_ORDER_BY = 'oldest';
+    const DEFAULT_DIRECTION = 'asc';
+
     let allCards    = [];
     let allKeywords = [];
     let macros      = [];
     let expansions  = []; // [{id, name, firstCardId, lastCardId, isReleased, showExpansionInCardGallery, showInDeckBuilder}]
-    let view        = qs.get('view') || 'cards';
+    let view        = qs.get('view') || DEFAULT_VIEW;
     const checkedIds  = new Set();
     let visibleCardIds = [];
     let decklistCardIds = null; // null = no filter; Set of card IDs when a deck is selected
@@ -388,8 +392,8 @@
       el.keyword.value     = qs.get('keyword')     || '';
       el.expansion.value   = qs.get('expansion')   || '';
       el.releaseYear.value = qs.get('releaseYear') || '';
-      el.orderBy.value     = qs.get('orderBy')     || 'oldest';
-      el.direction.value   = qs.get('direction')   || 'asc';
+      el.orderBy.value     = qs.get('orderBy')     || DEFAULT_ORDER_BY;
+      el.direction.value   = qs.get('direction')   || DEFAULT_DIRECTION;
       syncPowerIsVisibility();
     };
 
@@ -404,9 +408,9 @@
       setQueryParam('expansion',   el.expansion.value);
       setQueryParam('releaseYear', el.releaseYear.value);
       setQueryParam('decklist',    el.decklist.value);
-      setQueryParam('orderBy',     el.orderBy.value);
-      setQueryParam('direction',   el.direction.value);
-      setQueryParam('view',        view);
+      setQueryParam('orderBy',     el.orderBy.value === DEFAULT_ORDER_BY ? '' : el.orderBy.value);
+      setQueryParam('direction',   el.direction.value === DEFAULT_DIRECTION ? '' : el.direction.value);
+      setQueryParam('view',        view === DEFAULT_VIEW ? '' : view);
     };
 
     const normalize  = (s) => (s || '').toString().toLowerCase();
@@ -915,8 +919,8 @@
       el.releaseYear.value = '';
       el.decklist.value    = '';
       decklistCardIds      = null;
-      el.orderBy.value     = 'oldest';
-      el.direction.value   = 'asc';
+      el.orderBy.value     = DEFAULT_ORDER_BY;
+      el.direction.value   = DEFAULT_DIRECTION;
       controlsToURL();
       filterCards();
     });
