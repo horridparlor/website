@@ -328,7 +328,7 @@
     cursor: pointer;
     /* crop the 20px print bleed: visible area is 1086×1512 */
     aspect-ratio: 1086 / 1512;
-    border-radius: min(45px, 12%);
+    border-radius: min(45px, 12%) / min(45px, 8.62%);
     overflow: hidden;
     background: #111;
     transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -357,7 +357,7 @@
     height: 102.646%; /* 1552/1512 * 100 */
     display: block;
     user-select: none;
-    border-radius: min(45px, 12%);
+    border-radius: min(45px, 12%) / min(45px, 8.62%);
 }
 
 /* Data form table */
