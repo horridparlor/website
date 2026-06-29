@@ -21,12 +21,9 @@ function getMessages(Database $database): string
 {
     requireAdmin($database);
 
-    $countOnly   = $database->getBooleanParam('countOnly', false);
-    $showSpam    = $database->getBooleanParam('showSpam', false);
-    $showDeleted = $database->getBooleanParam('showDeleted', false);
-    $starredOnly = $database->getBooleanParam('starredOnly', false);
-    $dateFrom    = $database->getStringParam('dateFrom');
-    $dateTo      = $database->getStringParam('dateTo');
+    $countOnly = $database->getBooleanParam('countOnly', false);
+    $dateFrom  = $database->getStringParam('dateFrom');
+    $dateTo    = $database->getStringParam('dateTo');
 
     if ($countOnly) {
         $result = $database->query(
@@ -37,16 +34,6 @@ function getMessages(Database $database): string
 
     $conditions   = [];
     $replacements = [];
-
-    if (!$showSpam) {
-        $conditions[] = 'isSpam = 0';
-    }
-    if (!$showDeleted) {
-        $conditions[] = 'isDeleted = 0';
-    }
-    if ($starredOnly) {
-        $conditions[] = 'isStarred = 1';
-    }
 
     if (!$dateFrom && !$dateTo) {
         $conditions[] = 'sendDate >= DATE_SUB(NOW(), INTERVAL 30 DAY)';

@@ -271,6 +271,8 @@
     const res = await fetch(API + '?countOnly=true', { headers: authHeader() });
     if (res.status === 401 || res.status === 403) { showAuthError(); return; }
     document.getElementById('app').style.display = '';
+    ['showSpam','showDeleted','starredOnly'].forEach(id =>
+      document.getElementById(id).addEventListener('change', renderMessages));
     setDefaultDates();
     loadMessages();
   }
@@ -306,11 +308,7 @@
   }
 
   async function loadMessages() {
-    const params = new URLSearchParams({
-      showSpam:    document.getElementById('showSpam').checked ? '1' : '0',
-      showDeleted: document.getElementById('showDeleted').checked ? '1' : '0',
-      starredOnly: document.getElementById('starredOnly').checked ? '1' : '0',
-    });
+    const params = new URLSearchParams();
     const df = document.getElementById('dateFrom').value;
     const dt = document.getElementById('dateTo').value;
     if (df) params.set('dateFrom', df);
@@ -326,10 +324,17 @@
   function renderMessages() {
     const list = document.getElementById('messages-list');
     const stats = document.getElementById('stats');
-    const msgs = currentMessages;
+    const showSpam    = document.getElementById('showSpam').checked;
+    const showDeleted = document.getElementById('showDeleted').checked;
+    const starredOnly = document.getElementById('starredOnly').checked;
+    const msgs = currentMessages.filter(m =>
+      (showSpam    || !m.isSpam) &&
+      (showDeleted || !m.isDeleted) &&
+      (!starredOnly || m.isStarred)
+    );
 
-    const unreadCount = msgs.filter(m => !m.isRead && !m.isSpam && !m.isDeleted).length;
-    stats.textContent = `${msgs.length} viestiä — ${unreadCount} lukematta`;
+    const unreadCount = currentMessages.filter(m => !m.isRead && !m.isSpam && !m.isDeleted).length;
+    stats.textContent = `${msgs.length} viestiä (${currentMessages.length} yhteensä) — ${unreadCount} lukematta`;
 
     if (!msgs.length) {
       list.innerHTML = '<div id="empty-state">Ei viestejä</div>';
