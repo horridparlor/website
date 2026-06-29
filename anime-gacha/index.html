@@ -31,7 +31,16 @@
 
     body {
       margin: 0;
-      background: var(--bg);
+      background-color: #0d1117;
+      background-image:
+        radial-gradient(1200px circle at 14% -12%, rgba(56,139,253,0.16), transparent 58%),
+        radial-gradient(900px circle at 86% -8%, rgba(0,255,204,0.10), transparent 56%),
+        linear-gradient(to bottom, rgba(13,17,23,0.82), #0d1117),
+        url('/images/banner.png'),
+        radial-gradient(rgba(125,140,158,0.2) 1px, transparent 1px);
+      background-size: auto, auto, 100% auto, 100% auto, 20px 20px;
+      background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+      background-position: top left, top right, top center, top center, top left;
       color: var(--text);
       overflow-x: hidden;
     }
@@ -219,15 +228,27 @@
 
     .site-footer {
       margin-top: 28px;
-      padding: 18px;
+      padding: 18px 20px;
       text-align: center;
-      color: var(--muted);
-      border-top: 1px solid var(--line);
-      font-size: 0.9rem;
+      color: #cad4e0;
+      border: 1px solid #2a3340;
+      border-radius: 14px;
+      background:
+        radial-gradient(620px circle at 15% -18%, rgba(56,139,253,0.12), transparent 56%),
+        radial-gradient(520px circle at 85% -12%, rgba(0,255,204,0.09), transparent 52%),
+        linear-gradient(to bottom, rgba(17,17,17,0.86), rgba(12,12,12,0.9)),
+        radial-gradient(rgba(125,140,158,0.2) 1px, transparent 1px);
+      background-size: auto, auto, 100% 100%, 20px 20px;
+      background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+      box-shadow: 0 14px 40px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.03);
+      font-size: 0.92rem;
+      line-height: 1.65;
     }
 
+    .site-footer p { margin: 0; }
+
     .site-footer a {
-      color: var(--accent);
+      color: #78d9ff;
       text-decoration: none;
       font-weight: 700;
     }
@@ -771,6 +792,8 @@
       .poster-wrap { width: min(250px, 100%); margin: 0 auto; }
       .score-row { justify-content: center; }
       .summon-stage, .stage-content { min-height: 610px; }
+      .top-bar { padding: 0.6rem 0.8rem; gap: 0.75rem; }
+      .top-bar h2 { font-size: 1.05rem; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -782,16 +805,42 @@
       }
     }
 
+    .top-bar {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.6rem 1rem;
+      margin-bottom: 1rem;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: linear-gradient(120deg, rgba(13, 18, 29, 0.88), rgba(5, 9, 18, 0.82));
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+    }
+
+    .top-bar h2 {
+      margin: 0;
+      color: #00ffcc;
+      font-size: clamp(1.2rem, 2.2vw, 1.5rem);
+      letter-spacing: 0.01em;
+    }
+
     .home-btn {
-      display:inline-flex;
-      margin-bottom:16px;
-      padding:10px 14px;
-      border-radius:12px;
-      background: var(--panel-strong);
-      border:1px solid var(--line);
-      color: var(--text);
-      text-decoration:none;
-      font-weight:700;
+      display: inline-flex;
+      align-items: center;
+      margin: 0;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: linear-gradient(90deg, #ff0066, #ff6600);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 700;
+      box-shadow: 0 0 10px #ff0066;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .home-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 20px #ff0066;
     }
 
 </style>
@@ -799,14 +848,17 @@
 <body>
   <main class="app-shell">
 
-    <a class="home-btn" href="../">← Return to home</a>
+    <header class="top-bar">
+      <a class="home-btn" href="../">Home</a>
+      <h2>Anime Gacha</h2>
+    </header>
 
     <section class="hero" aria-labelledby="page-title">
       <div class="hero-card">
         <p class="eyebrow">Uniform random pulls · rank only changes visuals</p>
         <h1 id="page-title">Anime Gacha System</h1>
         <p class="subtitle">
-          Add one anime search query per row, fetch the matching anime from Jikan, then pull a completely random anime from the loaded pool. Rank controls only the summon animation and card appearance.
+          Add one anime search query per row and press Pull anime. Each pull picks a random title from your list and fetches it from Jikan. If one title fails, the pull automatically tries another.
         </p>
       </div>
 
@@ -832,8 +884,7 @@
         <label class="sr-only" for="queryInput">One anime query per row</label>
         <textarea id="queryInput" spellcheck="false" placeholder="One anime query per row"></textarea>
 
-        <div class="button-row">
-          <button class="btn btn-primary" id="fetchButton" type="button">Fetch / refresh</button>
+        <div class="button-row single">
           <button class="btn btn-gacha" id="pullButton" type="button">Pull anime</button>
         </div>
         <div class="button-row single">
@@ -843,13 +894,11 @@
         <div class="status-box" role="status" aria-live="polite">
           <div class="status-header">
             <strong id="statusTitle">Ready</strong>
-            <span id="poolCount">0 loaded</span>
+            <span id="poolCount">0 queries</span>
           </div>
-          <div id="statusText">Edit the list, fetch it, then pull. Your list is saved in this browser.</div>
+          <div id="statusText">Edit the list, then pull. Your list is saved in this browser.</div>
           <div class="progress" aria-hidden="true"><div id="progressBar"></div></div>
         </div>
-
-        <div class="pool-list" id="poolList" aria-label="Loaded anime pool"></div>
       </aside>
 
       <section>
@@ -868,7 +917,7 @@
               <div class="idle-state">
                 <div class="idle-orb" aria-hidden="true"></div>
                 <h2>Ready to summon</h2>
-                <p>Load the anime pool and press <b>Pull anime</b>. The animation is generated first; the anime image and full name appear after the effects.</p>
+                <p>Press <b>Pull anime</b>. A random title from your list is fetched live, and the anime image and full name appear after the effects.</p>
               </div>
             </div>
           </div>
@@ -901,18 +950,229 @@
     const REQUEST_DELAY_MS = 100;
     const STORAGE_KEY = "anime-gacha-query-list-v1";
 
-    const EXAMPLE_QUERIES = `Frieren Beyond Journey's End
-Fullmetal Alchemist Brotherhood
-Steins Gate
-Attack on Titan Final Season
-Hunter x Hunter 2011
+    const EXAMPLE_QUERIES = `Astro Boy
+Speed Racer
+Lupin III Part I
+Future Boy Conan
+Galaxy Express 999
+Mobile Suit Gundam
+Rose of Versailles
+Anne of Green Gables
+Space Battleship Yamato
+Captain Harlock
+The Castle of Cagliostro
+Urusei Yatsura
+Macross
+Nausicaa of the Valley of the Wind
+Fist of the North Star
+Touch
+Angel's Egg
+Vampire Hunter D
+Castle in the Sky
+Saint Seiya
+Maison Ikkoku
+Akira
+My Neighbor Totoro
+Grave of the Fireflies
+Patlabor
+Kiki's Delivery Service
+Ranma 1/2
+Dragon Ball
+Dragon Ball Z
+Legend of the Galactic Heroes
+City Hunter
+Only Yesterday
+Roujin Z
+Porco Rosso
+Yu Yu Hakusho
+Slam Dunk
+Ninja Scroll
+Ocean Waves
+Blue Seed
+Magic Knight Rayearth
+DNA2
+Ghost Sweeper Mikami
+The Irresponsible Captain Tylor
+Memories
+Ghost in the Shell
+Neon Genesis Evangelion
+Whisper of the Heart
+Rurouni Kenshin
+The Vision of Escaflowne
+Martian Successor Nadesico
+Revolutionary Girl Utena
+Berserk (1997)
+Princess Mononoke
+Perfect Blue
+Serial Experiments Lain
 Cowboy Bebop
-Your Name
-Demon Slayer
-Jujutsu Kaisen
+Initial D First Stage
+Great Teacher Onizuka
+Cardcaptor Sakura
+Trigun
+Master Keaton
+Boogiepop Phantom
+Now and Then, Here and There
 One Piece
+Jin-Roh: The Wolf Brigade
+Excel Saga
+Digimon Adventure
+The Big O
+Blood: The Last Vampire
+Love Hina
+InuYasha
+Hajime no Ippo
+Vampire Hunter D: Bloodlust
+FLCL
+Read or Die
+Millennium Actress
+Spirited Away
+Hellsing
+Azumanga Daioh
+Princess Tutu
+Haibane Renmei
+Ghost in the Shell: Stand Alone Complex
+Naruto
+Texhnolyze
+Planetes
+Kino's Journey
+Wolf's Rain
+Fullmetal Alchemist
+Gungrave
+Paranoia Agent
+Monster
+Samurai Champloo
+Beck: Mongolian Chop Squad
+Elfen Lied
+Howl's Moving Castle
+Gankutsuou: The Count of Monte Cristo
+School Rumble
+Mushi-Shi
+Honey and Clover
+Eureka Seven
+Blood+
+Aria the Animation
+Black Cat
+Ouran High School Host Club
+Black Lagoon
+The Melancholy of Haruhi Suzumiya
+Welcome to the N.H.K.
+Death Note
+Code Geass: Lelouch of the Rebellion
+Nana
+Ergo Proxy
+Paprika
+5 Centimeters per Second
+Baccano!
+Claymore
+Lucky Star
+Darker than Black
+Moribito: Guardian of the Spirit
+Sword of the Stranger
+Kaiji
+Gurren Lagann
+Dennou Coil
+Ef: A Tale of Memories
+Higurashi: When They Cry
+Detroit Metal City
+Toradora!
+Spice and Wolf
+Soul Eater
+Kurozuka
+The Sky Crawlers
+Ponyo
+Summer Wars
+Redline
+K-On!
+Bakemonogatari
+Fullmetal Alchemist: Brotherhood
+A Certain Scientific Railgun
+The Tatami Galaxy
+Angel Beats!
+Highschool of the Dead
+Rainbow
+Durarara!!
+Panty & Stocking with Garterbelt
+The Garden of Sinners
+Puella Magi Madoka Magica
+Steins;Gate
+Anohana: The Flower We Saw That Day
+Blue Exorcist
+Tiger & Bunny
+Usagi Drop
+Nichijou
+Chihayafuru
+Fate/Zero
+Hunter x Hunter (2011)
+The Daily Lives of High School Boys
+Kids on the Slope
+Another
+Psycho-Pass
+JoJo's Bizarre Adventure
+From the New World
+Wolf Children
+The Wind Rises
+Attack on Titan
+Kill la Kill
+Silver Spoon
+Log Horizon
+Nagi-Asu: A Lull in the Sea
+Barakamon
+No Game No Life
+Ping Pong the Animation
+Parasyte: The Maxim
+Your Lie in April
+Mushishi: The Next Passage
+Haikyuu!!
+Monthly Girls' Nozaki-kun
+Space Dandy
+Yona of the Dawn
+Terror in Resonance
+Shirobako
+The Boy and the Beast
+One Punch Man
+Death Parade
+Food Wars!
+The Anthem of the Heart
+Erased
 Mob Psycho 100
-Violet Evergarden`;
+March Comes in Like a Lion
+A Silent Voice
+Your Name
+Re:Zero - Starting Life in Another World
+Konosuba
+Showa Genroku Rakugo Shinju
+91 Days
+Drifters
+Land of the Lustrous
+Made in Abyss
+Girls' Last Tour
+The Ancient Magus' Bride
+In This Corner of the World
+Violet Evergarden
+A Place Further Than the Universe
+Devilman Crybaby
+Megalo Box
+Banana Fish
+Run with the Wind
+Rascal Does Not Dream of Bunny Girl Senpai
+Dororo
+The Promised Neverland
+Vinland Saga
+Beastars
+Weathering with You
+Keep Your Hands Off Eizouken!
+Akudama Drive
+Odd Taxi
+Ranking of Kings
+Sonny Boy
+To Your Eternity
+Belle
+Cyberpunk: Edgerunners
+Bocchi the Rock!
+Frieren: Beyond Journey's End
+Delicious in Dungeon
+Apothecary Diaries`;
 
     const RANKS = {
       1: { label: "Common", particles: 28, rings: 2, duration: 1300, symbols: ["✦", "•", "✧"] },
@@ -923,7 +1183,6 @@ Violet Evergarden`;
     };
 
     const queryInput = document.getElementById("queryInput");
-    const fetchButton = document.getElementById("fetchButton");
     const pullButton = document.getElementById("pullButton");
     const exampleButton = document.getElementById("exampleButton");
     const clearHistoryButton = document.getElementById("clearHistoryButton");
@@ -932,7 +1191,6 @@ Violet Evergarden`;
     const statusText = document.getElementById("statusText");
     const poolCount = document.getElementById("poolCount");
     const progressBar = document.getElementById("progressBar");
-    const poolList = document.getElementById("poolList");
     const summonStage = document.getElementById("summonStage");
     const stageContent = document.getElementById("stageContent");
     const effectsLayer = document.getElementById("effectsLayer");
@@ -943,9 +1201,7 @@ Violet Evergarden`;
     const summonSubline = document.getElementById("summonSubline");
     const historyList = document.getElementById("historyList");
 
-    let animePool = [];
     let pullHistory = [];
-    let isFetching = false;
     let isPulling = false;
 
     init();
@@ -953,7 +1209,6 @@ Violet Evergarden`;
     function init() {
       queryInput.value = localStorage.getItem(STORAGE_KEY) || EXAMPLE_QUERIES;
       updateLineCount();
-      renderPool();
       renderHistory();
 
       queryInput.addEventListener("input", () => {
@@ -961,13 +1216,12 @@ Violet Evergarden`;
         updateLineCount();
       });
 
-      fetchButton.addEventListener("click", fetchAnimePool);
       pullButton.addEventListener("click", pullAnime);
       exampleButton.addEventListener("click", () => {
         queryInput.value = EXAMPLE_QUERIES;
         localStorage.setItem(STORAGE_KEY, queryInput.value);
         updateLineCount();
-        setStatus("Example restored", "Press Fetch / refresh to reload the pool.");
+        setStatus("Example restored", "Press Pull anime to fetch a random title.");
       });
       clearHistoryButton.addEventListener("click", () => {
         pullHistory = [];
@@ -985,56 +1239,22 @@ Violet Evergarden`;
     function updateLineCount() {
       const count = getQueries().length;
       lineCount.textContent = `${count} ${count === 1 ? "row" : "rows"}`;
+      poolCount.textContent = `${count} ${count === 1 ? "query" : "queries"}`;
     }
 
     function setStatus(title, text, progress = null) {
       statusTitle.textContent = title;
       statusText.textContent = text;
       if (progress !== null) progressBar.style.width = `${Math.max(0, Math.min(100, progress))}%`;
-      poolCount.textContent = `${animePool.length} loaded`;
+      const count = getQueries().length;
+      poolCount.textContent = `${count} ${count === 1 ? "query" : "queries"}`;
     }
 
-    function setBusy(fetching, pulling = isPulling) {
-      isFetching = fetching;
+    function setBusy(pulling) {
       isPulling = pulling;
-      fetchButton.disabled = isFetching || isPulling;
-      pullButton.disabled = isFetching || isPulling;
-      exampleButton.disabled = isFetching || isPulling;
-    }
-
-    async function fetchAnimePool() {
-      const queries = getQueries();
-      if (!queries.length) {
-        setStatus("No queries", "Add at least one anime query row first.", 0);
-        return;
-      }
-
-      setBusy(true, false);
-      animePool = [];
-      renderPool();
-      setStatus("Fetching anime", `0 / ${queries.length} rows fetched.`, 0);
-
-      const failures = [];
-      for (let i = 0; i < queries.length; i++) {
-        const query = queries[i];
-        try {
-          const anime = await fetchAnimeForQuery(query);
-          animePool.push(anime);
-          setStatus("Fetching anime", `${i + 1} / ${queries.length} rows fetched. Latest: ${anime.displayTitle}`, ((i + 1) / queries.length) * 100);
-        } catch (error) {
-          failures.push(`${query}: ${error.message}`);
-          setStatus("Fetching anime", `${i + 1} / ${queries.length} rows checked. Could not load: ${query}`, ((i + 1) / queries.length) * 100);
-        }
-        renderPool();
-        if (i < queries.length - 1) await sleep(REQUEST_DELAY_MS);
-      }
-
-      const message = failures.length
-        ? `${animePool.length} anime loaded. ${failures.length} row(s) failed: ${failures.slice(0, 3).join(" | ")}${failures.length > 3 ? " …" : ""}`
-        : `${animePool.length} anime loaded. Pulls are uniform random from this pool.`;
-
-      setStatus(animePool.length ? "Pool ready" : "Nothing loaded", message, 100);
-      setBusy(false, false);
+      pullButton.disabled = isPulling;
+      exampleButton.disabled = isPulling;
+      queryInput.disabled = isPulling;
     }
 
     async function fetchAnimeForQuery(query, attempt = 0) {
@@ -1090,18 +1310,41 @@ Violet Evergarden`;
     }
 
     async function pullAnime() {
-      if (isFetching || isPulling) return;
+      if (isPulling) return;
 
-      if (!animePool.length) {
-        await fetchAnimePool();
-        if (!animePool.length) return;
+      const queries = getQueries();
+      if (!queries.length) {
+        setStatus("No queries", "Add at least one anime query row first.", 0);
+        return;
       }
 
-      const anime = animePool[Math.floor(Math.random() * animePool.length)];
-      setBusy(false, true);
-      await playSummon(anime);
-      addToHistory(anime);
-      setBusy(false, false);
+      setBusy(true);
+      const shuffled = shuffleArray(queries);
+      const failures = [];
+
+      for (let i = 0; i < shuffled.length; i++) {
+        const query = shuffled[i];
+        const progress = (i / shuffled.length) * 100;
+        setStatus("Pulling", `Trying: ${query}`, progress);
+        try {
+          const anime = await fetchAnimeForQuery(query);
+          await playSummon(anime);
+          addToHistory(anime);
+          setStatus("Pull complete", `Pulled: ${anime.displayTitle}`, 100);
+          setBusy(false);
+          return;
+        } catch (error) {
+          failures.push(`${query}: ${error.message}`);
+          if (i < shuffled.length - 1) {
+            setStatus("Retrying", `Could not load ${query}. Trying another title...`, ((i + 1) / shuffled.length) * 100);
+            await sleep(REQUEST_DELAY_MS);
+          }
+        }
+      }
+
+      const msg = failures.slice(0, 3).join(" | ");
+      setStatus("Pull failed", `No title could be loaded. ${msg}${failures.length > 3 ? " …" : ""}`, 100);
+      setBusy(false);
     }
 
     async function playSummon(anime) {
@@ -1213,29 +1456,19 @@ Violet Evergarden`;
         </article>`;
     }
 
-    function renderPool() {
-      poolCount.textContent = `${animePool.length} loaded`;
-      if (!animePool.length) {
-        poolList.innerHTML = "";
-        return;
-      }
-
-      poolList.innerHTML = animePool.map(anime => `
-        <div class="pool-item" title="${escapeAttribute(anime.displayTitle)}">
-          <img src="${escapeAttribute(anime.imageUrl)}" alt="" loading="lazy" />
-          <div>
-            <div class="pool-title">${escapeHtml(anime.displayTitle)}</div>
-            <div class="pool-meta">Score ${anime.score === null ? "N/A" : anime.score.toFixed(2)} · ${escapeHtml(anime.query)}</div>
-          </div>
-          <span class="mini-stars" aria-label="${anime.rank} stars">${stars(anime.rank)}</span>
-        </div>
-      `).join("");
-    }
-
     function addToHistory(anime) {
       pullHistory.unshift({ ...anime, pulledAt: new Date().toLocaleTimeString() });
       pullHistory = pullHistory.slice(0, 8);
       renderHistory();
+    }
+
+    function shuffleArray(items) {
+      const arr = [...items];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
     }
 
     function renderHistory() {
