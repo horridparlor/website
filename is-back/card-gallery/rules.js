@@ -219,7 +219,7 @@ const RULES_SECTIONS = [
   {
     id: 'deck-building',
     title: 'Deck Building',
-    content: `<p>A deck must contain exactly 60 cards. Uniqueness is determined by name only — no two cards in the deck may share the same name. Two cards with different names are allowed even if they are otherwise mechanically identical.</p>
+    content: `<p>A deck must contain exactly 60 cards. Uniqueness is determined by name only — no two cards in the deck may share the same name (cards also have an ID, which remains the same even for alternative artwork printings). Two cards with different names are allowed even if they are otherwise mechanically identical.</p>
 <p>Some cards have <strong>[Deck building]</strong> tagged keywords that alter these rules for that specific card:</p>
 <ul>
   <li>For example, <em>Replicate</em> allows you to include any number of copies of that card in your deck, bypassing the uniqueness restriction.</li>
