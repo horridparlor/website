@@ -145,7 +145,7 @@
         white-space: nowrap;
         flex-shrink: 0;
     }
-    .toggle-btn span { display: none; }
+    #btn-gallery, #btn-table, #btn-keywords, #btn-macros { display: none; }
     .bulk-bar { padding: 0.5rem 1rem; }
     .results { padding: 0.75rem 1rem 2rem 1rem; }
     .cards-grid {
