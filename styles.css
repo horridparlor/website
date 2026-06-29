@@ -526,7 +526,7 @@ footer {
   }
   .site-nav.mobile-open { display: block; }
   .site-nav::after { min-height: 0; }
-  .desc-section { padding: 1.5rem 1.2rem; margin: 0 0.75rem 1.5rem; }
+  .desc-section { padding: 1.5rem 1.2rem; margin: 1.5rem 0.75rem 1.5rem; }
 }
 
 /* ── Album Carousel ─────────────────────────────────────────────────────────── */
