@@ -19,10 +19,13 @@
 
     <div class="sidebar-top">
       <div class="sidebar-brand">
-        <img src="/images/overlay.png" alt="Rakuel" class="sidebar-img" />
         <h1 class="sidebar-title">Rakuel</h1>
         <a href="mailto:eero@rakuel.com" class="sidebar-email">eero@rakuel.com</a>
       </div>
+
+      <img src="/images/overlay.png" alt="Rakuel" class="sidebar-img" />
+
+      <button id="mobile-nav-toggle" class="mobile-nav-toggle" onclick="toggleMobileNav()" title="Navigaatio"><span class="material-icons">menu</span></button>
 
       <div class="sidebar-social">
         <a href="/message-center" id="admin-msg-badge" style="display:none;position:relative;" title="Viestilaatikko">
@@ -34,7 +37,7 @@
         <a href="https://www.tiktok.com/@rakueli" target="_blank" title="TikTok"><span class="material-icons">music_note</span></a>
         <a href="https://www.youtube.com/@rakueli" target="_blank" title="YouTube"><span class="material-icons">smart_display</span></a>
         <a href="https://genius.com/artists/Rakuel" target="_blank" title="Lyriikat (Genius)"><span class="material-icons">lyrics</span></a>
-        <a href="is-back/match-queue" title="Pelaa"><span class="material-icons">sports_esports</span></a>
+        <a href="is-back/card-gallery" title="Kortit"><span class="material-icons">style</span></a>
       </div>
     </div>
 
@@ -45,9 +48,9 @@
           Rakuel Is Back <span class="nav-cat-arrow">▾</span>
         </button>
         <div class="nav-cat-links">
-          <a href="/is-back/card-gallery" class="nav-link">Card Gallery</a>
-          <a href="/is-back/deck-builder" class="nav-link">Deck Builder</a>
           <a href="/is-back/match-queue" class="nav-link">Play</a>
+          <a href="/is-back/deck-builder" class="nav-link">Deck Builder</a>
+          <a href="/is-back/card-gallery" class="nav-link">Card Gallery</a>
           <a href="/is-back/register" class="nav-link">Register / Sign In</a>
         </div>
       </div>
@@ -147,6 +150,13 @@
 // ── Nav sidebar toggle ────────────────────────────────────────────────────────
 function toggleNavCat(id) {
   document.getElementById(id).classList.toggle('open');
+}
+
+function toggleMobileNav() {
+  const nav = document.querySelector('.site-nav');
+  const icon = document.querySelector('#mobile-nav-toggle .material-icons');
+  nav.classList.toggle('mobile-open');
+  icon.textContent = nav.classList.contains('mobile-open') ? 'close' : 'menu';
 }
 
 // ── Admin visibility ──────────────────────────────────────────────────────────

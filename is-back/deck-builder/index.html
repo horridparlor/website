@@ -30,61 +30,65 @@
   <!-- LEFT: Card browser -->
   <div class="panel-left">
     <div class="filters-bar">
-      <input type="text" id="f-search" placeholder="Search cards…" autocomplete="off" />
-      <div class="filters-row">
-        <div>
-          <div class="filter-label">Type</div>
-          <select id="f-type">
-            <option value="">Any</option>
-            <option value="rock">Rock</option>
-            <option value="paper">Paper</option>
-            <option value="scissors">Scissors</option>
-          </select>
-        </div>
-        <div>
-          <div class="filter-label">Keyword</div>
-          <select id="f-keyword">
-            <option value="">Any</option>
-          </select>
-        </div>
+      <div class="filters-search-row">
+        <input type="text" id="f-search" placeholder="Search cards…" autocomplete="off" />
       </div>
-      <div class="filters-row">
-        <div>
-          <div class="filter-label">Min Power</div>
-          <select id="f-power-min">
-            <option value="">Any</option>
-          </select>
+      <div class="filters-collapsible" id="filters-collapsible">
+        <div class="filters-row">
+          <div>
+            <div class="filter-label">Type</div>
+            <select id="f-type">
+              <option value="">Any</option>
+              <option value="rock">Rock</option>
+              <option value="paper">Paper</option>
+              <option value="scissors">Scissors</option>
+            </select>
+          </div>
+          <div>
+            <div class="filter-label">Keyword</div>
+            <select id="f-keyword">
+              <option value="">Any</option>
+            </select>
+          </div>
         </div>
-        <div>
-          <div class="filter-label">Max Power</div>
-          <select id="f-power-max">
-            <option value="">Any</option>
-          </select>
+        <div class="filters-row">
+          <div>
+            <div class="filter-label">Min Power</div>
+            <select id="f-power-min">
+              <option value="">Any</option>
+            </select>
+          </div>
+          <div>
+            <div class="filter-label">Max Power</div>
+            <select id="f-power-max">
+              <option value="">Any</option>
+            </select>
+          </div>
         </div>
-      </div>
-      <div class="filters-row">
-        <div>
-          <div class="filter-label">Expansion</div>
-          <select id="f-expansion">
-            <option value="">Any</option>
-          </select>
+        <div class="filters-row">
+          <div>
+            <div class="filter-label">Expansion</div>
+            <select id="f-expansion">
+              <option value="">Any</option>
+            </select>
+          </div>
+          <div>
+            <div class="filter-label">Sort By</div>
+            <select id="f-sort">
+              <option value="oldest">Oldest</option>
+              <option value="newest">Newest</option>
+              <option value="name">Name</option>
+              <option value="power-asc">Power ↑</option>
+              <option value="power-desc">Power ↓</option>
+            </select>
+          </div>
         </div>
-        <div>
-          <div class="filter-label">Sort By</div>
-          <select id="f-sort">
-            <option value="oldest">Oldest</option>
-            <option value="newest">Newest</option>
-            <option value="name">Name</option>
-            <option value="power-asc">Power ↑</option>
-            <option value="power-desc">Power ↓</option>
-          </select>
+        <div class="card-count" id="card-count">Loading…</div>
+        <div class="bulk-btns">
+          <button class="btn btn-bulk" id="btn-select-visible" title="Add all visible cards to deck">+ Add to deck</button>
+          <button class="btn btn-bulk" id="btn-unselect-visible" title="Remove all visible cards from deck">− Remove from deck</button>
+          <button class="btn btn-bulk btn-bulk-reset" id="btn-reset-filters" title="Clear all filters">✕ Filters</button>
         </div>
-      </div>
-      <div class="card-count" id="card-count">Loading…</div>
-      <div class="bulk-btns">
-        <button class="btn btn-bulk" id="btn-select-visible" title="Add all visible cards to deck">+ Add to deck</button>
-        <button class="btn btn-bulk" id="btn-unselect-visible" title="Remove all visible cards from deck">− Remove from deck</button>
-        <button class="btn btn-bulk btn-bulk-reset" id="btn-reset-filters" title="Clear all filters">✕ Filters</button>
       </div>
     </div>
     <div class="card-grid-wrap">
@@ -200,6 +204,22 @@
       Don't have an account? <a href="../register/">Register here</a>
     </div>
   </div>
+</div>
+
+<!-- Mobile tab bar -->
+<div class="mobile-tabs">
+  <button class="mobile-tab" id="tab-browse">
+    <span class="mobile-tab-icon">🃏</span>
+    Browse
+  </button>
+  <button class="mobile-tab" id="tab-focus">
+    <span class="mobile-tab-icon">🔍</span>
+    Card
+  </button>
+  <button class="mobile-tab" id="tab-deck">
+    <span class="mobile-tab-icon">📋</span>
+    Deck
+  </button>
 </div>
 
 <!-- Import result modal -->
@@ -1143,7 +1163,11 @@
     if (!c) return;
     clearFocusLock();
     setFocus(c);
-    addCard(c);
+    if (isMobile()) {
+      setMobileTab('middle');
+    } else {
+      addCard(c);
+    }
   });
 
   el.cardGrid.addEventListener('contextmenu', e => {
@@ -1386,6 +1410,32 @@
   });
   el.btnExportImg.addEventListener('click', exportImages);
   el.btnImportClose.addEventListener('click', () => el.modalImport.classList.add('hidden'));
+
+  /* ── Mobile navigation ──────────────────────────────────────────── */
+  const isMobile = () => window.innerWidth <= 900;
+  let mobilePanel = 'left';
+
+  const setMobileTab = (panel) => {
+    mobilePanel = panel;
+    ['left', 'middle', 'right'].forEach(p => {
+      document.querySelector('.panel-' + p).classList.toggle('mobile-active', p === panel);
+    });
+    const tabIds = { left: 'tab-browse', middle: 'tab-focus', right: 'tab-deck' };
+    Object.entries(tabIds).forEach(([p, id]) => {
+      document.getElementById(id).classList.toggle('active', p === panel);
+    });
+  };
+
+  document.getElementById('tab-browse').addEventListener('click', () => setMobileTab('left'));
+  document.getElementById('tab-focus').addEventListener('click', () => setMobileTab('middle'));
+  document.getElementById('tab-deck').addEventListener('click', () => setMobileTab('right'));
+
+  if (isMobile()) setMobileTab('left');
+  window.addEventListener('resize', () => {
+    if (isMobile() && !document.querySelector('.panel-left.mobile-active,.panel-middle.mobile-active,.panel-right.mobile-active')) {
+      setMobileTab('left');
+    }
+  });
 
   /* ── Keyboard ───────────────────────────────────────────────────── */
   document.addEventListener('keydown', e => {
