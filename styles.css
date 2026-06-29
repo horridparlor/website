@@ -239,6 +239,31 @@ footer {
   100% { filter: drop-shadow(0 0 6px  rgba(0,255,204,0.08)); }
 }
 
+/* Mobile image is smaller, so use a softer glow radius/intensity. */
+@keyframes glow-pulse-mobile {
+  0%   { filter: drop-shadow(0 0 3px  rgba(0,255,204,0.06)); }
+  4%   { filter: drop-shadow(0 0 6px  rgba(0,255,204,0.14)); }
+  9%   { filter: drop-shadow(0 0 4px  rgba(0,255,204,0.08)); }
+  14%  { filter: drop-shadow(0 0 8px  rgba(0,255,204,0.19)); }
+  20%  { filter: drop-shadow(0 0 5px  rgba(0,255,204,0.12)); }
+  26%  { filter: drop-shadow(0 0 10px rgba(0,255,204,0.24)); }
+  31%  { filter: drop-shadow(0 0 6px  rgba(0,255,204,0.15)); }
+  37%  { filter: drop-shadow(0 0 4px  rgba(0,255,204,0.08)); }
+  43%  { filter: drop-shadow(0 0 11px rgba(0,255,204,0.27)); }
+  49%  { filter: drop-shadow(0 0 8px  rgba(0,255,204,0.18)); }
+  55%  { filter: drop-shadow(0 0 12px rgba(0,255,204,0.31)); }
+  60%  { filter: drop-shadow(0 0 9px  rgba(0,255,204,0.20)); }
+  65%  { filter: drop-shadow(0 0 5px  rgba(0,255,204,0.10)); }
+  70%  { filter: drop-shadow(0 0 13px rgba(0,255,204,0.34)); }
+  74%  { filter: drop-shadow(0 0 10px rgba(0,255,204,0.24)); }
+  79%  { filter: drop-shadow(0 0 15px rgba(0,255,204,0.38)); }
+  83%  { filter: drop-shadow(0 0 12px rgba(0,255,204,0.30)); }
+  86%  { filter: drop-shadow(0 0 17px rgba(0,255,204,0.42)); }
+  91%  { filter: drop-shadow(0 0 6px  rgba(0,255,204,0.14)); }
+  95%  { filter: drop-shadow(0 0 4px  rgba(0,255,204,0.07)); }
+  100% { filter: drop-shadow(0 0 3px  rgba(0,255,204,0.06)); }
+}
+
 .sidebar-img {
   width: calc(100% + 1.25rem);
   margin-left: 0;
@@ -365,7 +390,7 @@ footer {
     margin: 0;
     order: 0;
     justify-self: center;
-    animation: glow-pulse 6s ease-in-out infinite;
+    animation: glow-pulse-mobile 12s ease-in-out infinite;
   }
   .sidebar-title { font-size: 2.4rem; margin-left: 0; line-height: 1; order: 0; }
   .sidebar-email { margin-left: 0; margin-top: 0.15rem; order: 0; }
