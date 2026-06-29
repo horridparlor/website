@@ -544,7 +544,7 @@ body{font-family:Georgia,'Times New Roman',serif;color:#1c1c1c;background:#fff;l
 
 /* ── Cover ─────────────────────────────────────────── */
 .cover{background:#1a1a1a;color:#fff;min-height:100vh;display:flex;flex-direction:column;justify-content:space-between;page-break-after:always;position:relative;overflow:hidden}
-.cover::before{content:'RIB';position:absolute;font-family:'Arial Black',Impact,sans-serif;font-size:280pt;font-weight:900;color:rgba(255,255,255,.04);top:48%;left:50%;transform:translate(-50%,-50%);letter-spacing:-.05em;user-select:none;pointer-events:none}
+.cover::before{content:'RIB';position:absolute;font-family:'Arial Black',Impact,sans-serif;font-size:280pt;font-weight:900;color:rgba(255,255,255,.04);top:58%;left:50%;transform:translate(-50%,-50%);letter-spacing:-.05em;user-select:none;pointer-events:none}
 .cover-body{padding:54px 60px 0;position:relative;z-index:1}
 .cover-eyebrow{font-family:Arial,sans-serif;font-size:8pt;letter-spacing:.38em;text-transform:uppercase;color:#fff;opacity:.7;margin-bottom:54px}
 .cover-game-title{font-family:'Arial Black',Impact,sans-serif;font-size:64pt;font-weight:900;line-height:.92;letter-spacing:-.03em;color:#fff}
