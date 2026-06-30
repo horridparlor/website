@@ -169,7 +169,7 @@ h1 {
   padding: 0.9rem 1.15rem;
   border-radius: 11px;
   border: 1px solid rgba(115, 248, 224, 0.58);
-  background: linear-gradient(135deg, #00ffcc 0%, #30eeff 50%, #80d0ff 100%);
+  background: #00ffcc;
   color: #071015;
   font-weight: 700;
   font-size: 1rem;
