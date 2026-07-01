@@ -1117,6 +1117,8 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
                     // Occupied slot = evolve (stack on top); empty slot = fresh play.
                     $faceDown      = false;
                     $knownFaceDown = false;
+                    $isEvolve      = false;
+                    $prevTopId     = null;
                     if (!empty($p['field'][$slot])) {
                         $slotTop = end($p['field'][$slot]);
                         if (!$slotTop['faceDown']) {
@@ -1130,6 +1132,8 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
                                 $faceDown      = true;
                                 $knownFaceDown = true;
                             }
+                            $isEvolve  = true;
+                            $prevTopId = (int)$slotTop['cardId'];
                         }
                     }
                     $entry = ['cardId' => $zombieId, 'faceDown' => $faceDown];
@@ -1142,6 +1146,13 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
                         $state['log'][] = $p['username'] . ' played ' . $zombieName . ' face-down over Wizard (Necromancy).';
                     } else {
                         $state['log'][] = $p['username'] . ' played a Zombie from graveyard (Necromancy).';
+                    }
+                    if (!$faceDown) {
+                        if ($isEvolve && $prevTopId !== null) {
+                            $engine->applyWhenEvolves($state, $playerIndex, $slot, $zombieId, $prevTopId);
+                        }
+                        $newPending = $engine->applyWhenPlayed($state, $playerIndex, $slot, $zombieId);
+                        if ($newPending) enqueuePendingEffects($state, $newPending);
                     }
                 }
             }
