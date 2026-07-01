@@ -151,6 +151,17 @@
     return false;
   }
 
+  function sessionExpired() {
+    authToken = null;
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('username');
+    localStorage.removeItem('firstname');
+    piEl.textContent = '?';
+    document.getElementById('modal-msg').innerHTML = '<div class="msg-err">Your session expired. Please sign in again.</div>';
+    document.getElementById('login-modal').style.display = 'flex';
+  }
+
   document.getElementById('modal-login').addEventListener('submit', async e => {
     e.preventDefault();
     const msgEl = document.getElementById('modal-msg');
@@ -183,6 +194,7 @@
     if (!authToken) return [];
     try {
       const res = await fetch(API + 'decks', { headers: headers() });
+      if (res.status === 401) { sessionExpired(); return []; }
       if (!res.ok) return [];
       const data = await res.json();
       return (data.decks || []).filter(d => (d.totalCards || d.cardCount || 0) === 60);
@@ -360,6 +372,7 @@
     // Check for an existing active match
     try {
       const res = await fetch(API + 'matchQueue', { headers: headers() });
+      if (res.status === 401) { sessionExpired(); return; }
       if (res.ok) {
         const data = await res.json();
         if (data.status === 'matched' && data.matchId) { enterGame(data.matchId); return; }
