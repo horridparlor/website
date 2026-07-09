@@ -8,6 +8,8 @@
   <link rel="stylesheet" href="../../styles.css" />
   <link rel="stylesheet" href="/components/topbar.css">
   <script src="/components/topbar.js" defer></script>
+  <link rel="stylesheet" href="/components/footer.css">
+  <script src="/components/footer.js" defer></script>
   <style>
     body { background: #0d1117; color: #e6edf3; min-height: 100vh; display: flex; flex-direction: column; }
     .page { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; }
@@ -260,5 +262,7 @@
 
   if (token) renderProfile(); else renderLogin();
 </script>
+
+<rk-footer></rk-footer>
 </body>
 </html>
