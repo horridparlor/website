@@ -7,13 +7,15 @@
   <title>Find Difference</title>
   <link href="../styles.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Roboto:wght@300;400;700&family=Roboto+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/components/topbar.css">
+  <script src="/components/topbar.js" defer></script>
+  <link rel="stylesheet" href="/components/footer.css">
+  <script src="/components/footer.js" defer></script>
   <style>
     /* Page-specific styles that respect the site's neon-cyber aesthetic */
     :root {
       --cyan: #00ffcc;
       --cyan-d: #00ccaa;
-      --pink: #ff0066;
-      --orange: #ff6600;
       --bg-elev: #1a1a1a;
       --text: #fff;
     }
@@ -22,6 +24,13 @@
       max-width: 1100px;
       margin: 2rem auto 4rem;
       padding: 0 1rem;
+    }
+
+    .page-subtitle {
+      text-align: center;
+      color: var(--text);
+      opacity: .8;
+      margin: 0;
     }
 
     .page-title {
@@ -105,12 +114,6 @@
       border: 2px solid #444;
       box-shadow: none;
     }
-    .button.home {
-      background: linear-gradient(90deg, var(--pink), var(--orange));
-      color: #fff;
-      box-shadow: 0 0 12px var(--pink);
-    }
-
     /* Report */
     .report {
       margin-top: 1.5rem;
@@ -250,12 +253,8 @@
   </style>
 </head>
 <body>
-  <header>
-    <div class="header-text">
-      <h1>Find Difference</h1>
-      <div class="subtitle">Compare JSON or raw text with automatic fallback.</div>
-    </div>
-  </header>
+  <rk-topbar title="Find Difference"></rk-topbar>
+  <p class="page-subtitle">Compare JSON or raw text with automatic fallback.</p>
 
   <main>
     <p class="description dim">Paste JSON or raw text. If JSON parsing fails, comparison switches to line-by-line mode. Hit <strong>Compare</strong> to see all differences. Arrays are compared by index.</p>
@@ -275,7 +274,6 @@
       <button id="compare" class="button">Compare</button>
       <button id="format" class="button secondary">Format</button>
       <button id="reset" class="button secondary">Reset</button>
-      <a href="/" class="button home">← Return Home</a>
     </div>
 
     <section id="report" class="report" aria-live="polite" aria-busy="false">
@@ -300,9 +298,7 @@
     </div>
   </div>
 
-  <footer>
-    <div>©<span id="year"></span> Neon Diff Tool</div>
-  </footer>
+  <rk-footer></rk-footer>
 
   <script>
   const LEFT_KEY  = 'neonDiff.left';
@@ -321,7 +317,6 @@
     changed: $('#changedCount'),
     type: $('#typeCount')
   };
-  $('#year').textContent = new Date().getFullYear();
 
   function showToast(msg, error=false) {
     toast.textContent = msg;

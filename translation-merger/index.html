@@ -7,6 +7,10 @@
 <title>Translation Merger</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/components/topbar.css">
+<script src="/components/topbar.js" defer></script>
+<link rel="stylesheet" href="/components/footer.css">
+<script src="/components/footer.js" defer></script>
 
 <style>
 :root{
@@ -28,37 +32,10 @@ body{
     background-size:20px 20px;
 }
 
-.header{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    flex-wrap:wrap;
-    margin-bottom:20px;
-}
-
-.title-wrap{
-    display:flex;
-    flex-direction:column;
-}
-
-h2{
-    margin:0;
-    color:var(--accent);
-}
-
 .subtitle{
     font-size:13px;
     color:#aaa;
-}
-
-.home-btn{
-    padding:10px 20px;
-    border-radius:10px;
-    background:linear-gradient(135deg,var(--accent),var(--accent2));
-    color:#000;
-    text-decoration:none;
-    font-weight:bold;
-    box-shadow:0 0 15px rgba(0,255,204,0.3);
+    margin:0 0 20px;
 }
 
 .grid{
@@ -338,13 +315,8 @@ button:disabled{
 
 <body>
 
-<div class="header">
-    <div class="title-wrap">
-        <h2>Translation Merger</h2>
-        <div class="subtitle">Merge and review JSON conflicts visually</div>
-    </div>
-    <a href="../" class="home-btn">Home</a>
-</div>
+<rk-topbar title="Translation Merger"></rk-topbar>
+<div class="subtitle">Merge and review JSON conflicts visually</div>
 
 <div class="buttons">
     <div style="display:flex;gap:8px;margin-bottom:10px;">
@@ -906,6 +878,8 @@ window.onload=()=>{
     }
 };
 </script>
+
+<rk-footer></rk-footer>
 
 </body>
 </html>

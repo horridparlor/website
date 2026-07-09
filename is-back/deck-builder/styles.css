@@ -18,36 +18,12 @@ body {
   background-position: top left, top right, top left, top left;
 }
 
-.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: rgba(0,0,0,0.75);
-  border-bottom: 1px solid #222;
-  backdrop-filter: blur(6px);
-  padding: 0.5rem 1.5rem;
-  position: sticky;
-  top: 0;
-  z-index: 100;
+/* .db-layout below assumes a 52px-tall topbar */
+rk-topbar {
   height: 52px;
+  padding: 0.5rem 1.5rem;
   box-sizing: border-box;
 }
-.topbar h1 { font-size: 1.4rem; margin: 0; color: #00ffcc; }
-.topbar-left { display: flex; align-items: center; gap: 1rem; }
-.topbar-right { display: flex; align-items: center; gap: 0.75rem; }
-
-.home-link {
-  text-decoration: none;
-  background: linear-gradient(90deg, #ff0066, #ff6600);
-  color: #fff;
-  box-shadow: 0 0 8px #ff0066;
-  padding: 0.35rem 0.8rem;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  transition: transform 0.15s, box-shadow 0.15s;
-}
-.home-link:hover { transform: scale(1.05); box-shadow: 0 0 16px #ff0066; }
 
 .user-info { color: #aaa; font-size: 0.85rem; }
 .user-info strong { color: #00ffcc; }

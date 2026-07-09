@@ -6,12 +6,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Rakuel Is Back – Register</title>
   <link rel="stylesheet" href="../../styles.css" />
+  <link rel="stylesheet" href="/components/topbar.css">
+  <script src="/components/topbar.js" defer></script>
+  <link rel="stylesheet" href="/components/footer.css">
+  <script src="/components/footer.js" defer></script>
   <style>
     body { background: #0d1117; color: #e6edf3; min-height: 100vh; display: flex; flex-direction: column; }
-    .topbar { background: #161b22; border-bottom: 1px solid #30363d; padding: 12px 20px; display: flex; align-items: center; gap: 12px; }
-    .home-btn { background: #21262d; color: #e6edf3; border: 1px solid #30363d; border-radius: 6px; padding: 6px 14px; text-decoration: none; font-size: 14px; }
-    .home-btn:hover { background: #30363d; }
-    .header-text h1 { font-size: 18px; margin: 0; color: #58a6ff; }
     .auth-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 16px; }
     .auth-card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 36px 40px; width: 100%; max-width: 440px; }
     .auth-card h2 { margin: 0 0 6px; font-size: 22px; color: #f0f6fc; }
@@ -34,10 +34,7 @@
   </style>
 </head>
 <body>
-<header class="topbar">
-  <a class="home-btn" href="/">Home</a>
-  <div class="header-text"><h1>Rakuel Is Back</h1></div>
-</header>
+<rk-topbar title="Rakuel Is Back"></rk-topbar>
 <div class="auth-wrap">
   <div class="auth-card">
     <h2>Create Account</h2>
@@ -154,5 +151,7 @@
     }
   });
 </script>
+
+<rk-footer></rk-footer>
 </body>
 </html>

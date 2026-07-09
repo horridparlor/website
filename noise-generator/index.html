@@ -7,16 +7,15 @@
   <title>Noise Generator</title>
   <link rel="stylesheet" href="../styles.css">
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="/components/topbar.css">
+  <script src="/components/topbar.js" defer></script>
+  <link rel="stylesheet" href="/components/footer.css">
+  <script src="/components/footer.js" defer></script>
 </head>
 <body>
 
-<header>
-  <div class="header-text">
-    <h1>Noise Generator</h1>
-    <p class="subtitle">Focus. Relax. Sleep.</p>
-  </div>
-  <a href=".." class="button">⬅ Back</a>
-</header>
+<rk-topbar title="Noise Generator"></rk-topbar>
+<p class="subtitle">Focus. Relax. Sleep.</p>
 
 <main class="container">
 
@@ -208,6 +207,8 @@ document.getElementById('resetAll').onclick = () => {
   location.reload();
 };
 </script>
+
+<rk-footer></rk-footer>
 
 </body>
 </html>

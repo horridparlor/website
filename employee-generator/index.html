@@ -7,6 +7,10 @@
   <title>Employee Generator</title>
 
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/components/topbar.css">
+  <script src="/components/topbar.js" defer></script>
+  <link rel="stylesheet" href="/components/footer.css">
+  <script src="/components/footer.js" defer></script>
 
   <style>
     body {
@@ -17,13 +21,6 @@
       padding: 2rem;
       background-image: radial-gradient(#333 1px, transparent 1px);
       background-size: 20px 20px;
-    }
-
-    h2 {
-      text-align: center;
-      font-size: 2rem;
-      color: #00ffcc;
-      margin-bottom: 2rem;
     }
 
     .info-container {
@@ -135,21 +132,12 @@
       box-shadow: 0 0 26px #ff0066;
     }
 
-    .home-btn {
-      display: inline-block;
-      margin-top: 2rem;
-      background: linear-gradient(90deg, #444, #222);
-      color: #fff;
-      padding: 10px 22px;
-      border-radius: 8px;
-      text-decoration: none;
-    }
   </style>
 </head>
 
 <body>
 
-<h2>Employee Generator</h2>
+<rk-topbar title="Employee Generator"></rk-topbar>
 
 <div class="info-container">
   <div class="info-box">
@@ -202,8 +190,6 @@
       <span>↻</span> REGENERATE
     </button>
   </div>
-
-  <a href="/" class="home-btn">← Takaisin kotiin</a>
 </div>
 
 <script>
@@ -280,6 +266,8 @@
   yearInput.addEventListener("change", regeneratePerson);
   window.addEventListener("DOMContentLoaded", regenerateAll);
 </script>
+
+<rk-footer></rk-footer>
 
 </body>
 </html>

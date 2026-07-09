@@ -9,19 +9,17 @@
   <link rel="stylesheet" href="../styles.css">
   <!-- Page-specific styles (returned with this package) -->
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="/components/topbar.css">
+  <script src="/components/topbar.js" defer></script>
+  <link rel="stylesheet" href="/components/footer.css">
+  <script src="/components/footer.js" defer></script>
 </head>
 <body>
-  <main class="container">
-    <header class="page-header">
-      <div class="left-controls">
-        <button id="backBtn" class="ui-btn ghost">← Go back</button>
-      </div>
-      <h1 class="page-title">Configuration Variables -mapper</h1>
-      <div class="right-controls">
-        <button id="resetBtn" class="ui-btn danger">Reset</button>
-      </div>
-    </header>
+  <rk-topbar title="Configuration Variables -mapper">
+    <button id="resetBtn" class="ui-btn danger">Reset</button>
+  </rk-topbar>
 
+  <main class="container">
     <section class="uploader">
       <div class="input-row">
         <label class="file-label">
@@ -85,7 +83,6 @@ const jsonInput = qs('#jsonInput');
 const processBtn = qs('#processBtn');
 const runBtn = qs('#runBtn');
 const resetBtn = qs('#resetBtn');
-const backBtn = qs('#backBtn');
 const status = qs('#status');
 const duplicatesSection = qs('#duplicatesSection');
 const dupSummary = qs('#dupSummary');
@@ -130,10 +127,6 @@ resetBtn.addEventListener('click', () => {
   varsList.innerHTML = '';
   dupGroups.innerHTML = '';
   varsCount.textContent = '0';
-});
-
-backBtn.addEventListener('click', () => {
-  history.back();
 });
 
 /* Process button: parse JSON */
@@ -323,5 +316,7 @@ jsonInput.addEventListener('input', ()=> {
   runBtn.disabled = !jsonInput.value.trim();
 });
 </script>
+
+<rk-footer></rk-footer>
 </body>
 </html>

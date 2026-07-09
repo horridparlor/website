@@ -6,12 +6,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Rakuel Is Back – Profile</title>
   <link rel="stylesheet" href="../../styles.css" />
+  <link rel="stylesheet" href="/components/topbar.css">
+  <script src="/components/topbar.js" defer></script>
+  <link rel="stylesheet" href="/components/footer.css">
+  <script src="/components/footer.js" defer></script>
   <style>
     body { background: #0d1117; color: #e6edf3; min-height: 100vh; display: flex; flex-direction: column; }
-    .topbar { background: #161b22; border-bottom: 1px solid #30363d; padding: 12px 20px; display: flex; align-items: center; gap: 10px; }
-    .topbar a, .topbar button { background: #21262d; color: #e6edf3; border: 1px solid #30363d; border-radius: 6px; padding: 6px 14px; text-decoration: none; font-size: 14px; cursor: pointer; }
-    .topbar a:hover, .topbar button:hover { background: #30363d; }
-    .topbar .title { flex: 1; font-size: 18px; color: #58a6ff; font-weight: 600; }
     .page { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; }
     .card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 32px 36px; width: 100%; max-width: 520px; }
     .card h2 { margin: 0 0 4px; font-size: 20px; color: #f0f6fc; }
@@ -50,13 +50,11 @@
   </style>
 </head>
 <body>
-<header class="topbar">
-  <a href="/">Home</a>
+<rk-topbar title="Rakuel Is Back">
   <a href="/is-back/deck-builder/">Deck Builder</a>
   <a href="/is-back/match-queue/">Play</a>
-  <div class="title">Rakuel Is Back</div>
   <button id="logout-btn" style="display:none;" onclick="logout()">Logout</button>
-</header>
+</rk-topbar>
 
 <div class="page" id="page-root"></div>
 
@@ -264,5 +262,7 @@
 
   if (token) renderProfile(); else renderLogin();
 </script>
+
+<rk-footer></rk-footer>
 </body>
 </html>

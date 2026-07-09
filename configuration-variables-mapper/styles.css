@@ -10,27 +10,6 @@
   box-shadow: 0 8px 40px rgba(0,0,0,0.6);
 }
 
-.page-header {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:1rem;
-  margin-bottom:1rem;
-  flex-wrap:wrap;
-}
-
-.left-controls, .right-controls { display:flex; gap:0.5rem; align-items:center; }
-
-.page-title {
-  font-family: 'Anton', sans-serif;
-  font-size: 2.4rem;
-  color: #00ffd1;
-  margin: 0 auto;
-  text-align:center;
-  letter-spacing: 0.5px;
-  text-shadow: 0 6px 30px rgba(0,255,209,0.06);
-}
-
 .ui-btn {
   padding: 0.6rem 1rem;
   border-radius: 10px;
@@ -46,7 +25,6 @@
 .ui-btn.primary { background: linear-gradient(90deg,#00ffcc,#00ccff); color:#001; }
 .ui-btn.success { background: linear-gradient(90deg,#7bff9e,#00ffd1); color:#001; }
 .ui-btn.danger { background: linear-gradient(90deg,#ff6b6b,#ff3b3b); color:#fff; }
-.ui-btn.ghost { background: transparent; border: 1px solid rgba(255,255,255,0.06); color: #bfeee8; }
 
 .uploader { margin-top:1rem; }
 .input-row { display:flex; gap:1rem; align-items:center; margin-bottom:0.8rem; }
@@ -124,6 +102,5 @@ textarea#jsonInput {
 
 /* Responsive tweaks */
 @media (max-width:720px){
-  .page-title { font-size:1.6rem; }
   .loader-wrap { width:92%; padding:1.2rem; }
 }

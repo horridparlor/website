@@ -1,0 +1,82 @@
+/* Shared top bar used across every page on the site, styled after
+   is-back/match-queue's nav bar. Paired with topbar.js, which upgrades
+   <rk-topbar> into this markup. */
+
+rk-topbar,
+.rk-topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 12px 20px;
+  margin-bottom: 1.75rem;
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.rk-topbar-home {
+  flex: 0 0 auto;
+  margin-right: 0.5rem;
+  background: #21262d;
+  color: #e6edf3;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 14px;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+.rk-topbar-home:hover {
+  background: #30363d;
+}
+
+.rk-topbar-title {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #58a6ff;
+}
+
+.rk-topbar-extra {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.rk-topbar-extra a,
+.rk-topbar-extra button {
+  background: #21262d;
+  color: #e6edf3;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 14px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.rk-topbar-extra a:hover,
+.rk-topbar-extra button:hover {
+  background: #30363d;
+}
+
+@media (max-width: 560px) {
+  rk-topbar,
+  .rk-topbar {
+    padding: 10px 14px;
+    gap: 8px;
+  }
+  .rk-topbar-title {
+    font-size: 16px;
+  }
+}

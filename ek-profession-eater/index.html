@@ -6,8 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>EK Profession -eater</title>
   <link rel="stylesheet" href="../styles.css" />
+  <link rel="stylesheet" href="/components/topbar.css">
+  <script src="/components/topbar.js" defer></script>
+  <link rel="stylesheet" href="/components/footer.css">
+  <script src="/components/footer.js" defer></script>
   <style>
     /* Page-specific tweaks that complement ../styles.css */
+    .subtitle{text-align:center}
     .container{max-width:1100px;margin:2rem auto;padding:0 1rem}
     .card{background:#1b1b1b;border:1px solid #333;border-radius:12px;padding:1rem 1.25rem;box-shadow:0 8px 24px rgba(0,0,0,.3);margin-bottom:1rem}
     .row{display:flex;gap:1rem;flex-wrap:wrap}
@@ -75,16 +80,10 @@
     <div class="loader-bar"></div>
   </div>
 
-  <header>
-    <div class="header-text">
-      <h1>EK Profession -eater</h1>
-      <div class="subtitle">Build profession codes, rules and export to CSV</div>
-    </div>
-    <nav class="actions">
-      <a class="button" href="../">⟵ Return Home</a>
-      <button id="resetBtn" class="button danger" title="Clear everything and start fresh">Reset</button>
-    </nav>
-  </header>
+  <rk-topbar title="EK Profession -eater">
+    <button id="resetBtn" class="button danger" title="Clear everything and start fresh">Reset</button>
+  </rk-topbar>
+  <p class="subtitle">Build profession codes, rules and export to CSV</p>
 
   <main class="container">
     <!-- Rules Builder -->
@@ -158,10 +157,9 @@
       </div>
     </section>
 
-    <footer>
-      <p class="muted">Data is saved to your browser's localStorage and restored on refresh or reopen.</p>
-    </footer>
   </main>
+
+  <rk-footer></rk-footer>
 
   <script>
   (function(){
