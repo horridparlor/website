@@ -7,6 +7,8 @@
   <title>Function Comparison</title>
   <!-- Use the site's global look & feel -->
   <link rel="stylesheet" href="../styles.css" />
+  <link rel="stylesheet" href="/components/topbar.css">
+  <script src="/components/topbar.js" defer></script>
   <style>
     /* Page-specific enhancements that complement ../styles.css */
     :root{
@@ -27,7 +29,6 @@
     }
 
     .titlebar{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
-    .titlebar h1{margin:0;font-size:2.25rem;color:var(--accent)}
     .subtitle{opacity:.9}
 
     .controls{display:flex;flex-wrap:wrap;gap:.75rem;align-items:center;margin:.75rem 0 1rem}
@@ -119,36 +120,17 @@
 /* fallback for undefined percent (e.g. F1 == 0) */
 .pct-unknown{ background:#444; color:#fff; opacity:.95 }
 
-.back-home {
-  position: absolute;
-  top: 1.2rem;
-  left: 1.2rem;
-  padding: 0.45rem 0.8rem;
-  background: #222;
-  border: 1px solid #333;
-  color: var(--accent);
-  border-radius: 8px;
-  text-decoration: none;
-  font-size: 0.95rem;
-  transition: all .2s;
-}
-.back-home:hover {
-  background: #333;
-  border-color: var(--accent);
-}
   </style>
 </head>
 <body>
-  <a href=".." class="back-home">⟵ Palaa Kotiin</a>
+  <rk-topbar title="Function Comparison"></rk-topbar>
   <div class="container">
     <div class="panel">
       <div class="titlebar">
         <div>
-          <h1>Function Comparison</h1>
           <div class="subtitle">Enter runtime measurements (seconds, four decimals). Only filled slots are counted.</div>
         </div>
         <div class="flex-gap">
-          <button class="button ghost" id="homeBtn">Return Home</button>
           <button class="button secondary" id="resetBtn" title="Clear inputs and saved data">Reset</button>
         </div>
       </div>
@@ -217,7 +199,6 @@
       rowCount: document.getElementById('rowCount'),
       calcBtn: document.getElementById('calcBtn'),
       resetBtn: document.getElementById('resetBtn'),
-      homeBtn: document.getElementById('homeBtn'),
       results: document.getElementById('results'),
       resultsBody: document.getElementById('resultsBody'),
       overlay: document.getElementById('overlay'),
@@ -498,10 +479,6 @@
       localStorage.removeItem(LS_KEY);
       setRowCount(20);
       el.results.style.display = 'none';
-    });
-    el.homeBtn.addEventListener('click', ()=>{ 
-      // Go back if there is history, otherwise try ../index.html
-      if(history.length>1) history.back(); else location.href = '../index.html';
     });
     el.copyF1.addEventListener('click', ()=> copyColumn(el.col1));
     el.copyF2.addEventListener('click', ()=> copyColumn(el.col2));

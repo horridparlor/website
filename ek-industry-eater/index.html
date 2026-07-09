@@ -7,6 +7,8 @@
   <title>EK Industry -eater</title>
   <!-- Base site styles from parent directory -->
   <link rel="stylesheet" href="../styles.css" />
+  <link rel="stylesheet" href="/components/topbar.css">
+  <script src="/components/topbar.js" defer></script>
   <!-- Minimal local styles for this tool UI -->
   <style>
     :root {
@@ -19,14 +21,6 @@
       --border: #2a2a2a;
     }
     .app-wrap { max-width: 1200px; margin: 1rem auto 3rem; padding: 0 1rem; }
-    header.toolhdr {
-      display:flex; align-items:center; justify-content:space-between;
-      gap:1rem; padding: 1.25rem 1rem; background: rgba(0,0,0,0.5);
-      border-bottom: 1px solid var(--border);
-      border-radius: 12px; backdrop-filter: blur(6px);
-    }
-    .toolhdr h1 { font-family:'Anton', sans-serif; color: var(--accent); font-size: 2rem; margin:0; }
-    .hdr-actions { display:flex; gap:.5rem; flex-wrap:wrap; }
     .btn { cursor:pointer; border:1px solid var(--border); background:#0d0d0d; color:#fff; padding:.6rem 1rem; border-radius:10px; font-weight:600; transition: transform .08s ease, background .2s ease, border-color .2s ease; }
     .btn:hover { background:#151515; transform: translateY(-1px); }
     .btn.primary { background: var(--accent); color:#000; border-color: transparent; }
@@ -85,15 +79,11 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs" type="module"></script>
 </head>
 <body>
-  <div class="app-wrap">
-    <header class="toolhdr">
-      <h1>EK Industry -eater</h1>
-      <div class="hdr-actions">
-        <button class="btn" id="returnHomeBtn" title="Return Home">Return Home</button>
-        <button class="btn danger" id="resetBtn" title="Clear everything">Reset</button>
-      </div>
-    </header>
+  <rk-topbar title="EK Industry -eater">
+    <button class="btn danger" id="resetBtn" title="Clear everything">Reset</button>
+  </rk-topbar>
 
+  <div class="app-wrap">
     <section class="tabs" role="tablist" aria-label="Import modes">
       <button class="tab active" data-tab="manual">Manual</button>
       <button class="tab" data-tab="pdf">Import PDF</button>
@@ -295,8 +285,6 @@
       if (!confirm('Clear dataset and local storage?')) return;
       state.rows = []; saveRows();
     });
-    $('#returnHomeBtn').addEventListener('click', () => { window.location.href = '/'; });
-
     /*** Manual insert ***/
     $('#manual-add').addEventListener('click', () => {
       const id = Number($('#manual-id').value) || nextId();

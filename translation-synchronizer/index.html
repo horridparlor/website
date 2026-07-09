@@ -6,10 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Translation Synchronizer</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/components/topbar.css">
+    <script src="/components/topbar.js" defer></script>
     <style>
         /* === Shared look & feel (copied from your JSON Formatter) === */
         :root{
-            --bg:#0f0f0f;--ink:#fff;--accent:#00ffcc;--accent2:#00ccff;--danger:#ff0033;--warm1:#ff0066;--warm2:#ff6600;
+            --bg:#0f0f0f;--ink:#fff;--accent:#00ffcc;--accent2:#00ccff;--danger:#ff0033;
         }
         *{box-sizing:border-box}
         body {
@@ -20,12 +22,6 @@
             padding: 2rem;
             background-image: radial-gradient(#333 1px, transparent 1px);
             background-size: 20px 20px;
-        }
-        h2 {
-            text-align: center;
-            font-size: 2rem;
-            color: var(--accent);
-            margin-bottom: 1rem;
         }
         .subtle {opacity:.8; text-align:center; margin:0 0 2rem;}
 
@@ -41,15 +37,13 @@
         input[type="file"]{background:#121212;border:1px dashed var(--accent);padding:10px;border-radius:8px;color:var(--ink)}
 
         .buttons{display:flex;gap:15px;justify-content:center;margin-top:1rem;flex-wrap:wrap}
-        button, .home-btn{
-            padding: 12px 24px; font-size: 16px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; text-decoration: none; text-align: center; display: inline-block; transition: transform .2s, box-shadow .2s
+        button{
+            padding: 12px 24px; font-size: 16px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; text-decoration: none; text-align: center; display: inline-block; transition: transform .2s, box-shadow .2s;
+            background:linear-gradient(90deg,var(--accent),var(--accent2));color:#000;box-shadow:0 0 10px var(--accent)
         }
-        button{background:linear-gradient(90deg,var(--accent),var(--accent2));color:#000;box-shadow:0 0 10px var(--accent)}
         button:hover{transform:scale(1.05); box-shadow:0 0 20px var(--accent)}
         .secondary{background:#252525;color:#ddd;border:1px solid #333}
         .danger{background:linear-gradient(90deg,#ff4d4d,#ff1a75);color:#fff;box-shadow:0 0 10px #ff3366}
-        .home-btn{background:linear-gradient(90deg,var(--warm1),var(--warm2)); color:#fff; box-shadow:0 0 10px var(--warm1)}
-        .home-btn:hover{transform:scale(1.05); box-shadow:0 0 20px var(--warm1)}
 
         .json-output { width: 100%; min-height: 280px; background:#1e1e1e; border:2px solid var(--accent); border-radius:8px; padding:12px 14px; overflow:auto; font-size:14px; line-height:1.4; opacity:0; transform:translateY(10px); transition:all 1s ease }
         .json-output.visible{opacity:1; transform:translateY(0)}
@@ -93,13 +87,12 @@
     </style>
 </head>
 <body>
-<h2>Translation Synchronizer</h2>
+<rk-topbar title="Translation Synchronizer"></rk-topbar>
 <p class="subtle">Valitse <strong>Parent</strong> ja <strong>Child</strong> .json käännöstiedostot, täydennä puuttuvat kentät ohjatusti ja synkronoi avainten järjestys.</p>
 
 <div class="buttons">
     <button id="syncBtn">Synchronize</button>
     <button id="resetBtn" class="secondary">Reset</button>
-    <a href="/" class="home-btn">← Takaisin kotiin</a>
 </div>
 
 <div id="wizard" class="card" style="margin-top:18px; display:none">

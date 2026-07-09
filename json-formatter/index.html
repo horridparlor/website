@@ -6,6 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>JSON Formatter</title>
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/components/topbar.css">
+  <script src="/components/topbar.js" defer></script>
   <style>
     body {
       margin: 0;
@@ -15,12 +17,6 @@
       padding: 2rem;
       background-image: radial-gradient(#333 1px, transparent 1px);
       background-size: 20px 20px;
-    }
-    h2 {
-      text-align: center;
-      font-size: 2rem;
-      color: #00ffcc;
-      margin-bottom: 2rem;
     }
     .container {
       display: flex;
@@ -99,14 +95,7 @@
     /* Rivit */
     .line { white-space: pre-wrap; margin: 2px 0; }
     .sep { color:#888; } /* : ja , */
-    .buttons {
-      display: flex;
-      gap: 15px;
-      justify-content: center;
-      margin-top: 1rem;
-      flex-wrap: wrap;
-    }
-    button, .home-btn {
+    #convertBtn {
       padding: 12px 24px;
       font-size: 16px;
       border: none;
@@ -117,19 +106,10 @@
       text-align: center;
       display: inline-block;
       transition: transform 0.2s, box-shadow 0.2s;
-    }
-    button {
       background: linear-gradient(90deg, #00ffcc, #00ccff);
       color: #000;
-      box-shadow: 0 0 10px #00ffcc;
     }
-    button:hover { transform: scale(1.05); box-shadow: 0 0 20px #00ffcc; }
-    .home-btn {
-      background: linear-gradient(90deg, #ff0066, #ff6600);
-      color: #fff;
-      box-shadow: 0 0 10px #ff0066;
-    }
-    .home-btn:hover { transform: scale(1.05); box-shadow: 0 0 20px #ff0066; }
+    #convertBtn:hover { transform: scale(1.05); box-shadow: 0 0 14px #00ffcc; }
     .toast {
       position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
       background-color: #00cc88; color: white; padding: 12px 20px; border-radius: 8px;
@@ -196,20 +176,14 @@
 </head>
 <body>
 
-<header style="padding:0.6rem 1rem; display:flex; align-items:center; gap:1.5rem; margin-bottom:1rem;">
-  <a href="/" class="home-btn">Home</a>
-  <h2 style="margin:0;">JSON Formatter</h2>
-</header>
+<rk-topbar title="JSON Formatter">
+  <button id="convertBtn">Prettify JSON</button>
+</rk-topbar>
 
 <div class="container">
   <textarea id="input" placeholder="Liitä URL-koodattu JSON tähän..."></textarea>
   <!-- MUUTOS: textarea -> div katselimeksi -->
   <div id="output" class="json-output" aria-live="polite" role="region"></div>
-</div>
-
-<div class="buttons">
-  <button id="convertBtn">Prettify JSON</button>
-  <a href="/" class="home-btn">← Takaisin kotiin</a>
 </div>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>

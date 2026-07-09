@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Code Reviews</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/components/topbar.css">
+  <script src="/components/topbar.js" defer></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<rk-topbar title="Code Reviews">
+  <button id="backToListBtn" class="btn btn-ghost btn-sm hidden">&larr; Back to list</button>
+  <button id="logoutBtn" class="btn btn-ghost btn-sm hidden">Sign out</button>
+</rk-topbar>
+
+<!-- ===== Auth gate ===== -->
+<div id="authWrap" class="auth-wrap hidden">
+  <div class="auth-card">
+    <h2>Sign in</h2>
+    <p class="muted" style="color:var(--muted);font-size:.85rem;">Sign in to view and manage your code reviews.</p>
+    <form id="loginForm">
+      <label class="field">
+        <span>Username</span>
+        <input type="text" id="loginUsername" autocomplete="username" required />
+      </label>
+      <label class="field">
+        <span>Password</span>
+        <input type="password" id="loginPassword" autocomplete="current-password" required />
+      </label>
+      <button type="submit" class="btn btn-primary">Sign in</button>
+      <div class="auth-error" id="loginError"></div>
+    </form>
+  </div>
+</div>
+
+<!-- ===== App ===== -->
+<main id="appRoot" class="hidden">
+
+  <!-- List view -->
+  <section id="listView">
+    <div class="view-title">
+      <h2>Your reviews</h2>
+      <button type="button" class="btn btn-primary" id="newReviewBtn">+ Add new review</button>
+    </div>
+    <div class="toolbar">
+      <input type="text" id="searchInput" placeholder="Search by identifier or title…" />
+      <select id="statusFilter">
+        <option value="">All statuses</option>
+        <option value="open">Open</option>
+        <option value="closed">Closed</option>
+      </select>
+    </div>
+    <div id="reviewListContainer" class="review-list"></div>
+  </section>
+
+  <!-- Add review view -->
+  <section id="addView" class="hidden">
+    <div class="view-title">
+      <h2>Add new review</h2>
+    </div>
+    <div class="meta-fields">
+      <label class="field">
+        <span>Identifier</span>
+        <input type="text" id="identifierInput" placeholder="e.g. DEV-5276" />
+      </label>
+      <label class="field">
+        <span>Title</span>
+        <input type="text" id="titleInput" placeholder="Review title" />
+      </label>
+    </div>
+    <div class="add-grid">
+      <div class="add-col">
+        <h3>Paste markdown</h3>
+        <textarea id="pasteArea" placeholder="Paste a Claude code-review markdown file here…"></textarea>
+        <div class="file-drop">
+          <span>or</span>
+          <input type="file" id="fileInput" accept=".md,.markdown,.txt" />
+        </div>
+      </div>
+      <div class="add-col">
+        <h3>Preview</h3>
+        <div id="previewPanel" class="preview-panel">
+          <div class="preview-empty">Paste or upload a review to see a preview.</div>
+        </div>
+      </div>
+    </div>
+    <div class="add-actions">
+      <button type="button" class="btn btn-ghost" id="cancelAddBtn">Cancel</button>
+      <button type="button" class="btn btn-primary" id="saveReviewBtn">Save review</button>
+    </div>
+  </section>
+
+  <!-- Detail view -->
+  <section id="detailView" class="hidden"></section>
+
+</main>
+
+<div id="loadingOverlay" class="loading-overlay hidden">
+  <div class="spinner"></div>
+</div>
+
+<div id="toastStack" class="toast-stack" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  const API_BASE = '../api/code-review';
+  const USER_AUTH_URL = '../api/user/authenticate';
+  const TOKEN_KEY = 'crAuthToken';
+  const LAST_OPEN_KEY = 'codeReviews.lastOpenId';
+
+  const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low', 'info'];
+
+  let authToken = localStorage.getItem(TOKEN_KEY);
+  let currentReview = null;
+  let parsedDraft = null;
+  const expandedOverrides = new Set();
+
+  const $ = (sel, root) => (root || document).querySelector(sel);
+  const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+
+  // ---------- helpers ----------
+  function escapeHtml(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function debounce(fn, wait) {
+    let t;
+    return function (...args) {
+      clearTimeout(t);
+      t = setTimeout(() => fn.apply(null, args), wait || 250);
+    };
+  }
+
+  function formatDate(str) {
+    if (!str) return '';
+    const d = new Date(String(str).replace(' ', 'T'));
+    if (isNaN(d.getTime())) return str;
+    return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  }
+
+  function isToday(str) {
+    if (!str) return false;
+    const d = new Date(String(str).replace(' ', 'T'));
+    if (isNaN(d.getTime())) return false;
+    const now = new Date();
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  }
+
+  function severityKey(sev) {
+    const s = (sev || '').toLowerCase();
+    for (const key of SEVERITY_ORDER) {
+      if (s.indexOf(key) !== -1) return key;
+    }
+    return 'info';
+  }
+
+  function showToast(message, isError) {
+    const stack = $('#toastStack');
+    const el = document.createElement('div');
+    el.className = 'toast' + (isError ? ' error' : '');
+    el.textContent = message;
+    stack.appendChild(el);
+    setTimeout(() => el.remove(), 3200);
+  }
+
+  function setLoading(on) {
+    $('#loadingOverlay').classList.toggle('hidden', !on);
+  }
+
+  async function copyToClipboard(text) {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ---------- mini markdown renderer ----------
+  function extractCodeBlocks(text) {
+    const blocks = [];
+    const replaced = text.replace(/```([a-zA-Z0-9_+-]*)\n([\s\S]*?)```/g, function (m, lang, code) {
+      const idx = blocks.length;
+      blocks.push({ lang: lang || '', code: code.replace(/\n$/, '') });
+      return 'CODEBLOCK' + idx + '';
+    });
+    return { replaced, blocks };
+  }
+
+  function inlineFormat(raw) {
+    let s = escapeHtml(raw);
+    s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/`([^`]+?)`/g, '<code class="inline-code">$1</code>');
+    s = s.replace(/\[([^\]]+)]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    return s;
+  }
+
+  // ---------- syntax highlighting ----------
+  const LANG_ALIASES = {
+    js: 'javascript', jsx: 'javascript', ts: 'javascript', tsx: 'javascript', mjs: 'javascript',
+    htm: 'html', xml: 'html',
+  };
+
+  function normalizeLang(lang) {
+    const l = (lang || '').toLowerCase().trim();
+    return LANG_ALIASES[l] || l;
+  }
+
+  const DEFAULT_STRING_SRC = '"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\'';
+
+  const SQL_KEYWORDS = ['SELECT','FROM','WHERE','INSERT','INTO','VALUES','UPDATE','SET','DELETE','JOIN','LEFT','RIGHT','INNER','OUTER','FULL','CROSS','ON','AS','AND','OR','NOT','NULL','IS','IN','LIKE','GROUP','BY','ORDER','HAVING','LIMIT','OFFSET','CREATE','TABLE','ALTER','DROP','RENAME','INDEX','PRIMARY','KEY','FOREIGN','REFERENCES','DEFAULT','UNIQUE','DISTINCT','UNION','ALL','CASE','WHEN','THEN','ELSE','END','EXISTS','BETWEEN','CAST','IF','BEGIN','COMMIT','ROLLBACK','TRANSACTION','START','SAVEPOINT','GRANT','REVOKE','USE','DATABASE','SCHEMA','VIEW','TRIGGER','PROCEDURE','FUNCTION','RETURNS','DECLARE','CURSOR','LOOP','WHILE','REPEAT','ENGINE','CHARSET','COLLATE','AUTO_INCREMENT','CONSTRAINT','CHECK','CASCADE','RESTRICT','WITH','ASC','DESC','TRUE','FALSE','VARCHAR','CHAR','TEXT','INT','INTEGER','BIGINT','SMALLINT','TINYINT','DECIMAL','NUMERIC','FLOAT','DOUBLE','DATE','DATETIME','TIMESTAMP','TIME','YEAR','BOOLEAN','BOOL','BLOB','JSON','ENUM'];
+  const PHP_KEYWORDS = ['abstract','and','array','as','break','callable','case','catch','class','clone','const','continue','declare','default','do','echo','else','elseif','empty','enddeclare','endfor','endforeach','endif','endswitch','endwhile','extends','final','finally','fn','for','foreach','function','global','goto','if','implements','include','include_once','instanceof','insteadof','interface','isset','list','match','namespace','new','or','print','private','protected','public','require','require_once','return','static','switch','throw','trait','try','unset','use','var','while','xor','yield','void','int','float','string','bool','object','self','parent','true','false','null'];
+  const JS_KEYWORDS = ['break','case','catch','class','const','continue','debugger','default','delete','do','else','export','extends','finally','for','function','if','import','in','instanceof','let','new','return','static','super','switch','this','throw','try','typeof','var','void','while','with','yield','async','await','of','get','set','true','false','null','undefined'];
+
+  const LANG_CONFIGS = {
+    sql: {
+      commentSrc: '--[^\\n]*|/\\*[\\s\\S]*?\\*/',
+      keywordSrc: '\\b(?:' + SQL_KEYWORDS.join('|') + ')\\b',
+      caseInsensitive: true,
+    },
+    php: {
+      commentSrc: '//[^\\n]*|#[^\\n]*|/\\*[\\s\\S]*?\\*/',
+      keywordSrc: '\\b(?:' + PHP_KEYWORDS.join('|') + ')\\b',
+      variableSrc: '\\$[A-Za-z_][A-Za-z0-9_]*',
+    },
+    javascript: {
+      commentSrc: '//[^\\n]*|/\\*[\\s\\S]*?\\*/',
+      keywordSrc: '\\b(?:' + JS_KEYWORDS.join('|') + ')\\b',
+      stringSrc: DEFAULT_STRING_SRC + '|`(?:\\\\.|[^`\\\\])*`',
+    },
+  };
+
+  function buildLangRegex(cfg) {
+    const parts = [];
+    if (cfg.commentSrc) parts.push('(?<comment>' + cfg.commentSrc + ')');
+    parts.push('(?<string>' + (cfg.stringSrc || DEFAULT_STRING_SRC) + ')');
+    if (cfg.variableSrc) parts.push('(?<variable>' + cfg.variableSrc + ')');
+    parts.push('(?<number>\\b\\d+(?:\\.\\d+)?\\b)');
+    if (cfg.keywordSrc) parts.push('(?<keyword>' + cfg.keywordSrc + ')');
+    parts.push('(?<func>\\b[A-Za-z_][A-Za-z0-9_]*\\b(?=\\s*\\())');
+    return new RegExp(parts.join('|'), 'g' + (cfg.caseInsensitive ? 'i' : ''));
+  }
+
+  const HTML_REGEX = /(?<comment><!--[\s\S]*?-->)|(?<doctype><!DOCTYPE[^>]*>)|(?<tagopen><\/?[A-Za-z][A-Za-z0-9:-]*)|(?<tagclose>\/?>)|(?<attrname>[A-Za-z_:][-A-Za-z0-9_:.]*(?=\s*=))|(?<string>"[^"]*"|'[^']*')|(?<entity>&[A-Za-z#0-9]+;)/g;
+
+  function tokenizeWithRegex(code, re) {
+    let out = '';
+    let lastIndex = 0;
+    let m;
+    re.lastIndex = 0;
+    while ((m = re.exec(code))) {
+      if (m.index > lastIndex) out += escapeHtml(code.slice(lastIndex, m.index));
+      const groups = m.groups || {};
+      const key = Object.keys(groups).find(function (k) { return groups[k] !== undefined; });
+      out += '<span class="tok-' + (key || 'plain') + '">' + escapeHtml(m[0]) + '</span>';
+      lastIndex = m.index + m[0].length;
+      if (m[0].length === 0) re.lastIndex++;
+    }
+    out += escapeHtml(code.slice(lastIndex));
+    return out;
+  }
+
+  function highlightCode(code, lang) {
+    const norm = normalizeLang(lang);
+    if (norm === 'html') return tokenizeWithRegex(code, HTML_REGEX);
+    const cfg = LANG_CONFIGS[norm];
+    if (!cfg) return escapeHtml(code);
+    if (!cfg._regex) cfg._regex = buildLangRegex(cfg);
+    return tokenizeWithRegex(code, cfg._regex);
+  }
+
+  function renderCodeBlock(block) {
+    const lang = block.lang || 'text';
+    const normLang = normalizeLang(lang);
+    const diffMode = normLang === 'diff';
+    const rawCode = block.code;
+    const lines = rawCode.split('\n').map(function (line) {
+      let cls = 'code-line';
+      let content;
+      if (diffMode) {
+        if (/^\+\+\+/.test(line) || /^---/.test(line)) { /* file header, no color */ }
+        else if (/^\+/.test(line)) cls += ' diff-add';
+        else if (/^-/.test(line)) cls += ' diff-del';
+        content = escapeHtml(line);
+      } else {
+        content = highlightCode(line, lang);
+      }
+      return '<span class="' + cls + '">' + (content || ' ') + '</span>';
+    }).join('\n');
+
+    return '<div class="code-panel" data-lang="' + escapeHtml(normLang) + '">' +
+      '<div class="code-panel-head"><span class="lang-label"><span class="lang-dot"></span>' + escapeHtml(lang) + '</span>' +
+      '<button type="button" class="copy-btn-sm" data-code="' + escapeHtml(rawCode) + '">Copy</button></div>' +
+      '<pre><code>' + lines + '</code></pre></div>';
+  }
+
+  function parseTableRow(line) {
+    let t = line.trim();
+    if (t.startsWith('|')) t = t.slice(1);
+    if (t.endsWith('|')) t = t.slice(0, -1);
+    return t.split('|').map(function (c) { return c.trim(); });
+  }
+
+  function renderTable(tableLines) {
+    const header = parseTableRow(tableLines[0]);
+    const bodyRows = tableLines.slice(2).map(parseTableRow);
+    let html = '<table><thead><tr>' + header.map(function (c) { return '<th>' + inlineFormat(c) + '</th>'; }).join('') + '</tr></thead><tbody>';
+    bodyRows.forEach(function (row) {
+      html += '<tr>' + row.map(function (c) { return '<td>' + inlineFormat(c) + '</td>'; }).join('') + '</tr>';
+    });
+    html += '</tbody></table>';
+    return html;
+  }
+
+  function renderMarkdown(raw) {
+    if (!raw) return '';
+    const stripped = String(raw).replace(/\r\n/g, '\n').replace(/^[ \t]*-{3,}[ \t]*$/gm, '');
+    const { replaced, blocks } = extractCodeBlocks(stripped);
+    const lines = replaced.split('\n');
+    const output = [];
+    let paragraphBuf = [];
+
+    function flushParagraph() {
+      if (paragraphBuf.length) {
+        const joined = paragraphBuf.join(' ').trim();
+        if (joined) output.push('<p>' + inlineFormat(joined) + '</p>');
+        paragraphBuf = [];
+      }
+    }
+
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      const trimmed = line.trim();
+
+      if (trimmed === '') { flushParagraph(); i++; continue; }
+
+      const codeMatch = /^CODEBLOCK(\d+)$/.exec(trimmed);
+      if (codeMatch) {
+        flushParagraph();
+        output.push(renderCodeBlock(blocks[Number(codeMatch[1])]));
+        i++; continue;
+      }
+
+      if (/^\|.*\|$/.test(trimmed) && lines[i + 1] && /^\|?[\s:-]+\|[\s:|-]*$/.test(lines[i + 1].trim())) {
+        flushParagraph();
+        const tableLines = [lines[i], lines[i + 1]];
+        i += 2;
+        while (i < lines.length && /^\|.*\|$/.test(lines[i].trim())) { tableLines.push(lines[i]); i++; }
+        output.push(renderTable(tableLines));
+        continue;
+      }
+
+      if (/^[-*]\s+/.test(trimmed)) {
+        flushParagraph();
+        const items = [];
+        while (i < lines.length && /^[-*]\s+/.test(lines[i].trim())) {
+          items.push(lines[i].trim().replace(/^[-*]\s+/, ''));
+          i++;
+        }
+        output.push('<ul>' + items.map(function (it) { return '<li>' + inlineFormat(it) + '</li>'; }).join('') + '</ul>');
+        continue;
+      }
+
+      if (/^\d+\.\s+/.test(trimmed)) {
+        flushParagraph();
+        const items = [];
+        while (i < lines.length && /^\d+\.\s+/.test(lines[i].trim())) {
+          items.push(lines[i].trim().replace(/^\d+\.\s+/, ''));
+          i++;
+        }
+        output.push('<ol>' + items.map(function (it) { return '<li>' + inlineFormat(it) + '</li>'; }).join('') + '</ol>');
+        continue;
+      }
+
+      paragraphBuf.push(trimmed);
+      i++;
+    }
+    flushParagraph();
+    return output.join('\n');
+  }
+
+  // ---------- markdown -> structured review parser ----------
+  function detectSeverityKeyword(str) {
+    if (!str) return '';
+    const m = /critical|high|medium|low/i.exec(str);
+    if (!m) return '';
+    const w = m[0].toLowerCase();
+    return w.charAt(0).toUpperCase() + w.slice(1);
+  }
+
+  function extractFindingFields(f, fallbackSeverity) {
+    let filePath = '';
+    let severity = '';
+    const outLines = [];
+    const bodyLines = f.bodyLines.join('\n').split('\n');
+
+    for (const line of bodyLines) {
+      const t = line.trim();
+      const fileMatch = /^\*\*File:\*\*\s*(.+)$/i.exec(t);
+      if (fileMatch && !filePath) {
+        filePath = fileMatch[1].replace(/`/g, '').trim();
+        continue;
+      }
+      const sevMatch = /^\*\*Severity:\*\*\s*(.+)$/i.exec(t);
+      if (sevMatch && !severity) {
+        const word = /^[A-Za-z]+/.exec(sevMatch[1].trim());
+        severity = word ? word[0] : sevMatch[1].trim();
+        continue;
+      }
+      if (/^-{3,}$/.test(t)) continue;
+      outLines.push(line);
+    }
+
+    const body = outLines.join('\n').trim();
+    return {
+      number: f.number || '',
+      severity: severity || fallbackSeverity || 'Info',
+      title: f.title || 'Untitled finding',
+      filePath: filePath,
+      bodyMarkdown: body,
+    };
+  }
+
+  function parseReviewMarkdown(raw) {
+    const text = String(raw || '').replace(/\r\n/g, '\n');
+    const lines = text.split('\n');
+
+    let title = '';
+    let sawH2 = false;
+    const introLines = [];
+    const rawSections = [];
+    let curSection = null;
+    let curFinding = null;
+
+    function closeFinding() {
+      if (curFinding && curSection) curSection.findings.push(curFinding);
+      curFinding = null;
+    }
+    function closeSection() {
+      closeFinding();
+      if (curSection) rawSections.push(curSection);
+      curSection = null;
+    }
+
+    for (const line of lines) {
+      const h1 = /^#\s+(.*)$/.exec(line);
+      const h2 = !h1 && /^##\s+(.*)$/.exec(line);
+      const h3 = !h1 && !h2 && /^###\s+(.*)$/.exec(line);
+
+      if (h1 && !title) {
+        title = h1[1].replace(/`/g, '').trim();
+        continue;
+      }
+      if (h2) {
+        closeSection();
+        sawH2 = true;
+        curSection = { sectionTitle: h2[1].trim(), findings: [], bodyLines: [] };
+        continue;
+      }
+      if (h3) {
+        if (!curSection) curSection = { sectionTitle: '', findings: [], bodyLines: [] };
+        closeFinding();
+        const m = /^(\d+)\.\s*(.*)$/.exec(h3[1].trim());
+        curFinding = { number: m ? m[1] : '', title: (m ? m[2] : h3[1]).trim(), bodyLines: [] };
+        continue;
+      }
+
+      if (curFinding) curFinding.bodyLines.push(line);
+      else if (curSection) curSection.bodyLines.push(line);
+      else if (!sawH2) introLines.push(line);
+    }
+    closeSection();
+
+    const searchSpace = title + '\n' + text.slice(0, 800);
+    const idMatch = /\b[A-Z]{2,}-\d+\b/.exec(searchSpace);
+    const identifier = idMatch ? idMatch[0] : '';
+
+    const finalSections = [];
+    const introText = introLines.join('\n').trim();
+    if (introText) {
+      finalSections.push({
+        sectionTitle: null,
+        isCheckable: false,
+        findings: [{ number: '', severity: '', title: 'Overview', filePath: '', bodyMarkdown: introText }],
+      });
+    }
+
+    rawSections.forEach(function (sec) {
+      const sectionSeverity = detectSeverityKeyword(sec.sectionTitle);
+      if (!sec.findings.length) {
+        const body = sec.bodyLines.join('\n').trim();
+        if (!body) return;
+        finalSections.push({
+          sectionTitle: sec.sectionTitle || null,
+          isCheckable: false,
+          findings: [{ number: '', severity: '', title: sec.sectionTitle || 'Notes', filePath: '', bodyMarkdown: body }],
+        });
+        return;
+      }
+      finalSections.push({
+        sectionTitle: sec.sectionTitle || null,
+        isCheckable: true,
+        findings: sec.findings.map(function (f) { return extractFindingFields(f, sectionSeverity); }),
+      });
+    });
+
+    return { title: title || 'Untitled review', identifier: identifier, sections: finalSections };
+  }
+
+  // ---------- API ----------
+  async function api(path, opts) {
+    opts = opts || {};
+    const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+    if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
+    const res = await fetch(API_BASE + '/' + path, Object.assign({}, opts, { headers: headers }));
+    if (res.status === 401) {
+      logout();
+      throw new Error('Session expired. Please sign in again.');
+    }
+    return res;
+  }
+
+  async function apiJson(path, opts) {
+    const res = await api(path, opts);
+    let data = {};
+    try { data = await res.json(); } catch (e) {}
+    if (!res.ok) throw new Error(data.error || 'Request failed');
+    return data;
+  }
+
+  // ---------- auth ----------
+  function showAuthGate() {
+    $('#authWrap').classList.remove('hidden');
+    $('#appRoot').classList.add('hidden');
+    $('#logoutBtn').classList.add('hidden');
+  }
+
+  function hideAuthGate() {
+    $('#authWrap').classList.add('hidden');
+    $('#appRoot').classList.remove('hidden');
+    $('#logoutBtn').classList.remove('hidden');
+  }
+
+  function logout() {
+    authToken = null;
+    currentReview = null;
+    localStorage.removeItem(TOKEN_KEY);
+    showAuthGate();
+  }
+
+  $('#loginForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const username = $('#loginUsername').value.trim();
+    const password = $('#loginPassword').value;
+    const errorEl = $('#loginError');
+    errorEl.textContent = '';
+    setLoading(true);
+    try {
+      const res = await fetch(USER_AUTH_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username, password: password }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.authToken) throw new Error(data.error || 'Login failed');
+      authToken = data.authToken;
+      localStorage.setItem(TOKEN_KEY, authToken);
+      hideAuthGate();
+      await bootAfterAuth();
+    } catch (err) {
+      errorEl.textContent = err.message || 'Login failed';
+    } finally {
+      setLoading(false);
+    }
+  });
+
+  $('#logoutBtn').addEventListener('click', logout);
+  $('#backToListBtn').addEventListener('click', goBackToList);
+
+  // ---------- views ----------
+  function showView(name) {
+    ['listView', 'addView', 'detailView'].forEach(function (id) {
+      $('#' + id).classList.toggle('hidden', id !== name);
+    });
+    $('#backToListBtn').classList.toggle('hidden', name !== 'detailView');
+  }
+
+  function goBackToList() {
+    showView('listView');
+    loadReviewsList();
+  }
+
+  // ---------- list view ----------
+  function renderListSkeleton() {
+    $('#reviewListContainer').innerHTML =
+      '<div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div>';
+  }
+
+  function reviewCardHtml(r, idx) {
+    const total = r.totalCount || 0;
+    const checked = r.checkedCount || 0;
+    const pct = total ? Math.round((checked / total) * 100) : 0;
+    const cardAccent = r.status === 'closed' ? 'var(--accent)' : 'var(--accent-3)';
+    return '<div class="review-card' + (r.status === 'closed' ? ' is-closed' : '') + '" data-review-id="' + r.id + '" style="animation-delay:' + (idx * 35) + 'ms;--card-accent:' + cardAccent + '">' +
+      '<div class="rc-main">' +
+      (r.identifier ? '<div class="rc-id">' + escapeHtml(r.identifier) + '</div>' : '') +
+      '<div class="rc-title">' + escapeHtml(r.title) + '</div>' +
+      '<div class="rc-meta">Updated ' + formatDate(r.updatedAt) + ' &middot; Created ' + formatDate(r.createdAt) + '</div>' +
+      '</div>' +
+      '<div class="rc-progress-wrap">' +
+      '<div class="rc-progress-bar"><div class="rc-progress-fill" style="width:' + pct + '%"></div></div>' +
+      '<div class="rc-progress-label">' + checked + '/' + total + ' resolved</div>' +
+      '</div>' +
+      '<span class="status-badge status-' + r.status + '">' + r.status + '</span>' +
+      '<button type="button" class="icon-btn" data-action="delete-review" title="Delete review">&#128465;</button>' +
+      '</div>';
+  }
+
+  function renderReviewList(reviews) {
+    const container = $('#reviewListContainer');
+    if (!reviews.length) {
+      container.innerHTML = '<div class="empty-state">No code reviews yet. Click “Add new review” to paste your first one.</div>';
+      return;
+    }
+    container.innerHTML = reviews.map(reviewCardHtml).join('');
+  }
+
+  async function loadReviewsList() {
+    renderListSkeleton();
+    const q = $('#searchInput').value.trim();
+    const status = $('#statusFilter').value;
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (status) params.set('status', status);
+    try {
+      const data = await apiJson('reviews.php' + (params.toString() ? '?' + params.toString() : ''), { method: 'GET' });
+      let reviews = data.reviews || [];
+      if (!status) {
+        reviews = reviews.filter(function (r) { return r.status !== 'closed' || isToday(r.updatedAt); });
+      }
+      renderReviewList(reviews);
+    } catch (e) {
+      showToast(e.message, true);
+      renderReviewList([]);
+    }
+  }
+
+  $('#reviewListContainer').addEventListener('click', async function (e) {
+    const delBtn = e.target.closest('[data-action="delete-review"]');
+    const card = e.target.closest('.review-card');
+    if (!card) return;
+    const id = Number(card.dataset.reviewId);
+    if (delBtn) {
+      e.stopPropagation();
+      await deleteReview(id);
+      return;
+    }
+    openReviewById(id);
+  });
+
+  $('#searchInput').addEventListener('input', debounce(loadReviewsList, 300));
+  $('#statusFilter').addEventListener('change', loadReviewsList);
+
+  async function deleteReview(id) {
+    if (!confirm('Delete this review?')) return;
+    setLoading(true);
+    try {
+      const data = await apiJson('review.php', { method: 'DELETE', body: JSON.stringify({ id: id }) });
+      showToast(data.mode === 'soft' ? 'Review archived (older than a day, soft-deleted).' : 'Review deleted.');
+      if (String(id) === localStorage.getItem(LAST_OPEN_KEY)) localStorage.removeItem(LAST_OPEN_KEY);
+      if (currentReview && currentReview.id === id) { currentReview = null; showView('listView'); }
+      loadReviewsList();
+    } catch (e) {
+      showToast(e.message, true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ---------- add review view ----------
+  const identifierInput = $('#identifierInput');
+  const titleInput = $('#titleInput');
+  const pasteArea = $('#pasteArea');
+  let identifierTouched = false;
+  let titleTouched = false;
+
+  identifierInput.addEventListener('input', function () { identifierTouched = true; });
+  titleInput.addEventListener('input', function () { titleTouched = true; });
+
+  function resetAddForm() {
+    pasteArea.value = '';
+    identifierInput.value = '';
+    titleInput.value = '';
+    identifierTouched = false;
+    titleTouched = false;
+    parsedDraft = null;
+    $('#previewPanel').innerHTML = '<div class="preview-empty">Paste or upload a review to see a preview.</div>';
+  }
+
+  function renderPreviewPanel(parsed) {
+    const panel = $('#previewPanel');
+    if (!parsed || !parsed.sections.length) {
+      panel.innerHTML = '<div class="preview-empty">Paste or upload a review to see a preview.</div>';
+      return;
+    }
+    let html = '';
+    parsed.sections.forEach(function (section) {
+      if (!section.isCheckable) {
+        section.findings.forEach(function (f) { html += renderInfoCardHtml(f); });
+        return;
+      }
+      html += '<div class="section-block"><div class="section-heading">' + escapeHtml(section.sectionTitle || 'Findings') + '</div>' +
+        section.findings.map(function (f) { return renderFindingCardHtml(f, { readOnly: true }); }).join('') +
+        '</div>';
+    });
+    panel.innerHTML = html;
+  }
+
+  function runPreview() {
+    const raw = pasteArea.value;
+    if (!raw.trim()) {
+      parsedDraft = null;
+      $('#previewPanel').innerHTML = '<div class="preview-empty">Paste or upload a review to see a preview.</div>';
+      return;
+    }
+    parsedDraft = parseReviewMarkdown(raw);
+    if (!identifierTouched) identifierInput.value = parsedDraft.identifier;
+    if (!titleTouched) titleInput.value = parsedDraft.title;
+    renderPreviewPanel(parsedDraft);
+  }
+
+  pasteArea.addEventListener('input', debounce(runPreview, 300));
+
+  $('#fileInput').addEventListener('change', function (e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+      pasteArea.value = String(reader.result || '');
+      runPreview();
+    };
+    reader.readAsText(file);
+  });
+
+  $('#newReviewBtn').addEventListener('click', function () {
+    resetAddForm();
+    showView('addView');
+  });
+
+  $('#cancelAddBtn').addEventListener('click', function () {
+    resetAddForm();
+    showView('listView');
+  });
+
+  $('#saveReviewBtn').addEventListener('click', async function () {
+    if (!parsedDraft) { showToast('Paste or upload a review first.', true); return; }
+    const title = titleInput.value.trim();
+    if (!title) { showToast('Title is required.', true); return; }
+    setLoading(true);
+    try {
+      const data = await apiJson('reviews.php', {
+        method: 'POST',
+        body: JSON.stringify({
+          identifier: identifierInput.value.trim(),
+          title: title,
+          rawMarkdown: pasteArea.value,
+          sections: parsedDraft.sections,
+        }),
+      });
+      showToast('Review saved!');
+      resetAddForm();
+      openReviewObject(data.review);
+    } catch (e) {
+      showToast(e.message, true);
+    } finally {
+      setLoading(false);
+    }
+  });
+
+  // ---------- detail view ----------
+  function renderInfoCardHtml(f) {
+    return '<div class="info-card">' +
+      '<div class="finding-title">' + escapeHtml(f.title) + '</div>' +
+      '<div class="finding-body">' + renderMarkdown(f.bodyMarkdown) + '</div>' +
+      '</div>';
+  }
+
+  function renderFindingCardHtml(f, opts) {
+    opts = opts || {};
+    const readOnly = !!opts.readOnly;
+    const key = severityKey(f.severity);
+    const checkedCls = f.checked ? 'is-checked' : '';
+    const expandCls = f.checked && f.id != null && expandedOverrides.has(f.id) ? 'force-expand' : '';
+    const idAttr = f.id != null ? ' data-finding-id="' + f.id + '"' : '';
+
+    let footer = '';
+    if (!readOnly) {
+      const comments = f.comments || [];
+      footer = '<div class="finding-footer">' +
+        '<div class="comment-list">' + comments.map(renderCommentHtml).join('') + '</div>' +
+        '<div class="add-comment-row">' +
+        '<textarea placeholder="Add a comment…" data-role="new-comment-input"></textarea>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-action="add-comment">Add</button>' +
+        '</div>' +
+        '<div style="display:flex;gap:.5rem;margin-top:.6rem;flex-wrap:wrap;">' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-action="toggle-checked">' + (f.checked ? 'Mark unresolved' : 'Mark resolved') + '</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-action="copy-finding">Copy finding</button>' +
+        '</div>' +
+        '</div>';
+    }
+
+    return '<div class="finding-card ' + checkedCls + ' ' + expandCls + '" style="--card-accent:var(--sev-' + key + ')"' + idAttr + '>' +
+      '<div class="finding-head" data-role="finding-head">' +
+      '<div class="finding-checkbox' + (f.checked ? ' checked' : '') + '" data-role="finding-checkbox">' + (f.checked ? '&#10003;' : '') + '</div>' +
+      '<div class="finding-main">' +
+      '<div class="finding-title-row">' +
+      '<span class="severity-badge sev-' + key + '">' + escapeHtml(f.severity || 'Info') + '</span>' +
+      '<span class="finding-title"><span class="finding-num">' + (f.number ? escapeHtml(f.number) + '.' : '') + '</span>' + escapeHtml(f.title) + '</span>' +
+      '</div>' +
+      (f.filePath ? '<span class="finding-file">' + escapeHtml(f.filePath) + '</span>' : '') +
+      '</div>' +
+      (f.checked ? '<div class="finding-toggle-icon">&#9662;</div>' : '') +
+      '</div>' +
+      '<div class="finding-body-wrap">' +
+      '<div class="finding-body">' + renderMarkdown(f.bodyMarkdown) + '</div>' +
+      footer +
+      '</div>' +
+      '</div>';
+  }
+
+  function renderCommentHtml(c) {
+    return '<div class="comment-item" data-comment-id="' + c.id + '">' +
+      '<div class="ci-head"><span>' + formatDate(c.createdAt) + (c.updatedAt !== c.createdAt ? ' (edited)' : '') + '</span>' +
+      '<span class="ci-actions"><span data-action="edit-comment" title="Edit">&#9998;</span><span data-action="delete-comment" title="Delete">&#128465;</span></span>' +
+      '</div>' +
+      '<div class="ci-body" data-role="comment-body">' + escapeHtml(c.body) + '</div>' +
+      '</div>';
+  }
+
+  function groupBySections(findings) {
+    const order = [];
+    const map = {};
+    findings.forEach(function (f) {
+      const key = f.sectionTitle || ' ';
+      if (!map[key]) { map[key] = []; order.push(key); }
+      map[key].push(f);
+    });
+    return order.map(function (key) { return { sectionTitle: key === ' ' ? null : key, findings: map[key] }; });
+  }
+
+  function renderProgressStrip(review) {
+    const checkable = review.findings.filter(function (f) { return f.isCheckable; });
+    if (!checkable.length) return '';
+    const doneCount = checkable.filter(function (f) { return f.checked; }).length;
+    const allChecked = doneCount === checkable.length;
+    return '<div class="progress-strip">' +
+      '<div class="progress-strip-head">' +
+      '<div class="progress-strip-title">Findings (' + doneCount + '/' + checkable.length + ')</div>' +
+      '<label class="check-all-control" data-role="check-all-control">' +
+      '<span class="finding-checkbox mini' + (allChecked ? ' checked' : '') + '" data-role="check-all-checkbox">' + (allChecked ? '&#10003;' : '') + '</span>' +
+      '<span>' + (allChecked ? 'Uncheck all' : 'Check all') + '</span>' +
+      '</label>' +
+      '</div>' +
+      '<div class="progress-strip-grid">' +
+      checkable.map(function (f) {
+        return '<div class="progress-item' + (f.checked ? ' is-checked' : '') + '" data-goto="' + f.id + '">' +
+          '<span class="finding-checkbox mini' + (f.checked ? ' checked' : '') + '" data-role="strip-checkbox" data-finding-id="' + f.id + '">' + (f.checked ? '&#10003;' : '') + '</span>' +
+          '<span class="sev-dot sev-' + severityKey(f.severity) + '"></span>' +
+          '<span class="pi-title">' + escapeHtml(f.title) + '</span>' +
+          '</div>';
+      }).join('') +
+      '</div>' +
+      '</div>';
+  }
+
+  function renderDetail(review) {
+    const groups = groupBySections(review.findings);
+    let sectionsHtml = '';
+    groups.forEach(function (g) {
+      const isInfoGroup = g.findings.every(function (f) { return !f.isCheckable; });
+      if (isInfoGroup) {
+        g.findings.forEach(function (f) { sectionsHtml += renderInfoCardHtml(f); });
+      } else {
+        sectionsHtml += '<div class="section-block"><div class="section-heading">' + escapeHtml(g.sectionTitle || 'Findings') + '</div>' +
+          g.findings.map(function (f) { return renderFindingCardHtml(f, {}); }).join('') +
+          '</div>';
+      }
+    });
+
+    $('#detailView').innerHTML =
+      '<div class="detail-header">' +
+      '<div>' +
+      (review.identifier ? '<div class="dh-id">' + escapeHtml(review.identifier) + '</div>' : '') +
+      '<h2>' + escapeHtml(review.title) + '</h2>' +
+      '<div class="dh-meta">Created ' + formatDate(review.createdAt) + ' &middot; Updated ' + formatDate(review.updatedAt) + '</div>' +
+      '</div>' +
+      '<div class="detail-actions">' +
+      '<span class="status-badge status-' + review.status + '">' + review.status + '</span>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-action="copy-raw">Copy raw</button>' +
+      '<button type="button" class="btn btn-danger btn-sm" data-action="delete-review-detail">Delete</button>' +
+      '</div>' +
+      '</div>' +
+      (review.status === 'closed' ? '<div class="closed-banner">&#9989; All findings resolved &mdash; review closed.</div>' : '') +
+      renderProgressStrip(review) +
+      '<div id="findingsContainer">' + sectionsHtml + '</div>';
+  }
+
+  function findFinding(id) {
+    return currentReview ? currentReview.findings.find(function (f) { return f.id === id; }) : null;
+  }
+
+  async function setFindingChecked(id, checked) {
+    const scrollY = window.scrollY;
+    setLoading(true);
+    try {
+      const data = await apiJson('finding.php', { method: 'PUT', body: JSON.stringify({ id: id, checked: checked }) });
+      const finding = findFinding(id);
+      if (finding) finding.checked = data.checked;
+      currentReview.status = data.reviewStatus;
+      expandedOverrides.delete(id);
+      renderDetail(currentReview);
+      window.scrollTo(0, scrollY);
+      showToast(checked ? 'Marked resolved.' : 'Marked unresolved.');
+    } catch (e) {
+      showToast(e.message, true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function setAllFindingsChecked(checked) {
+    const targets = currentReview.findings.filter(function (f) { return f.isCheckable && f.checked !== checked; });
+    if (!targets.length) return;
+    const scrollY = window.scrollY;
+    setLoading(true);
+    try {
+      await Promise.all(targets.map(function (f) {
+        return apiJson('finding.php', { method: 'PUT', body: JSON.stringify({ id: f.id, checked: checked }) });
+      }));
+      const data = await apiJson('review.php?id=' + currentReview.id, { method: 'GET' });
+      currentReview = data.review;
+      expandedOverrides.clear();
+      renderDetail(currentReview);
+      window.scrollTo(0, scrollY);
+      showToast(checked ? 'All findings marked resolved.' : 'All findings marked unresolved.');
+    } catch (e) {
+      showToast(e.message, true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function addComment(findingId, body) {
+    if (!body.trim()) return;
+    const scrollY = window.scrollY;
+    setLoading(true);
+    try {
+      const data = await apiJson('comment.php', { method: 'POST', body: JSON.stringify({ findingId: findingId, body: body.trim() }) });
+      const finding = findFinding(findingId);
+      if (finding) {
+        finding.comments = finding.comments || [];
+        finding.comments.push(data.comment);
+      }
+      renderDetail(currentReview);
+      window.scrollTo(0, scrollY);
+      showToast('Comment added.');
+    } catch (e) {
+      showToast(e.message, true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function updateComment(commentId, findingId, body) {
+    if (!body.trim()) return;
+    const scrollY = window.scrollY;
+    setLoading(true);
+    try {
+      const data = await apiJson('comment.php', { method: 'PUT', body: JSON.stringify({ id: commentId, body: body.trim() }) });
+      const finding = findFinding(findingId);
+      if (finding) {
+        const idx = (finding.comments || []).findIndex(function (c) { return c.id === commentId; });
+        if (idx !== -1) finding.comments[idx] = data.comment;
+      }
+      renderDetail(currentReview);
+      window.scrollTo(0, scrollY);
+      showToast('Comment updated.');
+    } catch (e) {
+      showToast(e.message, true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function deleteComment(commentId, findingId) {
+    if (!confirm('Delete this comment?')) return;
+    const scrollY = window.scrollY;
+    setLoading(true);
+    try {
+      await apiJson('comment.php', { method: 'DELETE', body: JSON.stringify({ id: commentId }) });
+      const finding = findFinding(findingId);
+      if (finding) finding.comments = (finding.comments || []).filter(function (c) { return c.id !== commentId; });
+      renderDetail(currentReview);
+      window.scrollTo(0, scrollY);
+      showToast('Comment deleted.');
+    } catch (e) {
+      showToast(e.message, true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function findingMarkdownForCopy(f) {
+    let out = '### ' + (f.number ? f.number + '. ' : '') + f.title + '\n\n';
+    if (f.filePath) out += '**File:** `' + f.filePath + '`\n\n';
+    out += '**Severity:** ' + (f.severity || 'Info') + '\n\n';
+    out += f.bodyMarkdown || '';
+    return out;
+  }
+
+  $('#detailView').addEventListener('click', async function (e) {
+    const stripCheckbox = e.target.closest('[data-role="strip-checkbox"]');
+    if (stripCheckbox) {
+      e.stopPropagation();
+      const findingId = Number(stripCheckbox.dataset.findingId);
+      const finding = findFinding(findingId);
+      if (finding) setFindingChecked(findingId, !finding.checked);
+      return;
+    }
+
+    const checkAllCheckbox = e.target.closest('[data-role="check-all-checkbox"], [data-role="check-all-control"]');
+    if (checkAllCheckbox) {
+      const checkable = currentReview.findings.filter(function (f) { return f.isCheckable; });
+      const allChecked = checkable.length && checkable.every(function (f) { return f.checked; });
+      setAllFindingsChecked(!allChecked);
+      return;
+    }
+
+    const gotoEl = e.target.closest('[data-goto]');
+    if (gotoEl) {
+      const target = $('[data-finding-id="' + gotoEl.dataset.goto + '"]');
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    const delBtn = e.target.closest('[data-action="delete-review-detail"]');
+    if (delBtn) { await deleteReview(currentReview.id); return; }
+
+    const copyRawBtn = e.target.closest('[data-action="copy-raw"]');
+    if (copyRawBtn) {
+      const ok = await copyToClipboard(currentReview.rawMarkdown || '');
+      showToast(ok ? 'Raw markdown copied.' : 'Copy failed.', !ok);
+      return;
+    }
+
+    const codeCopyBtn = e.target.closest('.copy-btn-sm[data-code]');
+    if (codeCopyBtn) {
+      const ok = await copyToClipboard(codeCopyBtn.dataset.code);
+      codeCopyBtn.textContent = ok ? 'Copied!' : 'Failed';
+      codeCopyBtn.classList.toggle('copied', ok);
+      setTimeout(function () { codeCopyBtn.textContent = 'Copy'; codeCopyBtn.classList.remove('copied'); }, 1400);
+      return;
+    }
+
+    const card = e.target.closest('.finding-card');
+    if (!card) return;
+    const findingId = Number(card.dataset.findingId);
+    const finding = findFinding(findingId);
+    if (!finding) return;
+
+    const checkboxEl = e.target.closest('[data-role="finding-checkbox"]');
+    const toggleBtn = e.target.closest('[data-action="toggle-checked"]');
+    if (checkboxEl || toggleBtn) {
+      setFindingChecked(findingId, !finding.checked);
+      return;
+    }
+
+    const copyFindingBtn = e.target.closest('[data-action="copy-finding"]');
+    if (copyFindingBtn) {
+      const ok = await copyToClipboard(findingMarkdownForCopy(finding));
+      showToast(ok ? 'Finding copied.' : 'Copy failed.', !ok);
+      return;
+    }
+
+    const addCommentBtn = e.target.closest('[data-action="add-comment"]');
+    if (addCommentBtn) {
+      const textarea = card.querySelector('[data-role="new-comment-input"]');
+      addComment(findingId, textarea.value);
+      return;
+    }
+
+    const editCommentBtn = e.target.closest('[data-action="edit-comment"]');
+    if (editCommentBtn) {
+      const commentItem = editCommentBtn.closest('.comment-item');
+      const commentId = Number(commentItem.dataset.commentId);
+      const comment = (finding.comments || []).find(function (c) { return c.id === commentId; });
+      if (!comment) return;
+      commentItem.innerHTML =
+        '<textarea>' + escapeHtml(comment.body) + '</textarea>' +
+        '<div style="display:flex;gap:.4rem;margin-top:.4rem;">' +
+        '<button type="button" class="btn btn-primary btn-sm" data-action="save-comment-edit">Save</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-action="cancel-comment-edit">Cancel</button>' +
+        '</div>';
+      return;
+    }
+
+    const saveCommentBtn = e.target.closest('[data-action="save-comment-edit"]');
+    if (saveCommentBtn) {
+      const commentItem = saveCommentBtn.closest('.comment-item');
+      const commentId = Number(commentItem.dataset.commentId);
+      const textarea = commentItem.querySelector('textarea');
+      updateComment(commentId, findingId, textarea.value);
+      return;
+    }
+
+    const cancelCommentBtn = e.target.closest('[data-action="cancel-comment-edit"]');
+    if (cancelCommentBtn) { renderDetail(currentReview); return; }
+
+    const deleteCommentBtn = e.target.closest('[data-action="delete-comment"]');
+    if (deleteCommentBtn) {
+      const commentItem = deleteCommentBtn.closest('.comment-item');
+      const commentId = Number(commentItem.dataset.commentId);
+      deleteComment(commentId, findingId);
+      return;
+    }
+
+    // toggle manual expand/collapse for checked findings when clicking the head
+    const headEl = e.target.closest('[data-role="finding-head"]');
+    if (headEl && finding.checked) {
+      if (expandedOverrides.has(findingId)) expandedOverrides.delete(findingId);
+      else expandedOverrides.add(findingId);
+      card.classList.toggle('force-expand');
+    }
+  });
+
+  function measureTopbarHeight() {
+    const bar = document.querySelector('rk-topbar');
+    if (bar) document.documentElement.style.setProperty('--topbar-h', bar.offsetHeight + 'px');
+  }
+  window.addEventListener('resize', debounce(measureTopbarHeight, 200));
+  window.addEventListener('load', measureTopbarHeight);
+
+  function openReviewObject(review) {
+    currentReview = review;
+    expandedOverrides.clear();
+    localStorage.setItem(LAST_OPEN_KEY, String(review.id));
+    measureTopbarHeight();
+    renderDetail(review);
+    showView('detailView');
+    window.scrollTo(0, 0);
+  }
+
+  async function openReviewById(id) {
+    setLoading(true);
+    try {
+      const data = await apiJson('review.php?id=' + id, { method: 'GET' });
+      openReviewObject(data.review);
+    } catch (e) {
+      showToast(e.message, true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ---------- boot ----------
+  async function bootAfterAuth() {
+    const lastId = localStorage.getItem(LAST_OPEN_KEY);
+    if (lastId) {
+      try {
+        const data = await apiJson('review.php?id=' + lastId, { method: 'GET' });
+        if (data.review && data.review.status !== 'closed') {
+          openReviewObject(data.review);
+          return;
+        }
+      } catch (e) { /* fall through to list */ }
+    }
+    showView('listView');
+    loadReviewsList();
+  }
+
+  (function init() {
+    measureTopbarHeight();
+    if (!authToken) { showAuthGate(); return; }
+    hideAuthGate();
+    bootAfterAuth();
+  })();
+})();
+</script>
+
+</body>
+</html>
