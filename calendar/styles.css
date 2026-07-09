@@ -316,8 +316,6 @@ input:focus, select:focus { border-color: #00ffcc; box-shadow: 0 0 0 2px rgba(0,
     box-shadow: 0 0 0 2px rgba(0,0,0,.35) inset;
 }
 
-/* Footer */
-footer { text-align: center; font-size: 0.9rem; color: #aaa; padding: 1rem; margin-top: 2rem; }
 
 /* Small screens */
 @media (max-width: 480px) {

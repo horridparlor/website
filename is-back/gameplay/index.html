@@ -5,6 +5,8 @@
   <link rel="icon" href="../../favicon.svg" type="image/svg+xml" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Rakuel Is Back – Gameplay</title>
+  <link rel="stylesheet" href="/components/topbar.css">
+  <script src="/components/topbar.js" defer></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -57,10 +59,6 @@
 
     /* ── Layout ── */
     #app { height: 100vh; display: grid; grid-template-rows: auto 1fr auto auto; }
-    #topbar { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 8px 16px; display: flex; align-items: center; gap: 10px; }
-    #topbar a, #topbar button { background: #21262d; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; text-decoration: none; font-size: 13px; cursor: pointer; }
-    #topbar a:hover, #topbar button:hover { background: var(--border); }
-    #topbar .title { flex:1; font-size: 15px; color: var(--blue2); font-weight: 600; }
     .avatar-btn { width: 34px; height: 34px; border-radius: 50% !important; background: linear-gradient(135deg,var(--green),var(--blue)) !important; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; padding: 0 !important; border: 2px solid var(--border) !important; position: relative; }
 
     #board { display: grid; grid-template-rows: 1fr auto 1fr; gap: 0; overflow: hidden; padding: 8px 16px 8px 0; }
@@ -504,19 +502,15 @@
 <div id="pass-banner"></div>
 <div id="app">
   <!-- Topbar -->
-  <div id="topbar">
-    <a href="/">Home</a>
-    <div style="flex:1;display:flex;align-items:center;gap:14px;">
-      <div class="title" style="flex:none;">Rakuel Is Back</div>
-      <div id="opp-dice-area" class="dice-display">
-        <div class="die" id="od1">0</div>
-        <div class="die" id="od2">0</div>
-        <div class="dice-total" id="opp-dice-total" style="color:var(--muted);">= 0</div>
-      </div>
+  <rk-topbar title="Rakuel Is Back">
+    <div id="opp-dice-area" class="dice-display">
+      <div class="die" id="od1">0</div>
+      <div class="die" id="od2">0</div>
+      <div class="dice-total" id="opp-dice-total" style="color:var(--muted);">= 0</div>
     </div>
     <div id="match-format" style="font-size:12px;color:var(--muted);"></div>
     <button class="avatar-btn" id="my-avatar" title="Surrender Match" onclick="showGameSurrenderConfirm()">?</button>
-  </div>
+  </rk-topbar>
 
   <!-- Board wrapper (prize panel + main board) -->
   <div id="board-wrap">

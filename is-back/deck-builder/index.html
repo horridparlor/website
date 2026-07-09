@@ -7,22 +7,17 @@
   <title>Rakuel Is Back – Deck Builder</title>
   <link rel="stylesheet" href="../../styles.css" />
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="/components/topbar.css">
+  <script src="/components/topbar.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 
-<!-- Header -->
-<header class="topbar">
-  <div class="topbar-left">
-    <a class="home-link" href="/">Home</a>
-    <h1>Deck Builder</h1>
-  </div>
-  <div class="topbar-right">
-    <span class="user-info" id="user-info">Not logged in</span>
-    <button class="btn btn-icon" id="btn-logout" style="display:none;background:#1a1a1a;border:1px solid #444;color:#aaa;">Log out</button>
-    <a href="../match-queue/" class="btn btn-add" style="text-decoration:none;font-size:0.82rem;">Match Queue →</a>
-  </div>
-</header>
+<rk-topbar title="Deck Builder">
+  <span class="user-info" id="user-info">Not logged in</span>
+  <button class="btn btn-icon" id="btn-logout" style="display:none;background:#1a1a1a;border:1px solid #444;color:#aaa;">Log out</button>
+  <a href="../match-queue/" class="btn btn-add" style="text-decoration:none;font-size:0.82rem;">Match Queue →</a>
+</rk-topbar>
 
 <!-- Three-panel layout -->
 <div class="db-layout">

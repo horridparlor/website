@@ -10,6 +10,7 @@
       this.dataset.rkReady = 'true';
 
       this.classList.add('site-footer');
+      document.body.style.paddingBottom = '0';
 
       if (!this.childNodes.length) {
         const p = document.createElement('p');

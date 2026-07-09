@@ -11,6 +11,8 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="/components/topbar.css">
   <script src="/components/topbar.js" defer></script>
+  <link rel="stylesheet" href="/components/footer.css">
+  <script src="/components/footer.js" defer></script>
 </head>
 <body>
   <rk-topbar title="Configuration Variables -mapper">
@@ -314,5 +316,7 @@ jsonInput.addEventListener('input', ()=> {
   runBtn.disabled = !jsonInput.value.trim();
 });
 </script>
+
+<rk-footer></rk-footer>
 </body>
 </html>

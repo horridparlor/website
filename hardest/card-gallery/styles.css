@@ -1,45 +1,4 @@
 /* Extend the provided styles.css with page-specific styles */
-/* Base look */
-.topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: rgba(0,0,0,0.6);
-    border-bottom: 1px solid #222;
-    z-index: 20;
-    backdrop-filter: blur(6px);
-}
-.topbar h1 { font-size: 2rem; margin: 0; }
-
-/* Mobile: fixed, reachable, safe-area aware */
-@media (max-width: 767px) {
-    .topbar {
-        position: fixed;
-        top: auto;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        padding: calc(0.6rem + env(safe-area-inset-bottom)) 1rem 0.6rem;
-        border-top: 1px solid #222;
-        border-bottom: none;
-    }
-
-    /* prevent content from being covered by the fixed bar */
-    body {
-        padding-bottom: 64px; /* adjust to match your topbar height */
-    }
-}
-
-/* Desktop: sticky at top, shorter vertical space */
-@media (min-width: 768px) {
-    .topbar {
-        position: sticky;
-        top: 0;
-        padding: 0.5rem 2rem; /* shorter than before */
-    }
-}
-.home-link { text-decoration: none; margin-right: 1rem }
-
 .filters-wrap {
     display: grid;
     grid-template-columns: repeat(10, minmax(140px, 1fr));
@@ -236,16 +195,6 @@ a:hover {
     box-shadow: 0 0 20px #00ffcc;
 }
 
-.home-btn {
-    background: linear-gradient(90deg, #ff0066, #ff6600);
-    color: #fff;
-    box-shadow: 0 0 10px #ff0066;
-}
-
-.home-btn:hover {
-    transform: scale(1.05);
-    box-shadow: 0 0 20px #ff0066;
-}
 
 .clear-btn {
     background: #1e1214;

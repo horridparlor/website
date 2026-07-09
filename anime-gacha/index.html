@@ -786,8 +786,6 @@
       .poster-wrap { width: min(250px, 100%); margin: 0 auto; }
       .score-row { justify-content: center; }
       .summon-stage, .stage-content { min-height: 610px; }
-      .top-bar { padding: 0.6rem 0.8rem; gap: 0.75rem; }
-      .top-bar h2 { font-size: 1.05rem; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -798,54 +796,12 @@
         transition-duration: 1ms !important;
       }
     }
-
-    .top-bar {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      padding: 0.6rem 1rem;
-      margin-bottom: 1rem;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      background: linear-gradient(120deg, rgba(13, 18, 29, 0.88), rgba(5, 9, 18, 0.82));
-      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
-    }
-
-    .top-bar h2 {
-      margin: 0;
-      color: #00ffcc;
-      font-size: clamp(1.2rem, 2.2vw, 1.5rem);
-      letter-spacing: 0.01em;
-    }
-
-    .home-btn {
-      display: inline-flex;
-      align-items: center;
-      margin: 0;
-      padding: 10px 14px;
-      border-radius: 10px;
-      background: linear-gradient(90deg, #ff0066, #ff6600);
-      color: #fff;
-      text-decoration: none;
-      font-weight: 700;
-      box-shadow: 0 0 10px #ff0066;
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-
-    .home-btn:hover {
-      transform: scale(1.05);
-      box-shadow: 0 0 20px #ff0066;
-    }
-
 </style>
 </head>
 <body>
-  <main class="app-shell">
+  <rk-topbar title="Anime Gacha System"></rk-topbar>
 
-    <header class="top-bar">
-      <a class="home-btn" href="../">Home</a>
-      <h2>Anime Gacha</h2>
-    </header>
+  <main class="app-shell">
 
     <section class="hero" aria-labelledby="page-title">
       <div class="hero-card">
