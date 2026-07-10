@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rakuel – Poems</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="/components/topbar.css">
+  <script src="/components/topbar.js" defer></script>
+  <link rel="stylesheet" href="/components/footer.css">
+  <script src="/components/footer.js" defer></script>
+  <script src="/components/poemFitText.js"></script>
+</head>
+<body>
+<rk-topbar title="Poems">
+  <a href="/poems-center" class="btn btn-nav">Poem Center →</a>
+</rk-topbar>
+
+<div id="tag-filter" class="tag-filter"></div>
+<div id="content" class="pw-wrap"></div>
+
+<rk-footer></rk-footer>
+<script src="app.js"></script>
+</body>
+</html>

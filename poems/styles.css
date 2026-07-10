@@ -1,0 +1,111 @@
+/* Public read-only poem listing. Mirrors poems-center/is-back/card-gallery's
+   dark theme + component vocabulary. */
+
+.btn-nav {
+  text-decoration: none;
+  background: #1a1a1a;
+  border: 1px solid #444;
+  color: #aaa;
+  box-shadow: none;
+  padding: 0.35rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  transition: border-color 0.15s, color 0.15s;
+}
+.btn-nav:hover { border-color: #00ffcc; color: #00ffcc; transform: none; box-shadow: none; }
+
+.pw-wrap { max-width: 760px; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+
+.tag-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0 1rem 1rem;
+  max-width: 760px;
+  margin: 0 auto;
+}
+.tag-chip-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid #333;
+  background: #1a1a1a;
+  color: #ccc;
+}
+.tag-chip-filter .dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; }
+.tag-chip-filter.active { border-color: #00ffcc; color: #00ffcc; box-shadow: 0 0 0 2px rgba(0,255,204,.12); }
+
+.pw-book {
+  margin-bottom: 2.5rem;
+}
+.pw-book-title {
+  font-family: 'Playfair Display', 'Anton', sans-serif;
+  color: #00ffcc;
+  font-size: 1.6rem;
+  text-align: center;
+  margin-bottom: 0.3rem;
+}
+.pw-book-desc {
+  text-align: center;
+  color: #999;
+  font-size: 0.95rem;
+  max-width: 520px;
+  margin: 0 auto 1.5rem;
+}
+
+.pw-poem-card {
+  background: #131313;
+  border: 1px solid #262626;
+  border-radius: 14px;
+  padding: 1.75rem 1rem;
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+}
+.pw-poem-title {
+  font-family: 'Playfair Display', 'Anton', sans-serif;
+  color: #fff;
+  font-size: 1.3rem;
+  text-align: center;
+  margin-bottom: 0.2rem;
+}
+.pw-poem-author {
+  text-align: center;
+  color: #888;
+  font-size: 0.85rem;
+  margin-bottom: 0.15rem;
+}
+.pw-poem-date {
+  text-align: center;
+  color: #666;
+  font-size: 0.78rem;
+  margin-bottom: 1.25rem;
+}
+.pw-poem-tags {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 1.25rem;
+}
+.pw-poem-tags .tag-chip-filter { cursor: default; font-size: 0.72rem; padding: 0.15rem 0.6rem; }
+
+.poem-body {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  color: #f0f0f0;
+  text-align: center;
+  font-size: 34px;
+}
+.poem-body .poem-line { white-space: nowrap; line-height: 1.4; }
+
+.pw-empty {
+  text-align: center;
+  color: #888;
+  padding: 3rem 1rem;
+  font-size: 1.05rem;
+}

@@ -1,0 +1,327 @@
+/* Extends ../styles.css with page-specific styles, mirroring is-back/card-gallery's
+   dark theme + component vocabulary (view-toggle/toggle-btn, table-wrap, toast, .button). */
+
+.btn-nav {
+  text-decoration: none;
+  background: #1a1a1a;
+  border: 1px solid #444;
+  color: #aaa;
+  box-shadow: none;
+  padding: 0.35rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  transition: border-color 0.15s, color 0.15s;
+}
+.btn-nav:hover { border-color: #00ffcc; color: #00ffcc; transform: none; box-shadow: none; }
+
+.auth-gate {
+  max-width: 480px;
+  margin: 3rem auto;
+  text-align: center;
+  padding: 2rem;
+  color: #ccc;
+}
+.auth-gate a { color: #00ffcc; }
+
+.view-toggle {
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+  padding: 1rem 1.25rem 0.5rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .5rem .9rem;
+  border-radius: 8px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #fff;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  font-size: 0.9rem;
+}
+.toggle-btn.active { border-color: #00ffcc; box-shadow: 0 0 0 2px rgba(0,255,204,.1); }
+
+.pc-view { padding: 0.75rem 1.25rem 3rem; }
+
+.pc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+.pc-toolbar input, .pc-toolbar select {
+  flex: 1 1 160px;
+  min-width: 0;
+  background: #1a1a1a;
+  color: #fff;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: .6rem .8rem;
+  font-size: 0.95rem;
+}
+.pc-toolbar .button { flex: 0 0 auto; }
+
+.pc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+}
+
+.pc-card {
+  background: #181818;
+  border: 1px solid #222;
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.pc-card:hover { border-color: #00ffcc; }
+.pc-card.active { border-color: #00ffcc; box-shadow: 0 0 0 2px rgba(0,255,204,.15); }
+.pc-card-title {
+  font-family: 'Playfair Display', 'Anton', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+}
+.pc-card-meta { color: #999; font-size: 0.82rem; margin-top: 0.25rem; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.pc-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border: 1px solid #444;
+  color: #ccc;
+}
+.pc-badge.published { border-color: #00ffcc; color: #00ffcc; }
+.pc-badge.variant { border-color: #00ccff; color: #00ccff; }
+.pc-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: rgba(255,255,255,0.06);
+}
+.pc-tag-chip .dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; flex: 0 0 auto; }
+.pc-tag-chip.selected { border-color: currentColor; }
+.pc-tag-chip.add-new { border-style: dashed; border-color: #555; color: #999; }
+
+.pc-empty { text-align: center; color: #888; padding: 2rem 1rem; }
+.pc-loading { text-align: center; color: #888; padding: 1rem; }
+
+.toast {
+  position: fixed;
+  right: 1rem; bottom: 1rem;
+  background: #ff0066;
+  color: #fff;
+  padding: .9rem 1rem;
+  border-radius: 10px;
+  box-shadow: 0 0 15px rgba(255,0,102,.5);
+  z-index: 200;
+  display: none;
+  max-width: calc(100vw - 2rem);
+}
+
+/* ── Editor ─────────────────────────────────────────────────────────── */
+.pc-editor {
+  background: #131313;
+  border: 1px solid #2a2a2a;
+  border-radius: 14px;
+  padding: 1rem;
+}
+.pc-editor-row { margin-bottom: 0.85rem; }
+.pc-editor-row label {
+  display: block;
+  font-size: 0.78rem;
+  color: #999;
+  margin-bottom: 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.pc-editor-row input[type="text"],
+.pc-editor-row input[type="date"],
+.pc-editor-row select,
+.pc-editor-row textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: #1a1a1a;
+  color: #fff;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: .65rem .8rem;
+  font-size: 1rem;
+  font-family: inherit;
+}
+.pc-editor-row textarea {
+  min-height: 220px;
+  resize: vertical;
+  line-height: 1.6;
+}
+.pc-editor-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.6rem;
+}
+@media (min-width: 640px) {
+  .pc-editor-grid.two { grid-template-columns: 1fr 1fr; }
+}
+
+.pc-based-on {
+  font-size: 0.85rem;
+  color: #00ccff;
+  margin-bottom: 0.75rem;
+}
+.pc-based-on a { color: inherit; }
+
+.pc-tag-picker { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+
+.pc-preview-wrap {
+  background: #0d0d0d;
+  border: 1px solid #222;
+  border-radius: 12px;
+  padding: 1.5rem 1rem;
+  margin-bottom: 0.85rem;
+  overflow: hidden;
+}
+.poem-preview {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  color: #f0f0f0;
+  text-align: center;
+  font-size: 40px;
+}
+.poem-preview .poem-line {
+  white-space: nowrap;
+  line-height: 1.35;
+}
+.poem-preview-title {
+  font-family: 'Playfair Display', 'Anton', sans-serif;
+  text-align: center;
+  color: #00ffcc;
+  font-size: 1.3rem;
+  margin-bottom: 0.5rem;
+}
+.poem-preview-author {
+  text-align: center;
+  color: #888;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.pc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.pc-actions .button {
+  padding: 0.55rem 1rem;
+  font-size: 0.88rem;
+}
+.button.secondary {
+  background: #1a1a1a;
+  color: #00ffcc;
+  border: 1px solid #00ffcc;
+}
+.button.secondary:hover { background: rgba(0,255,204,0.1); }
+.button.danger {
+  background: #1a1a1a;
+  color: #ff4466;
+  border: 1px solid #ff4466;
+}
+.button.danger:hover { background: rgba(255,68,102,0.1); }
+
+.pc-history-list { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.75rem; }
+.pc-history-item {
+  background: #181818;
+  border: 1px solid #222;
+  border-radius: 10px;
+  padding: 0.65rem 0.8rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.pc-history-item .meta { color: #999; font-size: 0.82rem; }
+
+/* ── Books tab ──────────────────────────────────────────────────────── */
+.pc-book-detail {
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px dashed #333;
+}
+.pc-book-poem-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #1e1e1e;
+}
+.pc-book-poem-row .title { flex: 1; color: #ddd; font-size: 0.92rem; }
+.pc-reorder-btn {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #ccc;
+  border-radius: 6px;
+  width: 1.8rem;
+  height: 1.8rem;
+  cursor: pointer;
+}
+.pc-reorder-btn:hover { border-color: #00ffcc; color: #00ffcc; }
+
+/* ── Statistics tab ─────────────────────────────────────────────────── */
+.pc-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+@media (min-width: 640px) {
+  .pc-stats-grid { grid-template-columns: repeat(4, 1fr); }
+}
+.pc-stat-tile {
+  background: #181818;
+  border: 1px solid #222;
+  border-radius: 12px;
+  padding: 0.9rem;
+  text-align: center;
+}
+.pc-stat-value { font-family: 'Playfair Display', sans-serif; font-size: 1.6rem; color: #00ffcc; }
+.pc-stat-label { font-size: 0.78rem; color: #999; margin-top: 0.2rem; text-transform: uppercase; letter-spacing: 0.03em; }
+
+.pc-bar-row { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.4rem; font-size: 0.85rem; }
+.pc-bar-label { width: 5.5rem; flex: 0 0 auto; color: #ccc; }
+.pc-bar-track { flex: 1; background: #1a1a1a; border-radius: 6px; overflow: hidden; height: 1.1rem; }
+.pc-bar-fill { height: 100%; background: linear-gradient(90deg, #00ffcc, #00ccff); }
+.pc-bar-count { width: 2.2rem; text-align: right; color: #999; flex: 0 0 auto; }
+
+.pc-word-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.pc-word-chip {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.85rem;
+  color: #ddd;
+}
+.pc-word-chip strong { color: #00ffcc; }
+
+.pc-section-title {
+  font-family: 'Playfair Display', 'Anton', sans-serif;
+  color: #fff;
+  font-size: 1.05rem;
+  margin: 1.25rem 0 0.6rem;
+}
