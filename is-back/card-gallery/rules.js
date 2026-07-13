@@ -341,6 +341,9 @@ const RULES_SECTIONS = [
   <dt>Hand</dt>
   <dd>The cards a player holds privately. The size of your hand is not hidden — opponents may ask how many cards you hold.</dd>
 
+  <dt>Mill</dt>
+  <dd>To send cards from the top of a deck to the graveyard.</dd>
+
   <dt>Pass</dt>
   <dd>To end your main phase and signal that you are ready to resolve the round against the opponent's current field.</dd>
 
@@ -376,6 +379,9 @@ const RULES_SECTIONS = [
 
   <dt>Trigger</dt>
   <dd>To activate a keyword effect, resolving its description.</dd>
+
+  <dt>Type</dt>
+  <dd>The type a card belongs to — Rock, Paper, or Scissors.</dd>
 </dl>`,
     subtitles: [],
   },
