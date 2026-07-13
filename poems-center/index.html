@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rakuel – Poem Center</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="/components/topbar.css">
+  <script src="/components/topbar.js" defer></script>
+  <link rel="stylesheet" href="/components/footer.css">
+  <script src="/components/footer.js" defer></script>
+  <script src="/components/poemFitText.js"></script>
+</head>
+<body>
+<rk-topbar title="Poem Center">
+  <a href="/poems" class="btn btn-nav">Public Page →</a>
+</rk-topbar>
+
+<div id="auth-gate" class="auth-gate" style="display:none;">
+  <p>Please <a href="/is-back/register">sign in</a> with an admin account to use the Poem Center.</p>
+</div>
+
+<div id="app" style="display:none;">
+  <div class="view-toggle">
+    <button id="tab-poems" class="toggle-btn active" type="button">📝 Poems</button>
+    <button id="tab-books" class="toggle-btn" type="button">📚 Books</button>
+    <button id="tab-tags" class="toggle-btn" type="button">🏷️ Tags</button>
+    <button id="tab-stats" class="toggle-btn" type="button">📊 Statistics</button>
+  </div>
+
+  <!-- Poems -->
+  <section id="view-poems" class="pc-view">
+    <div class="pc-toolbar">
+      <select id="poem-book-filter"><option value="">All poems</option></select>
+      <input id="poem-search" type="text" placeholder="Search title or text…" />
+      <button id="btn-new-poem" class="button" type="button">+ New Poem</button>
+    </div>
+    <div id="poem-list" class="pc-list"></div>
+    <div id="poem-editor"></div>
+  </section>
+
+  <!-- Books -->
+  <section id="view-books" class="pc-view" style="display:none;">
+    <div class="pc-toolbar">
+      <input id="new-book-title" type="text" placeholder="New book title…" />
+      <button id="btn-new-book" class="button" type="button">+ New Book</button>
+    </div>
+    <div id="book-list" class="pc-list"></div>
+  </section>
+
+  <!-- Tags -->
+  <section id="view-tags" class="pc-view" style="display:none;">
+    <div class="pc-toolbar">
+      <input id="new-tag-name" type="text" placeholder="New tag name…" />
+      <input id="new-tag-color" type="color" value="#00ffcc" style="flex:0 0 3rem;padding:0.2rem;" />
+      <button id="btn-new-tag" class="button" type="button">+ New Tag</button>
+    </div>
+    <div id="tag-list" class="pc-list"></div>
+  </section>
+
+  <!-- Statistics -->
+  <section id="view-stats" class="pc-view" style="display:none;">
+    <div id="stats-content"></div>
+  </section>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<rk-footer></rk-footer>
+<script src="app.js"></script>
+</body>
+</html>

@@ -40,6 +40,13 @@ body {
   line-height: 1.5;
 }
 
+/* footer.css sizes itself in rem against the root; counteract this
+   page's 18px root so the footer matches every other page's 16px-root sizing. */
+rk-footer,
+.site-footer {
+  font-size: calc(0.92rem * 16 / 18);
+}
+
 a { color: var(--accent-2); }
 
 main {
