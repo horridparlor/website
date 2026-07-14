@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Report Validator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/components/topbar.css">
+    <script src="/components/topbar.js" defer></script>
+    <link rel="stylesheet" href="/components/footer.css">
+    <script src="/components/footer.js" defer></script>
+    <style>
+        /* === Shared look & feel (copied from Translation Synchronizer) === */
+        :root{
+            --bg:#0f0f0f;--ink:#fff;--accent:#00ffcc;--accent2:#00ccff;--danger:#ff0033;--warn:#ffcc66;
+        }
+        *{box-sizing:border-box}
+        body {
+            margin: 0;
+            font-family: 'Roboto Mono', monospace;
+            background-color: var(--bg);
+            color: var(--ink);
+            padding: 2rem;
+            background-image: radial-gradient(#333 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .subtle {opacity:.8; text-align:center; margin:0 0 2rem;}
+
+        .grid {display:grid; gap:18px}
+        @media (min-width: 1000px) {
+            .grid{grid-template-columns: 1fr 1fr}
+        }
+
+        .card{background:#1e1e1e;border:2px solid var(--accent);border-radius:12px;padding:16px;box-shadow:0 0 10px rgba(0,255,204,.15)}
+        .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+
+        label{font-weight:700}
+        select, input[type="file"]{background:#121212;border:1px dashed var(--accent);padding:10px;border-radius:8px;color:var(--ink);font-family:'Roboto Mono', monospace}
+        select{border-style:solid}
+        input[type="file"]{margin-top:10px}
+
+        .buttons{display:flex;gap:15px;justify-content:center;margin-top:1rem;flex-wrap:wrap}
+        button{
+            padding: 12px 24px; font-size: 16px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; text-decoration: none; text-align: center; display: inline-block; transition: transform .2s, box-shadow .2s;
+            background:linear-gradient(90deg,var(--accent),var(--accent2));color:#000;box-shadow:0 0 10px var(--accent)
+        }
+        button:hover{transform:scale(1.05); box-shadow:0 0 20px var(--accent)}
+        .secondary{background:#252525;color:#ddd;border:1px solid #333}
+        .danger{background:linear-gradient(90deg,#ff4d4d,#ff1a75);color:#fff;box-shadow:0 0 10px #ff3366}
+
+        .textarea{width:100%; min-height:220px; background:#0f0f0f; color:#a6e22e; border:1px solid #2a2a2a; border-radius:8px; padding:10px; font-family:'Roboto Mono', monospace; resize:vertical}
+
+        .hint{opacity:.75; font-size:12px}
+        .path{color:#ffcc66}
+        .toolbar{display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end}
+
+        .toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background-color:#00cc88; color:white; padding:12px 20px; border-radius:8px; box-shadow:0 0 10px rgba(0,0,0,.3); font-size:14px; opacity:0; pointer-events:none; transition:opacity .5s ease; z-index:1000}
+        .toast.show{opacity:1}
+        .toast.error{background-color:var(--danger)}
+
+        .chip{border:1px solid var(--accent); color:var(--accent); padding:2px 8px; border-radius:999px; font-size:12px; opacity:.85}
+        .chip.warn{border-color:var(--warn); color:var(--warn)}
+        .chip.err{border-color:var(--danger); color:#ff6688}
+
+        .stat-row{display:flex; gap:10px; flex-wrap:wrap; margin-top:6px}
+        .stat{flex:1 1 120px; background:#151515; border:1px solid #2a2a2a; border-radius:8px; padding:10px; text-align:center}
+        .stat .num{font-size:22px; font-weight:700}
+        .stat.ok .num{color:var(--accent)}
+        .stat.warn .num{color:var(--warn)}
+        .stat.err .num{color:#ff6688}
+        .stat .lbl{font-size:11px; opacity:.75; text-transform:uppercase; letter-spacing:.03em}
+
+        details{margin-left:0}
+        summary{cursor:pointer; list-style:none; position:relative; padding-left:18px; user-select:none}
+        summary::before{content:"▶"; position:absolute; left:0; top:2px; transform:rotate(0deg); transition:transform .15s ease; font-size:10px; color:var(--accent)}
+        details[open]>summary::before{transform:rotate(90deg)}
+
+        .line-card{border:1px solid #2a2a2a; border-left:4px solid #444; border-radius:8px; padding:10px 12px; margin-bottom:8px; background:#161616}
+        .line-card.ok{border-left-color:var(--accent)}
+        .line-card.warn{border-left-color:var(--warn)}
+        .line-card.err{border-left-color:#ff3366}
+        .line-head{display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:space-between}
+        .line-head-left{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+        .line-num{color:#888; font-size:12px; min-width:64px}
+        .issue-list{margin:8px 0 0; padding-left:0; list-style:none; font-size:13px}
+        .issue-list li{margin:4px 0; padding:6px 8px; border-radius:6px; background:#1c1c1c}
+        .issue-list li.err{color:#ff8fa3; border:1px solid #4a1424}
+        .issue-list li.warn{color:#ffdd99; border:1px solid #4a3a14}
+
+        .field-table{width:100%; border-collapse:collapse; margin-top:10px; font-size:12.5px}
+        .field-table th{text-align:left; color:#888; font-weight:600; padding:4px 8px; border-bottom:1px solid #2a2a2a; font-size:11px; text-transform:uppercase; letter-spacing:.03em}
+        .field-table td{padding:4px 8px; border-bottom:1px solid #212121; vertical-align:top}
+        .field-table tr.reserved{opacity:.45}
+        .field-table tr.f-warn{background:rgba(255,204,102,.08)}
+        .field-table tr.f-err{background:rgba(255,51,102,.1)}
+        .fcode{color:var(--accent2); font-weight:700; white-space:nowrap}
+        .fpos{color:#777; white-space:nowrap}
+        .fval{font-family:'Roboto Mono', monospace; white-space:pre; background:#0f0f0f; border-radius:4px; padding:2px 6px; display:inline-block}
+        .ws{color:#555}
+        .fstatus{font-size:11px; white-space:nowrap}
+        .fstatus.ok{color:var(--accent)}
+        .fstatus.warn{color:var(--warn)}
+        .fstatus.err{color:#ff6688}
+
+        .spec-table{width:100%; border-collapse:collapse; font-size:12.5px; margin-top:10px}
+        .spec-table th{text-align:left; color:#888; font-weight:600; padding:4px 8px; border-bottom:1px solid #2a2a2a; font-size:11px; text-transform:uppercase}
+        .spec-table td{padding:3px 8px; border-bottom:1px solid #212121}
+        .spec-table tr.reserved{opacity:.45}
+
+        .empty-note{opacity:.6; font-size:13px; text-align:center; padding:20px 0}
+        .truncate-note{opacity:.7; font-size:12px; text-align:center; margin-top:8px}
+    </style>
+</head>
+<body>
+<rk-topbar title="Report Validator"></rk-topbar>
+<p class="subtle">Liitä teksti tai valitse <strong>.txt</strong>-tiedosto ja tarkista tietueet <strong>Tilastokeskuksen</strong> tietuekuvauksen sääntöjä vasten. Virheet ja varoitukset (mm. puuttuvat välilyönnit) näytetään selkeästi rivi- ja kenttäkohtaisesti.</p>
+
+<div class="card">
+    <div class="row" style="justify-content:space-between">
+        <div class="row">
+            <label for="reportType">Raporttityyppi</label>
+            <select id="reportType">
+                <option value="kupa">Tilastokeskus: Local government report (KuPa)</option>
+            </select>
+        </div>
+        <div class="row">
+            <label for="recordType">Tietuetyyppi</label>
+            <select id="recordType">
+                <option value="auto">Automaattinen tunnistus</option>
+                <option value="monthly">Kuukausipalkkaiset</option>
+                <option value="hourly">Tuntipalkkaiset</option>
+            </select>
+        </div>
+    </div>
+    <div class="hint" style="margin-top:8px">Sääntöjen lähde: kupa_tietuekuvaus_fi.xlsx (Kuukausipalkkaiset 250–502 merkkiä, 18 merkin välein / Tuntipalkkaiset tarkalleen 281 merkkiä).</div>
+</div>
+
+<div class="card" style="margin-top:18px">
+    <div class="row" style="justify-content:space-between">
+        <label for="rawText">Liitä tekstiä tai valitse tiedosto</label>
+        <small id="fileMeta" class="hint"></small>
+    </div>
+    <input id="txtFile" type="file" accept=".txt,text/plain" style="margin-bottom:10px" />
+    <textarea id="rawText" class="textarea" placeholder="Liitä tietuerivit tähän, tai valitse .txt-tiedosto yllä…" spellcheck="false"></textarea>
+    <div class="buttons">
+        <button id="validateBtn">Validoi</button>
+        <button id="clearBtn" class="secondary">Tyhjennä</button>
+    </div>
+</div>
+
+<div id="summaryCard" class="card" style="margin-top:18px; display:none">
+    <div class="row" style="justify-content:space-between">
+        <h3 style="margin:0;color:var(--accent)">Yhteenveto</h3>
+        <span class="chip" id="typeChip">-</span>
+    </div>
+    <div class="stat-row">
+        <div class="stat"><div class="num" id="statTotal">0</div><div class="lbl">Riviä</div></div>
+        <div class="stat ok"><div class="num" id="statOk">0</div><div class="lbl">OK</div></div>
+        <div class="stat warn"><div class="num" id="statWarn">0</div><div class="lbl">Varoitusta</div></div>
+        <div class="stat err"><div class="num" id="statErr">0</div><div class="lbl">Virhettä</div></div>
+    </div>
+</div>
+
+<div id="resultsCard" class="card" style="margin-top:18px; display:none">
+    <h3 style="margin:0 0 10px;color:var(--accent)">Rivit</h3>
+    <div id="resultsList"></div>
+    <div id="truncateNote" class="truncate-note" style="display:none"></div>
+</div>
+
+<div class="card" style="margin-top:18px">
+    <details>
+        <summary style="color:var(--accent); font-weight:700">Näytä tietuekuvaus (kenttien pituudet ja positiot)</summary>
+        <div style="margin-top:12px">
+            <h4 style="margin:0 0 4px;color:var(--accent2)">Kuukausipalkkaiset — kiinteä osa (250 merkkiä)</h4>
+            <div class="hint">Vaihtuvamittainen osa alkaa positiosta 251, max 14 × 18 merkkiä (max. tietueen pituus 502).</div>
+            <table class="spec-table" id="monthlyFixedSpecTable"></table>
+            <h4 style="margin:16px 0 4px;color:var(--accent2)">Kuukausipalkkaiset — vaihtuvamittainen lohko (18 merkkiä / toistuu)</h4>
+            <table class="spec-table" id="monthlyVarSpecTable"></table>
+            <h4 style="margin:16px 0 4px;color:var(--accent2)">Tuntipalkkaiset (281 merkkiä)</h4>
+            <table class="spec-table" id="hourlySpecTable"></table>
+        </div>
+    </details>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+    // ===== UI helpers =====
+    const toast = document.getElementById('toast');
+    function showToast(message, isError=false){
+        toast.textContent = message; toast.className = 'toast' + (isError ? ' error' : '');
+        toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), 2500);
+    }
+
+    // LocalStorage helpers
+    const LS = {
+        save(key, val){ localStorage.setItem(key, JSON.stringify(val)); },
+        load(key){ const v = localStorage.getItem(key); return v? JSON.parse(v):null },
+        remove(...keys){ keys.forEach(k=>localStorage.removeItem(k)) }
+    };
+
+    // ===== Field specs (from kupa_tietuekuvaus_fi.xlsx) =====
+    // Each entry: [code, name, length, kind]
+    // kind: 'reserved' (VARA*, not validated), 'id' (henkilötunnus), 'date' (ppkkppkk),
+    //       'numeric' (must be a mandatory numeric code), 'numeric-optional' (numeric or blank)
+    const MONTHLY_FIXED_DEFS = [
+        ['TP','Tietueen pituus',4,'numeric'],
+        ['VARA1','Varakenttä (ei käytössä)',14,'reserved'],
+        ['TANT','Työnantajatunnus',5,'numeric'],
+        ['VARA2','Varakenttä (ei käytössä)',4,'reserved'],
+        ['ID','Henkilötunnus',11,'id'],
+        ['VARA3','Varakenttä (ei käytössä)',37,'reserved'],
+        ['ATUN','Aineistotoimittajatunnus',2,'numeric'],
+        ['VARA4','Varakenttä (ei käytössä)',18,'reserved'],
+        ['HITU','Hinnoittelutunnus',8,'numeric'],
+        ['SALA','Sopimusala',2,'numeric'],
+        ['AMMA','Ammattinimikekoodi',8,'numeric'],
+        ['KOKOTIED','Viran luonne',1,'numeric'],
+        ['PLUO','Palvelussuhteen luonne',2,'numeric'],
+        ['PAIKA','Palvelusaika organisaatiossa',4,'numeric'],
+        ['TYAP','Työaikajärjestelmä',2,'numeric'],
+        ['VARA5','Varakenttä (ei käytössä)',1,'reserved'],
+        ['VKTA','Viikkotyöaika',4,'numeric'],
+        ['OSAPROS','Osa-aikaprosentti',4,'numeric'],
+        ['PSLAJI','Palvelussuhteen laji',1,'numeric'],
+        ['VARA6','Varakenttä (ei käytössä)',7,'reserved'],
+        ['TOYK','Toimipaikka',9,'numeric'],
+        ['VARA7','Varakenttä (ei käytössä)',5,'reserved'],
+        ['VARA8','Varakenttä (ei käytössä)',3,'reserved'],
+        ['VPLKM','Vuosisidonnaisten lisien lukumäärä',1,'numeric'],
+        ['VARA9','Varakenttä (ei käytössä)',37,'reserved'],
+        ['MPL','Opettajien maksupalkkaluokka',3,'numeric-optional'],
+        ['PALPI','Palkanpidätyksen syy',2,'numeric-optional'],
+        ['VARA10','Varakenttä (ei käytössä)',1,'reserved'],
+        ['LOMAPV','Lomapäivät',2,'numeric'],
+        ['VARA11','Varakenttä (ei käytössä)',13,'reserved'],
+        ['VPMJ','Palkan täysimääräisyys',1,'numeric'],
+        ['PERUS','Tehtäväkohtainen palkka',7,'numeric'],
+        ['KOKEM','Kokemuslisät',7,'numeric-optional'],
+        ['MVLIS','Määrävuosilisät',7,'numeric-optional'],
+        ['VARSIN','Sopimuksen mukainen varsinainen palkka',7,'numeric'],
+        ['VARA12','Varakenttä (ei käytössä)',6,'reserved'],
+    ];
+    const MONTHLY_VAR_DEFS = [
+        ['PTKOODI','Palkkatekijäkoodi',5,'numeric'],
+        ['PTEURO','Palkkatekijän raha-arvo',7,'numeric'],
+        ['PTTUN','Palkkatekijän tunnit',5,'numeric'],
+        ['PTMJ','Palkkatekijän maksujakso',1,'numeric'],
+    ];
+    const HOURLY_FIXED_DEFS = [
+        ['TANT','Työnantajatunnus',5,'numeric'],
+        ['VARA1','Varakenttä (ei käytössä)',7,'reserved'],
+        ['PLUO','Palvelussuhteen luonne',2,'numeric'],
+        ['PALRY','Palkkaryhmä',2,'numeric'],
+        ['KUNTA','Sijaintikunta',3,'numeric'],
+        ['ID','Henkilötunnus',11,'id'],
+        ['VARA2','Varakenttä (ei käytössä)',23,'reserved'],
+        ['VTULOS','Tulospalkkio',7,'numeric-optional'],
+        ['KOKOTIED','Koko/osa-aikatyö',1,'numeric'],
+        ['AMMA','Ammattinimikekoodi',5,'numeric'],
+        ['AITUN','Aikatyötunnit',5,'numeric-optional'],
+        ['AIANS','Aikatyöansio',7,'numeric-optional'],
+        ['VARA3','Varakenttä (ei käytössä)',1,'reserved'],
+        ['PERUST','Perustuntipalkka',4,'numeric-optional'],
+        ['LUONT','Luontoisedut',7,'numeric-optional'],
+        ['UTUN','Urakkatyötunnit',5,'numeric-optional'],
+        ['UANS','Urakkatyöansio',7,'numeric-optional'],
+        ['PAIKA','Palvelusaika organisaatiossa',4,'numeric'],
+        ['VARA4','Varakenttä (ei käytössä)',1,'reserved'],
+        ['KLIS','Kokemuslisien osuus',7,'numeric-optional'],
+        ['YLITUN','Ylityön tunnit',5,'numeric-optional'],
+        ['YLIKORV','Ylityön korvaus, e',7,'numeric-optional'],
+        ['LOMAPV','Lomapäivien lukumäärä',2,'numeric'],
+        ['VARA5','Varakenttä (ei käytössä)',1,'reserved'],
+        ['TYAP','Työaikajärjestelmä',2,'numeric'],
+        ['SKOR','Sunnuntaityökorv. säännöll. työajalta',7,'numeric-optional'],
+        ['ATUN','Aineistotoimittajatunnus',2,'numeric'],
+        ['HLIS','Henkilökohtaisen lisän osuus',7,'numeric-optional'],
+        ['MLIS','Olosuhdelisät ym. säännöll. työajalta, osuus',7,'numeric-optional'],
+        ['VSLI','Työaikalisät säännölliseltä työajalta, e',7,'numeric-optional'],
+        ['VYLI','Työaikalisät ylityöajalta, e',7,'numeric-optional'],
+        ['SYLI','Sunnuntaikorvaus ylityöajalta, e',7,'numeric-optional'],
+        ['TILJAKSO','Tilastointijakso (ppkkppkk)',8,'date'],
+        ['PALTUN','Palkallisen poissaolon tunnit',5,'numeric-optional'],
+        ['POLOANS','Palkallisen poissaolon ansio',7,'numeric-optional'],
+        ['VAROTUN','Varallaolotunnit',5,'numeric-optional'],
+        ['VAROPALK','Varallaolokorvaus',7,'numeric-optional'],
+        ['PALMUU','Muut ei-tehdyn työajan ansiot, e',7,'numeric-optional'],
+        ['VARA6','Varakenttä (ei käytössä)',5,'reserved'],
+        ['ERIK','Erikoispalkkio',7,'numeric-optional'],
+        ['VKTA','Viikkotyöaika',4,'numeric'],
+        ['TOYK','Toimipaikka',9,'numeric'],
+        ['VARA7','Varakenttä (ei käytössä)',5,'reserved'],
+        ['VARA8','Varakenttä (ei käytössä)',37,'reserved'],
+    ];
+
+    function withPositions(defs){
+        let pos = 1;
+        return defs.map(([code,name,len,kind])=>{
+            const start = pos, end = pos+len-1; pos += len;
+            return {code,name,len,kind,start,end};
+        });
+    }
+    const MONTHLY_FIXED = withPositions(MONTHLY_FIXED_DEFS);
+    const MONTHLY_VAR = withPositions(MONTHLY_VAR_DEFS);
+    const HOURLY_FIXED = withPositions(HOURLY_FIXED_DEFS);
+    const MONTHLY_FIXED_LEN = MONTHLY_FIXED.reduce((s,f)=>s+f.len,0); // 250
+    const MONTHLY_VAR_LEN = MONTHLY_VAR.reduce((s,f)=>s+f.len,0); // 18
+    const MONTHLY_MAX_BLOCKS = 14;
+    const HOURLY_LEN = HOURLY_FIXED.reduce((s,f)=>s+f.len,0); // 281
+
+    // ===== Spec reference tables =====
+    function renderSpecTable(el, defs, showPos){
+        const rows = defs.map(f=>`<tr class="${f.kind==='reserved'?'reserved':''}">
+            <td class="fcode">${f.code}</td><td>${f.name}</td><td>${f.len}</td><td class="fpos">${f.start}${f.start!==f.end?'–'+f.end:''}</td>
+        </tr>`).join('');
+        el.innerHTML = `<thead><tr><th>Muuttuja</th><th>Nimi</th><th>Pituus</th><th>Positio</th></tr></thead><tbody>${rows}</tbody>`;
+    }
+    renderSpecTable(document.getElementById('monthlyFixedSpecTable'), MONTHLY_FIXED);
+    renderSpecTable(document.getElementById('monthlyVarSpecTable'), MONTHLY_VAR);
+    renderSpecTable(document.getElementById('hourlySpecTable'), HOURLY_FIXED);
+
+    // ===== Validation helpers =====
+    const ID_RE = /^\d{6}[+\-A]\d{3}[0-9A-Z]$/i;
+    const DIGITS_RE = /^\d+$/;
+    const BLANK_RE = /^ *$/;
+
+    function validateFieldValue(field, rawValue, complete){
+        // complete = false if the field ran off the end of a too-short line
+        const issues = [];
+        if(!complete){
+            issues.push({level:'err', msg:`Kenttä katkeaa - rivi on liian lyhyt (puuttuu ${field.len - rawValue.length} merkkiä)`});
+            return issues;
+        }
+        if(field.kind==='reserved') return issues; // not validated
+        if(BLANK_RE.test(rawValue)){
+            if(field.kind==='numeric'){
+                issues.push({level:'err', msg:'Pakollinen kenttä on tyhjä'});
+            }
+            return issues; // optional/id/date blank is not flagged further
+        }
+        if(field.kind==='id'){
+            if(!ID_RE.test(rawValue.trim())){
+                issues.push({level:'warn', msg:'Henkilötunnus ei noudata odotettua muotoa (PPKKVV+NNNT)'});
+            }
+            if(rawValue !== rawValue.trim() || /\s/.test(rawValue.trim())){
+                issues.push({level:'warn', msg:'Kentässä on ylimääräisiä välilyöntejä'});
+            }
+            return issues;
+        }
+        if(field.kind==='date'){
+            if(!DIGITS_RE.test(rawValue)){
+                issues.push({level:'warn', msg:'Odotettiin 8 numeroa muodossa ppkkppkk'});
+            }
+            return issues;
+        }
+        // numeric / numeric-optional
+        if(!DIGITS_RE.test(rawValue)){
+            if(/\s/.test(rawValue) && rawValue.replace(/\s/g,'').length && DIGITS_RE.test(rawValue.replace(/\s/g,''))){
+                issues.push({level:'warn', msg:'Kentän sisällä on välilyöntejä numeroarvon joukossa'});
+            } else {
+                issues.push({level:'warn', msg:'Odotettiin pelkkää numeroarvoa, kenttä sisältää muita merkkejä'});
+            }
+        }
+        return issues;
+    }
+
+    function renderValueWithSpaces(container, value){
+        container.replaceChildren();
+        if(value === ''){ const em=document.createElement('span'); em.className='ws'; em.textContent='(tyhjä)'; container.appendChild(em); return; }
+        [...value].forEach(ch=>{
+            if(ch===' '){ const s=document.createElement('span'); s.className='ws'; s.textContent='·'; container.appendChild(s); }
+            else container.appendChild(document.createTextNode(ch));
+        });
+    }
+
+    function sliceField(line, field){
+        const start = field.start - 1, end = field.end; // end exclusive for substring
+        const complete = line.length >= field.end;
+        const raw = line.substring(start, Math.min(end, line.length));
+        return {raw, complete};
+    }
+
+    function parseLine(line, lineNo){
+        const len = line.length;
+        const result = {lineNo, len, issues:[], fields:[], recordType:null};
+
+        let recordType = recordTypeOverride;
+        if(recordType === 'auto'){
+            if(len === HOURLY_LEN) recordType = 'hourly';
+            else if(len >= MONTHLY_FIXED_LEN && (len - MONTHLY_FIXED_LEN) % MONTHLY_VAR_LEN === 0 && len <= MONTHLY_FIXED_LEN + MONTHLY_MAX_BLOCKS*MONTHLY_VAR_LEN){
+                recordType = 'monthly';
+            } else if(len < HOURLY_LEN && len < MONTHLY_FIXED_LEN){
+                // closer guess: whichever expected length is nearer
+                recordType = Math.abs(len-HOURLY_LEN) <= Math.abs(len-MONTHLY_FIXED_LEN) ? 'hourly' : 'monthly';
+            } else {
+                recordType = 'monthly';
+            }
+        }
+        result.recordType = recordType;
+
+        if(recordType === 'hourly'){
+            if(len !== HOURLY_LEN){
+                const diff = len - HOURLY_LEN;
+                result.issues.push({level:'err', msg:`Rivin pituus ${len} merkkiä, odotettiin tarkalleen ${HOURLY_LEN}. ${diff>0? 'Rivillä on '+diff+' ylimääräistä merkkiä.' : 'Riviltä puuttuu '+(-diff)+' merkkiä - todennäköisesti rivin lopun välilyönnit puuttuvat.'}`});
+            }
+            HOURLY_FIXED.forEach(field=>{
+                const {raw, complete} = sliceField(line, field);
+                const issues = validateFieldValue(field, raw, complete);
+                result.fields.push({field, raw, complete, issues});
+                issues.forEach(i=>result.issues.push({level:i.level, msg:`${field.code} (${field.name}): ${i.msg}`}));
+            });
+        } else {
+            // monthly
+            if(len < MONTHLY_FIXED_LEN){
+                result.issues.push({level:'err', msg:`Rivin pituus ${len} merkkiä, kiinteän osan pitää olla vähintään ${MONTHLY_FIXED_LEN} merkkiä. Riviltä puuttuu ${MONTHLY_FIXED_LEN-len} merkkiä - todennäköisesti rivin lopun välilyönnit puuttuvat.`});
+            } else if(len > MONTHLY_FIXED_LEN + MONTHLY_MAX_BLOCKS*MONTHLY_VAR_LEN){
+                result.issues.push({level:'err', msg:`Rivin pituus ${len} merkkiä ylittää maksimipituuden ${MONTHLY_FIXED_LEN + MONTHLY_MAX_BLOCKS*MONTHLY_VAR_LEN} merkkiä.`});
+            } else {
+                const remainder = (len - MONTHLY_FIXED_LEN) % MONTHLY_VAR_LEN;
+                if(remainder !== 0){
+                    result.issues.push({level:'err', msg:`Vaihtuvamittainen osa (${len-MONTHLY_FIXED_LEN} merkkiä) ei jakaudu tasan ${MONTHLY_VAR_LEN} merkin lohkoihin (${remainder} merkkiä yli/vaje) - todennäköisesti välilyöntejä puuttuu tai on ylimääräisiä.`});
+                }
+            }
+
+            MONTHLY_FIXED.forEach(field=>{
+                const {raw, complete} = sliceField(line, field);
+                const issues = validateFieldValue(field, raw, complete);
+                result.fields.push({field, raw, complete, issues});
+                issues.forEach(i=>result.issues.push({level:i.level, msg:`${field.code} (${field.name}): ${i.msg}`}));
+            });
+
+            const blockCount = Math.max(0, Math.floor((len - MONTHLY_FIXED_LEN) / MONTHLY_VAR_LEN));
+            for(let b=0;b<blockCount;b++){
+                const blockOffset = MONTHLY_FIXED_LEN + b*MONTHLY_VAR_LEN;
+                MONTHLY_VAR.forEach(defField=>{
+                    const field = {...defField, code:defField.code, start: blockOffset+defField.start, end: blockOffset+defField.end, blockIndex:b+1};
+                    const {raw, complete} = sliceField(line, field);
+                    const issues = validateFieldValue(field, raw, complete);
+                    result.fields.push({field, raw, complete, issues, isVarBlock:true});
+                    issues.forEach(i=>result.issues.push({level:i.level, msg:`${field.code} [lohko ${b+1}] (${field.name}): ${i.msg}`}));
+                });
+            }
+        }
+
+        result.errCount = result.issues.filter(i=>i.level==='err').length;
+        result.warnCount = result.issues.filter(i=>i.level==='warn').length;
+        result.status = result.errCount ? 'err' : (result.warnCount ? 'warn' : 'ok');
+        return result;
+    }
+
+    // ===== DOM refs =====
+    const reportType = document.getElementById('reportType');
+    const recordTypeSel = document.getElementById('recordType');
+    const rawText = document.getElementById('rawText');
+    const txtFile = document.getElementById('txtFile');
+    const fileMeta = document.getElementById('fileMeta');
+    const validateBtn = document.getElementById('validateBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const summaryCard = document.getElementById('summaryCard');
+    const typeChip = document.getElementById('typeChip');
+    const statTotal = document.getElementById('statTotal');
+    const statOk = document.getElementById('statOk');
+    const statWarn = document.getElementById('statWarn');
+    const statErr = document.getElementById('statErr');
+    const resultsCard = document.getElementById('resultsCard');
+    const resultsList = document.getElementById('resultsList');
+    const truncateNote = document.getElementById('truncateNote');
+
+    let recordTypeOverride = 'auto';
+    const RENDER_CAP = 800;
+
+    function buildFieldTable(lineResult){
+        const table = document.createElement('table');
+        table.className = 'field-table';
+        table.innerHTML = '<thead><tr><th>Muuttuja</th><th>Nimi</th><th>Positio</th><th>Arvo</th><th>Tila</th></tr></thead>';
+        const tbody = document.createElement('tbody');
+        lineResult.fields.forEach(({field, raw, complete, issues})=>{
+            const tr = document.createElement('tr');
+            const level = issues.some(i=>i.level==='err') ? 'f-err' : (issues.some(i=>i.level==='warn') ? 'f-warn' : '');
+            tr.className = [field.kind==='reserved'?'reserved':'', level].filter(Boolean).join(' ');
+
+            const tdCode = document.createElement('td'); tdCode.className='fcode';
+            tdCode.textContent = field.blockIndex ? `${field.code} [${field.blockIndex}]` : field.code;
+            const tdName = document.createElement('td'); tdName.textContent = field.name;
+            const tdPos = document.createElement('td'); tdPos.className='fpos';
+            tdPos.textContent = field.start + (field.start!==field.end ? '–'+field.end : '');
+            const tdVal = document.createElement('td');
+            const valSpan = document.createElement('span'); valSpan.className='fval';
+            renderValueWithSpaces(valSpan, raw);
+            tdVal.appendChild(valSpan);
+            const tdStatus = document.createElement('td');
+            if(!complete){ tdStatus.className='fstatus err'; tdStatus.textContent='katkeaa'; }
+            else if(issues.some(i=>i.level==='err')){ tdStatus.className='fstatus err'; tdStatus.textContent='virhe'; }
+            else if(issues.some(i=>i.level==='warn')){ tdStatus.className='fstatus warn'; tdStatus.textContent='varoitus'; }
+            else if(field.kind==='reserved'){ tdStatus.className='fstatus'; tdStatus.textContent='varattu'; }
+            else { tdStatus.className='fstatus ok'; tdStatus.textContent='ok'; }
+
+            tr.append(tdCode, tdName, tdPos, tdVal, tdStatus);
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        return table;
+    }
+
+    function renderResults(lines){
+        resultsList.replaceChildren();
+        let ok=0, warn=0, err=0;
+        const cap = Math.min(lines.length, RENDER_CAP);
+        for(let i=0;i<lines.length;i++){
+            const r = parseLine(lines[i], i+1);
+            if(r.status==='ok') ok++; else if(r.status==='warn') warn++; else err++;
+            if(i >= cap) continue;
+
+            const card = document.createElement('div');
+            card.className = 'line-card ' + r.status;
+
+            const details = document.createElement('details');
+            details.open = r.status !== 'ok';
+
+            const summary = document.createElement('summary');
+            const head = document.createElement('div');
+            head.className = 'line-head';
+            const left = document.createElement('div');
+            left.className = 'line-head-left';
+            const num = document.createElement('span'); num.className='line-num'; num.textContent = 'Rivi ' + r.lineNo;
+            const typeChipEl = document.createElement('span'); typeChipEl.className='chip'; typeChipEl.textContent = r.recordType==='hourly' ? 'Tuntipalkkaiset' : 'Kuukausipalkkaiset';
+            const lenChipEl = document.createElement('span'); lenChipEl.className='chip'; lenChipEl.textContent = r.len + ' merkkiä';
+            left.append(num, typeChipEl, lenChipEl);
+            const statusChip = document.createElement('span');
+            statusChip.className = 'chip' + (r.status==='err' ? ' err' : r.status==='warn' ? ' warn' : '');
+            statusChip.textContent = r.status==='ok' ? 'OK' : r.status==='warn' ? (r.warnCount+' varoitusta') : (r.errCount+' virhettä'+(r.warnCount?', '+r.warnCount+' varoitusta':''));
+            head.append(left, statusChip);
+            summary.appendChild(head);
+            details.appendChild(summary);
+
+            if(r.issues.length){
+                const ul = document.createElement('ul');
+                ul.className = 'issue-list';
+                r.issues.forEach(iss=>{
+                    const li = document.createElement('li');
+                    li.className = iss.level;
+                    li.textContent = (iss.level==='err' ? '✕ ' : '⚠ ') + iss.msg;
+                    ul.appendChild(li);
+                });
+                details.appendChild(ul);
+            }
+            details.appendChild(buildFieldTable(r));
+
+            card.appendChild(details);
+            resultsList.appendChild(card);
+        }
+
+        statTotal.textContent = lines.length;
+        statOk.textContent = ok;
+        statWarn.textContent = warn;
+        statErr.textContent = err;
+        summaryCard.style.display = 'block';
+        resultsCard.style.display = 'block';
+        typeChip.textContent = recordTypeOverride === 'auto' ? 'Tunnistus: automaattinen' : (recordTypeOverride==='hourly' ? 'Tuntipalkkaiset' : 'Kuukausipalkkaiset');
+
+        if(lines.length > cap){
+            truncateNote.style.display = 'block';
+            truncateNote.textContent = `Näytetään ensimmäiset ${cap} / ${lines.length} riviä (yhteenveto lasketaan kaikista riveistä).`;
+        } else {
+            truncateNote.style.display = 'none';
+        }
+    }
+
+    function splitLines(text){
+        if(!text) return [];
+        const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        let lines = normalized.split('\n');
+        if(lines.length && lines[lines.length-1] === '') lines.pop(); // drop trailing blank from final newline
+        return lines;
+    }
+
+    function runValidation(){
+        const text = rawText.value;
+        recordTypeOverride = recordTypeSel.value;
+        if(!text || !text.trim()){
+            showToast('Liitä tekstiä tai valitse tiedosto ensin.', true);
+            summaryCard.style.display = 'none';
+            resultsCard.style.display = 'none';
+            return;
+        }
+        const lines = splitLines(text);
+        if(!lines.length){
+            showToast('Ei rivejä validoitavaksi.', true);
+            return;
+        }
+        renderResults(lines);
+        LS.save('rv_rawText', text);
+        LS.save('rv_recordType', recordTypeOverride);
+        showToast('Validointi valmis: ' + lines.length + ' riviä.');
+    }
+
+    validateBtn.addEventListener('click', runValidation);
+    recordTypeSel.addEventListener('change', ()=>{ if(rawText.value.trim()) runValidation(); });
+
+    let debounceTimer = null;
+    rawText.addEventListener('input', ()=>{
+        LS.save('rv_rawText', rawText.value);
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(()=>{ if(rawText.value.trim()) runValidation(); }, 500);
+    });
+
+    txtFile.addEventListener('change', (e)=>{
+        const f = e.target.files[0];
+        if(!f) return;
+        if(!/\.txt$/i.test(f.name)){
+            showToast('Tiedoston tulisi olla .txt', true);
+        }
+        const reader = new FileReader();
+        reader.onload = ()=>{
+            rawText.value = reader.result;
+            fileMeta.textContent = f.name + ' (' + f.size + ' tavua)';
+            LS.save('rv_rawText', rawText.value);
+            runValidation();
+        };
+        reader.onerror = ()=> showToast('Tiedoston lukeminen epäonnistui.', true);
+        reader.readAsText(f);
+    });
+
+    clearBtn.addEventListener('click', ()=>{
+        rawText.value = '';
+        txtFile.value = '';
+        fileMeta.textContent = '';
+        summaryCard.style.display = 'none';
+        resultsCard.style.display = 'none';
+        resultsList.replaceChildren();
+        recordTypeSel.value = 'auto';
+        recordTypeOverride = 'auto';
+        LS.remove('rv_rawText', 'rv_recordType');
+        showToast('Tyhjennetty.');
+    });
+
+    // Restore session
+    (function restore(){
+        const savedText = LS.load('rv_rawText');
+        const savedType = LS.load('rv_recordType');
+        if(savedType){ recordTypeSel.value = savedType; recordTypeOverride = savedType; }
+        if(savedText){ rawText.value = savedText; runValidation(); }
+    })();
+</script>
+
+<rk-footer></rk-footer>
+</body>
+</html>
