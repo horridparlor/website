@@ -335,10 +335,10 @@
         }
         if(field.kind==='reserved') return issues; // not validated
         if(BLANK_RE.test(rawValue)){
-            if(field.kind==='numeric'){
+            if(field.code==='TP'){
                 issues.push({level:'err', msg:'Pakollinen kenttä on tyhjä'});
             }
-            return issues; // optional/id/date blank is not flagged further
+            return issues; // other fields may be blank as long as the width matches, which sliceField already guarantees
         }
         if(field.kind==='id'){
             if(!ID_RE.test(rawValue.trim())){
@@ -368,12 +368,27 @@
 
     function renderValueWithSpaces(container, value){
         container.replaceChildren();
+        container.dataset.raw = value;
         if(value === ''){ const em=document.createElement('span'); em.className='ws'; em.textContent='(tyhjä)'; container.appendChild(em); return; }
         [...value].forEach(ch=>{
             if(ch===' '){ const s=document.createElement('span'); s.className='ws'; s.textContent='·'; container.appendChild(s); }
             else container.appendChild(document.createTextNode(ch));
         });
     }
+
+    // Copying a value should yield the exact raw characters (real spaces), not the visual '·' placeholder.
+    document.addEventListener('copy', (e)=>{
+        const sel = window.getSelection();
+        if(!sel || sel.rangeCount===0 || sel.isCollapsed) return;
+        const range = sel.getRangeAt(0);
+        let node = range.commonAncestorContainer;
+        if(node.nodeType===3) node = node.parentElement;
+        const fvalEl = node && node.closest ? node.closest('.fval') : null;
+        if(fvalEl && fvalEl.contains(range.startContainer) && fvalEl.contains(range.endContainer)){
+            e.clipboardData.setData('text/plain', fvalEl.dataset.raw ?? fvalEl.textContent);
+            e.preventDefault();
+        }
+    });
 
     function sliceField(line, field){
         const start = field.start - 1, end = field.end; // end exclusive for substring
