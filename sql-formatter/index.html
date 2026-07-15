@@ -466,9 +466,17 @@ function formatSelect(sql) {
 }
 
 function formatInsert(sql) {
-  return sql
-    .replace(/\bINSERT\s+INTO\s+/gi, 'INSERT INTO ')
-    .replace(/\s+VALUES\b/gi, '\nVALUES');
+  sql = sql.replace(/\bINSERT\s+INTO\s+/gi, 'INSERT INTO ');
+  const valuesIdx = sql.search(/\bVALUES\b/i);
+  if (valuesIdx === -1) return sql;
+
+  const header = sql.slice(0, valuesIdx).trim();
+  const valuesPart = sql.slice(valuesIdx).replace(/^VALUES\s*/i, '').trim();
+  const tuples = splitAtDepthZero(valuesPart);
+
+  if (tuples.length <= 1) return header + '\nVALUES ' + valuesPart;
+
+  return header + '\nVALUES\n' + tuples.map(t => '    ' + t).join(',\n');
 }
 
 function formatUpdate(sql) {
@@ -541,8 +549,61 @@ function splitBySemicolon(input) {
 
 function parseInput(input) {
   const trimmed = input.trim();
-  if (trimmed.includes('->addSql(')) return extractFromMigration(trimmed);
-  return splitBySemicolon(trimmed);
+  const stmts = trimmed.includes('->addSql(')
+    ? extractFromMigration(trimmed)
+    : splitBySemicolon(trimmed);
+  return mergeConsecutiveInserts(stmts);
+}
+
+// ── Combine consecutive INSERTs into one multi-row INSERT ─────────────────
+function parseInsertStatement(sql) {
+  const trimmed = sql.trim().replace(/\s+/g, ' ');
+  const head = /^INSERT\s+INTO\s+(\S+)\s*/i.exec(trimmed);
+  if (!head) return null;
+
+  const rest = trimmed.slice(head[0].length);
+  if (rest[0] !== '(') return null;
+  const closeIdx = findMatchingParen(rest, 0);
+  if (closeIdx === -1) return null;
+
+  const columns = rest.slice(1, closeIdx).trim();
+  const afterCols = rest.slice(closeIdx + 1).trim();
+  const valuesMatch = /^VALUES\s*/i.exec(afterCols);
+  if (!valuesMatch) return null;
+
+  const tuples = splitAtDepthZero(afterCols.slice(valuesMatch[0].length).trim());
+  if (tuples.length === 0) return null;
+
+  return {
+    table: head[1],
+    columns,
+    tuples,
+    key: head[1].toLowerCase() + '|' + columns.replace(/\s+/g, '').toLowerCase(),
+  };
+}
+
+function mergeConsecutiveInserts(stmts) {
+  const result = [];
+  let i = 0;
+  while (i < stmts.length) {
+    const parsed = parseInsertStatement(stmts[i]);
+    if (!parsed) { result.push(stmts[i]); i++; continue; }
+
+    const tuples = parsed.tuples.slice();
+    let j = i + 1;
+    while (j < stmts.length) {
+      const next = parseInsertStatement(stmts[j]);
+      if (!next || next.key !== parsed.key) break;
+      tuples.push(...next.tuples);
+      j++;
+    }
+
+    result.push(j > i + 1
+      ? `INSERT INTO ${parsed.table} (${parsed.columns}) VALUES ${tuples.join(', ')}`
+      : stmts[i]);
+    i = j;
+  }
+  return result;
 }
 
 // ── Summary label for collapsible header ──────────────────────────────────
@@ -560,7 +621,11 @@ function getSummaryLabel(raw) {
   }
   if (up.startsWith('INSERT INTO')) {
     const m = s.match(/INSERT\s+INTO\s+(\S+)/i);
-    return m ? 'INSERT INTO ' + m[1] : 'INSERT';
+    const label = m ? 'INSERT INTO ' + m[1] : 'INSERT';
+    const valuesIdx = s.search(/\bVALUES\b/i);
+    if (valuesIdx === -1) return label;
+    const tuples = splitAtDepthZero(s.slice(valuesIdx).replace(/^VALUES\s*/i, ''));
+    return tuples.length > 1 ? `${label} — ${tuples.length} rows` : label;
   }
   if (up.startsWith('UPDATE')) {
     const m = s.match(/UPDATE\s+(\S+)/i);
