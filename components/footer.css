@@ -5,8 +5,9 @@
 rk-footer,
 .site-footer {
   display: block;
-  width: 100vw;
-  margin: 28px calc(50% - 50vw) 0;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 28px 0 0;
   padding: 18px 20px;
   text-align: center;
   color: #cad4e0;
