@@ -28,7 +28,7 @@ function listPublic(Database $database): string
         $sql .= ' JOIN poem_tag_link l ON l.poemId = p.id AND l.tagId = :tagId';
         $replacements['tagId'] = ['value' => $tagId, 'type' => \PDO::PARAM_INT];
     }
-    $sql .= ' WHERE p.isDeleted = 0 AND p.isPublished = 1 ORDER BY p.sortOrder ASC, p.writtenDate ASC';
+    $sql .= ' WHERE p.isDeleted = 0 AND p.isPublished = 1 ORDER BY p.writtenDate DESC';
 
     $poems = $database->query($sql, $replacements);
 

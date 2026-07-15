@@ -75,12 +75,14 @@
       </div>
       <button class="btn-primary" type="submit" id="submit-btn">Create Account</button>
     </form>
-    <div class="alt-link">Already have an account? <a href="/is-back/profile/">Sign in</a></div>
+    <div class="alt-link">Already have an account? <a href="/is-back/profile/" id="signin-link">Sign in</a></div>
   </div>
 </div>
 <script>
   const form = document.getElementById('reg-form');
   const globalMsg = document.getElementById('global-msg');
+  const redirectTo = new URLSearchParams(location.search).get('redirect');
+  if (redirectTo) document.getElementById('signin-link').href = '/is-back/profile/?redirect=' + encodeURIComponent(redirectTo);
 
   const setError = (id, msg) => {
     const el = document.getElementById('err-' + id);
@@ -142,7 +144,7 @@
       localStorage.setItem('username', body.username);
       localStorage.setItem('firstname', body.firstname);
       globalMsg.innerHTML = `<div class="global-success">Account created! Redirecting…</div>`;
-      setTimeout(() => location.href = '/is-back/profile/', 800);
+      setTimeout(() => location.href = redirectTo || '/is-back/profile/', 800);
     } catch {
       globalMsg.innerHTML = `<div class="global-error">Network error. Please try again.</div>`;
     } finally {
