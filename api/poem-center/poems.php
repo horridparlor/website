@@ -39,7 +39,11 @@ function listPoems(Database $database): string
         $replacements['q'] = ['value' => '%' . $q . '%', 'type' => \PDO::PARAM_STR];
     }
 
-    $sql .= ' ORDER BY p.sortOrder ASC, p.updatedAt DESC';
+    if ($hasBookId && $bookId) {
+        $sql .= ' ORDER BY p.sortOrder ASC, p.updatedAt DESC';
+    } else {
+        $sql .= ' ORDER BY p.writtenDate DESC, p.id DESC';
+    }
 
     $poems = $database->query($sql, $replacements);
 
