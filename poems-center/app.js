@@ -935,7 +935,7 @@
     el.statsContent.innerHTML = `
       <div class="pc-stats-grid">
         <div class="pc-stat-tile"><div class="pc-stat-value">${s.totalPoems}</div><div class="pc-stat-label">Poems</div></div>
-        <div class="pc-stat-tile"><div class="pc-stat-value">${s.uniqueWords}</div><div class="pc-stat-label">Words</div></div>
+        <div class="pc-stat-tile"><div class="pc-stat-value">${s.uniqueWords}</div><div class="pc-stat-label">Unique Words</div></div>
         <div class="pc-stat-tile"><div class="pc-stat-value">${s.avgWordsPerPoem}</div><div class="pc-stat-label">Avg Words</div></div>
         <div class="pc-stat-tile"><div class="pc-stat-value">${s.avgVersesPerPoem}</div><div class="pc-stat-label">Avg Verses</div></div>
       </div>
