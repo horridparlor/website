@@ -655,6 +655,9 @@
     showToast('Poem saved');
     const scrollY = window.scrollY;
     state.currentPoem = res.data.poem;
+    const lineCount = content.split(/\r?\n/).filter(l => l.trim() !== '').length;
+    state.collapsed.preview = true;
+    state.collapsed.content = lineCount > 10;
     renderEditor();
     await loadPoems();
     window.scrollTo(0, scrollY);
