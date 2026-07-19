@@ -363,7 +363,8 @@
       .map(l => l.trim())
       .filter(t => t !== '' && !/^\[[^\]]*\]$/.test(t));
     const snippet = lines.slice(0, 4).join(' // ');
-    return lines.length > 4 ? snippet + '…' : snippet;
+    const alreadyEllipsized = /(…|\.\.\.)$/.test(snippet);
+    return lines.length > 4 && !alreadyEllipsized ? snippet + '…' : snippet;
   }
 
   function renderPoemList() {
