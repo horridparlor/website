@@ -32,6 +32,7 @@ function getStats(Database $database): string
     $totalPoems = sizeof($poems);
     $totalWords = 0;
     $totalVerses = 0;
+    $poemsWithTaggedVerses = 0;
     $uniqueWords = [];
     $wordCounts = [];
     $perMonth = [];
@@ -42,10 +43,17 @@ function getStats(Database $database): string
         $lines = array_filter($lines, fn($l) => trim($l) !== '');
 
         // A line like "[Verse]" or "[Verse 2]" marks the start of a verse section.
+        // Many poems never tag their verses at all, so a poem with zero tags isn't
+        // really "0 verses" — it's missing data, and shouldn't drag the average down.
+        $versesInPoem = 0;
         foreach ($lines as $line) {
             if (preg_match('/^\[\s*verse\b[^\]]*\]\s*$/i', trim($line))) {
-                $totalVerses++;
+                $versesInPoem++;
             }
+        }
+        if ($versesInPoem > 0) {
+            $totalVerses += $versesInPoem;
+            $poemsWithTaggedVerses++;
         }
 
         // Strip structure tags like [Intro]/[Verse]/[Chorus] before tokenizing — they're
@@ -92,7 +100,7 @@ function getStats(Database $database): string
         'totalPoems' => $totalPoems,
         'uniqueWords' => sizeof($uniqueWords),
         'avgWordsPerPoem' => $totalPoems ? round($totalWords / $totalPoems, 1) : 0,
-        'avgVersesPerPoem' => $totalPoems ? round($totalVerses / $totalPoems, 1) : 0,
+        'avgVersesPerPoem' => $poemsWithTaggedVerses ? round($totalVerses / $poemsWithTaggedVerses, 1) : 0,
         'poemsPerMonth' => $poemsPerMonth,
         'topWords' => $topWords,
     ]);
