@@ -45,6 +45,7 @@
     poemBookFilter: document.getElementById('poem-book-filter'),
     poemSearch: document.getElementById('poem-search'),
     btnNewPoem: document.getElementById('btn-new-poem'),
+    btnExportPoems: document.getElementById('btn-export-poems'),
     poemList: document.getElementById('poem-list'),
     poemEditor: document.getElementById('poem-editor'),
     newBookTitle: document.getElementById('new-book-title'),
@@ -61,12 +62,13 @@
   const state = {
     books: [],
     tags: [],
+    languages: [],
     poems: [],
     currentPoem: null,
     selectedTagIds: new Set(),
     expandedBookId: null,
     view: 'poems',
-    collapsed: { preview: false, content: false },
+    collapsed: { preview: true, content: false },
   };
 
   const showToast = (msg, isError) => {
@@ -84,6 +86,9 @@
     state.view = view;
     Object.entries(el.tabs).forEach(([k, btn]) => btn.classList.toggle('active', k === view));
     Object.entries(el.views).forEach(([k, sec]) => sec.style.display = k === view ? '' : 'none');
+    const url = new URL(location.href);
+    if (view === 'poems') url.searchParams.delete('view'); else url.searchParams.set('view', view);
+    history.replaceState({}, '', url);
     if (view === 'poems') loadPoems();
     if (view === 'books') loadBooks();
     if (view === 'tags') loadTags();
@@ -101,6 +106,13 @@
     if (res.ok) state.tags = res.data.tags || [];
   }
 
+  // ── Languages (shared) ───────────────────────────────────────────────
+  async function ensureLanguagesLoaded() {
+    if (state.languages.length) return;
+    const res = await api('GET', 'languages');
+    if (res.ok) state.languages = res.data.languages || [];
+  }
+
   async function loadTags() {
     const res = await api('GET', 'tags');
     if (!res.ok) { showToast('Failed to load tags', true); return; }
@@ -116,8 +128,8 @@
     el.tagList.innerHTML = state.tags.map(t => `
       <div class="pc-card" data-tag-id="${t.id}" style="cursor:default;">
         <div class="pc-card-title" style="display:flex;align-items:center;gap:0.5rem;">
-          <span class="dot" style="width:0.9rem;height:0.9rem;border-radius:50%;background:${escapeHtml(t.color || '#00ffcc')};display:inline-block;"></span>
-          ${escapeHtml(t.name)}
+          <span class="dot" style="width:0.9rem;height:0.9rem;border-radius:50%;background:${escapeHtml(t.color || '#00ffcc')};display:inline-block;flex:0 0 auto;"></span>
+          <input type="text" class="tag-name-input" value="${escapeHtml(t.name)}" data-id="${t.id}" style="flex:1;min-width:0;background:#1a1a1a;color:#fff;border:1px solid #333;border-radius:6px;padding:0.3rem 0.5rem;font-size:0.95rem;font-family:inherit;" />
         </div>
         <div class="pc-card-meta">
           <span>${t.poemCount} poem${t.poemCount === 1 ? '' : 's'}</span>
@@ -126,6 +138,16 @@
         </div>
       </div>
     `).join('');
+
+    el.tagList.querySelectorAll('.tag-name-input').forEach(input => {
+      input.addEventListener('click', (e) => e.stopPropagation());
+      input.addEventListener('change', async () => {
+        const name = input.value.trim();
+        if (!name) { showToast('Tag name cannot be empty', true); loadTags(); return; }
+        const res = await api('PUT', 'tags', { id: Number(input.dataset.id), name });
+        if (res.ok) { showToast('Tag updated'); loadTags(); } else showToast((res.data && res.data.error) || 'Failed to update tag', true);
+      });
+    });
 
     el.tagList.querySelectorAll('.tag-color-input').forEach(input => {
       input.addEventListener('change', async () => {
@@ -282,6 +304,21 @@
   });
   el.poemBookFilter.addEventListener('change', loadPoems);
   el.btnNewPoem.addEventListener('click', () => openEditor(null));
+  el.btnExportPoems.addEventListener('click', () => {
+    if (state.currentPoem && state.currentPoem.id) {
+      exportPoemPDF(currentEditorPoem());
+      return;
+    }
+    if (!state.poems.length) return showToast('No poems to export', true);
+    let title = 'All Poems';
+    const bookVal = el.poemBookFilter.value;
+    if (bookVal === '0') title = 'Unsorted Poems';
+    else if (bookVal !== '') {
+      const book = state.books.find(b => String(b.id) === bookVal);
+      if (book) title = book.title;
+    }
+    exportBookPDF({ title, description: null }, state.poems);
+  });
 
   async function loadPoems() {
     const params = { q: el.poemSearch.value.trim() || undefined };
@@ -293,8 +330,11 @@
   }
 
   function poemSnippet(content) {
-    const line = (content || '').split(/\r?\n/).find(l => l.trim() !== '') || '';
-    return line.length > 60 ? line.slice(0, 60) + '…' : line;
+    const lines = (content || '').split(/\r?\n/)
+      .map(l => l.trim())
+      .filter(t => t !== '' && !/^\[[^\]]*\]$/.test(t));
+    const snippet = lines.slice(0, 4).join(' // ');
+    return lines.length > 4 ? snippet + '…' : snippet;
   }
 
   function renderPoemList() {
@@ -311,14 +351,31 @@
           ${p.isPublished ? '<span class="pc-badge published">Published</span>' : ''}
           ${p.originalPoemId ? '<span class="pc-badge variant">Variant</span>' : ''}
           ${(p.tags || []).map(t => `<span class="pc-tag-chip" style="color:${escapeHtml(t.color || '#00ffcc')};background:${escapeHtml(t.color || '#00ffcc')}22;">${escapeHtml(t.name)}</span>`).join('')}
+          ${p.languageName ? `<span class="pc-tag-chip">${escapeHtml(p.languageName)}</span>` : ''}
         </div>
         <div class="pc-card-meta" style="color:#777;font-style:italic;">${escapeHtml(poemSnippet(p.content))}</div>
       </div>
     `).join('');
 
     el.poemList.querySelectorAll('.pc-card').forEach(card => {
-      card.addEventListener('click', () => openEditorById(Number(card.dataset.poemId)));
+      card.addEventListener('click', () => {
+        const id = Number(card.dataset.poemId);
+        if (state.currentPoem && state.currentPoem.id === id) {
+          state.currentPoem = null;
+          el.poemEditor.innerHTML = '';
+          renderPoemList();
+          return;
+        }
+        openEditorById(id);
+      });
     });
+
+    updateExportButtonState();
+  }
+
+  function updateExportButtonState() {
+    const hasOpen = !!(state.currentPoem && state.currentPoem.id);
+    el.btnExportPoems.querySelector('.pc-export-label').textContent = hasOpen ? 'Export poem as PDF' : 'Export all as PDF';
   }
 
   // ── Editor ───────────────────────────────────────────────────────────
@@ -330,8 +387,11 @@
 
   async function openEditor(poem) {
     await ensureTagsLoaded();
+    await ensureLanguagesLoaded();
     state.currentPoem = poem;
     state.selectedTagIds = new Set((poem && poem.tags || []).map(t => t.id));
+    const lineCount = ((poem && poem.content) || '').split(/\r?\n/).filter(l => l.trim() !== '').length;
+    state.collapsed.content = lineCount > 10;
     renderEditor();
     renderPoemList();
     el.poemEditor.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -339,9 +399,10 @@
 
   function renderEditor() {
     const p = state.currentPoem || {
-      id: null, title: '', author: 'Eero Laine', content: '', bookId: null,
+      id: null, title: '', author: 'Eero Laine', content: '', bookId: null, languageId: null,
       writtenDate: todayStr(), geniusUrl: null, isPublished: false, originalPoemId: null, originalTitle: null, historyCount: 0,
     };
+    const defaultLanguageId = p.languageId || (state.languages.find(l => l.code === 'fi') || {}).id || null;
 
     el.poemEditor.innerHTML = `
       <div class="pc-editor">
@@ -377,6 +438,12 @@
         </div>
 
         <div class="pc-editor-grid two">
+          <div class="pc-editor-row">
+            <label>Language</label>
+            <select id="ed-language">
+              ${state.languages.map(l => `<option value="${l.id}" ${defaultLanguageId === l.id ? 'selected' : ''}>${escapeHtml(l.name)}</option>`).join('')}
+            </select>
+          </div>
           <div class="pc-editor-row">
             <label>Genius Lyrics URL</label>
             <div class="pc-inline-field">
@@ -566,6 +633,7 @@
     const author = document.getElementById('ed-author').value.trim() || 'Eero Laine';
     const content = document.getElementById('ed-content').value;
     const bookVal = document.getElementById('ed-book').value;
+    const languageVal = document.getElementById('ed-language').value;
     const writtenDate = document.getElementById('ed-written-date').value;
     const geniusUrl = document.getElementById('ed-genius-url').value.trim();
     if (!title) return showToast('Title required', true);
@@ -574,6 +642,7 @@
     const payload = {
       title, author, content, writtenDate, geniusUrl,
       bookId: bookVal === '' ? 0 : Number(bookVal),
+      languageId: languageVal ? Number(languageVal) : 0,
       tagIds: Array.from(state.selectedTagIds),
     };
 
@@ -617,6 +686,27 @@
     loadPoems();
   }
 
+  // Positional line diff — same approach as /find-difference's text fallback mode.
+  function diffTextLines(a, b) {
+    const out = [];
+    const max = Math.max(a.length, b.length);
+    for (let i = 0; i < max; i++) {
+      if (i >= a.length) out.push({ kind: 'added', b: b[i] });
+      else if (i >= b.length) out.push({ kind: 'removed', a: a[i] });
+      else if (a[i] !== b[i]) out.push({ kind: 'changed', a: a[i], b: b[i] });
+    }
+    return out;
+  }
+
+  function renderDiffHtml(diffs) {
+    if (!diffs.length) return '<div class="pc-empty">No differences from the current version.</div>';
+    return `<div class="pc-diff-list">${diffs.map(d => {
+      if (d.kind === 'added') return `<div class="pc-diff-row added"><span class="pc-diff-badge">+</span><span class="pc-diff-text">${escapeHtml(d.b)}</span></div>`;
+      if (d.kind === 'removed') return `<div class="pc-diff-row removed"><span class="pc-diff-badge">−</span><span class="pc-diff-text">${escapeHtml(d.a)}</span></div>`;
+      return `<div class="pc-diff-row changed"><span class="pc-diff-badge">±</span><span class="pc-diff-text"><span class="pc-diff-old">${escapeHtml(d.a)}</span> → <span class="pc-diff-new">${escapeHtml(d.b)}</span></span></div>`;
+    }).join('')}</div>`;
+  }
+
   async function toggleHistory(poemId) {
     const panel = document.getElementById('history-panel');
     if (panel.style.display !== 'none' && panel.dataset.loaded === 'true') {
@@ -633,16 +723,62 @@
       <div class="pc-section-title">Version History</div>
       ${history.length ? `<div class="pc-history-list">${history.map(h => `
         <div class="pc-history-item" data-history-id="${h.id}">
-          <div class="meta">${fmtDate(h.snapshotAt)} — "${escapeHtml(h.title)}"</div>
-          <button class="button secondary restore-btn" type="button">Restore</button>
+          <div class="pc-history-row">
+            <div class="meta">${fmtDate(h.snapshotAt)} — "${escapeHtml(h.title)}"</div>
+            <div class="pc-history-actions">
+              <button class="button secondary preview-btn" type="button">Preview</button>
+              <button class="button secondary changes-btn" type="button">Changes</button>
+              <button class="button secondary restore-btn" type="button">Restore</button>
+            </div>
+          </div>
+          <div class="pc-history-detail" style="display:none;"></div>
         </div>
       `).join('')}</div>` : '<div class="pc-empty">No history yet — history is only saved when you edit a poem more than an hour after its last edit.</div>'}
     `;
-    panel.querySelectorAll('.restore-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const historyId = Number(btn.closest('[data-history-id]').dataset.historyId);
+
+    history.forEach(h => {
+      const item = panel.querySelector(`[data-history-id="${h.id}"]`);
+      const detail = item.querySelector('.pc-history-detail');
+
+      item.querySelector('.preview-btn').addEventListener('click', () => {
+        if (detail.dataset.mode === 'preview' && detail.style.display !== 'none') {
+          detail.style.display = 'none';
+          detail.dataset.mode = '';
+          return;
+        }
+        detail.dataset.mode = 'preview';
+        detail.style.display = '';
+        detail.innerHTML = `
+          <div class="pc-preview-wrap">
+            <div class="poem-preview-title">${escapeHtml(h.title)}</div>
+            <div class="poem-preview-author">${escapeHtml(h.author)}</div>
+            <div class="poem-preview" id="hist-preview-${h.id}"></div>
+          </div>
+        `;
+        const box = document.getElementById(`hist-preview-${h.id}`);
+        renderPoemLines(box, h.content);
+        fitPoemText(box, { min: 14, max: 32 });
+      });
+
+      item.querySelector('.changes-btn').addEventListener('click', () => {
+        if (detail.dataset.mode === 'changes' && detail.style.display !== 'none') {
+          detail.style.display = 'none';
+          detail.dataset.mode = '';
+          return;
+        }
+        detail.dataset.mode = 'changes';
+        detail.style.display = '';
+        const current = state.currentPoem || {};
+        const diffs = diffTextLines(
+          (h.content || '').split(/\r?\n/),
+          (current.content || '').split(/\r?\n/)
+        );
+        detail.innerHTML = renderDiffHtml(diffs);
+      });
+
+      item.querySelector('.restore-btn').addEventListener('click', async () => {
         if (!confirm('Restore this version? The current content will be saved to history first.')) return;
-        const r = await api('POST', 'history', { action: 'restore', historyId });
+        const r = await api('POST', 'history', { action: 'restore', historyId: h.id });
         if (!r.ok) return showToast('Failed to restore', true);
         showToast('Version restored');
         await openEditor(r.data.poem);
@@ -765,8 +901,8 @@
       <div class="pc-stats-grid">
         <div class="pc-stat-tile"><div class="pc-stat-value">${s.totalPoems}</div><div class="pc-stat-label">Poems</div></div>
         <div class="pc-stat-tile"><div class="pc-stat-value">${s.uniqueWords}</div><div class="pc-stat-label">Words</div></div>
-        <div class="pc-stat-tile"><div class="pc-stat-value">${s.avgWordsPerPoem}</div><div class="pc-stat-label">Avg Words / Poem</div></div>
-        <div class="pc-stat-tile"><div class="pc-stat-value">${s.avgVersesPerPoem}</div><div class="pc-stat-label">Avg Verses / Poem</div></div>
+        <div class="pc-stat-tile"><div class="pc-stat-value">${s.avgWordsPerPoem}</div><div class="pc-stat-label">Avg Words</div></div>
+        <div class="pc-stat-tile"><div class="pc-stat-value">${s.avgVersesPerPoem}</div><div class="pc-stat-label">Avg Verses</div></div>
       </div>
 
       <div class="pc-section-title">Poems Per Month</div>
@@ -795,5 +931,9 @@
     state.poems = res.data.poems || [];
     renderPoemList();
     await loadBooks();
+
+    const qs = new URLSearchParams(location.search);
+    const initialView = qs.get('view');
+    if (initialView && el.views[initialView]) switchTab(initialView);
   })();
 })();

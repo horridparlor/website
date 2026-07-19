@@ -10,6 +10,8 @@
     start: document.getElementById('f-start'),
     end: document.getElementById('f-end'),
     tag: document.getElementById('f-tag'),
+    language: document.getElementById('f-language'),
+    contentType: document.getElementById('f-content-type'),
     filterCount: document.getElementById('filter-count'),
     clear: document.getElementById('clear-filters'),
     content: document.getElementById('content'),
@@ -18,7 +20,16 @@
   let rawBooks = [];
   let rawPoems = [];
   let allTags = [];
+  let allLanguages = [];
   const poemsById = new Map();
+
+  const qs = new URLSearchParams(location.search);
+  el.name.value = qs.get('name') || '';
+  el.start.value = qs.get('start') || '';
+  el.end.value = qs.get('end') || '';
+  el.contentType.value = qs.get('contentType') || 'single';
+  let pendingTagFromURL = qs.get('tag') || '';
+  let pendingLanguageFromURL = qs.get('language') || '';
 
   // ── Filter toggle ────────────────────────────────────────────────────
   el.filterToggleBtn.addEventListener('click', () => {
@@ -34,11 +45,30 @@
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }
 
+  function collectLanguages() {
+    const map = new Map();
+    const add = (p) => { if (p.languageId) map.set(p.languageId, p.languageName || p.languageCode); };
+    rawPoems.forEach(add);
+    rawBooks.forEach(b => (b.poems || []).forEach(add));
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
   function renderTagFilterList() {
-    const current = el.tag.value;
+    const current = el.tag.value || pendingTagFromURL;
     el.tag.innerHTML = '<option value="">Any</option>' +
       allTags.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
     if (allTags.some(t => String(t.id) === current)) el.tag.value = current;
+    pendingTagFromURL = '';
+  }
+
+  function renderLanguageFilterList() {
+    const current = el.language.value || pendingLanguageFromURL;
+    el.language.innerHTML = '<option value="">Any</option>' +
+      allLanguages.map(l => `<option value="${l.id}">${escapeHtml(l.name)}</option>`).join('');
+    if (allLanguages.some(l => String(l.id) === current)) el.language.value = current;
+    pendingLanguageFromURL = '';
   }
 
   // ── Filtering ────────────────────────────────────────────────────────
@@ -48,6 +78,8 @@
     if (el.start.value) n++;
     if (el.end.value) n++;
     if (el.tag.value) n++;
+    if (el.language.value) n++;
+    if (el.contentType.value !== 'single') n++;
     return n;
   };
 
@@ -65,19 +97,39 @@
     if (el.start.value && (!p.writtenDate || p.writtenDate < el.start.value)) return false;
     if (el.end.value && (!p.writtenDate || p.writtenDate > el.end.value)) return false;
     if (el.tag.value && !(p.tags || []).some(t => String(t.id) === el.tag.value)) return false;
+    if (el.language.value && String(p.languageId) !== el.language.value) return false;
     return true;
   }
 
+  function controlsToURL() {
+    const url = new URL(location.href);
+    const setOrDelete = (key, value) => {
+      if (value) url.searchParams.set(key, value); else url.searchParams.delete(key);
+    };
+    setOrDelete('name', el.name.value.trim());
+    setOrDelete('start', el.start.value);
+    setOrDelete('end', el.end.value);
+    setOrDelete('tag', el.tag.value);
+    setOrDelete('language', el.language.value);
+    setOrDelete('contentType', el.contentType.value === 'single' ? '' : el.contentType.value);
+    history.replaceState({}, '', url);
+  }
+
   [el.name, el.start, el.end].forEach(ctrl => {
-    ctrl.addEventListener('input', applyFilters);
+    ctrl.addEventListener('input', () => { controlsToURL(); applyFilters(); });
   });
-  el.tag.addEventListener('change', applyFilters);
+  [el.tag, el.language, el.contentType].forEach(ctrl => {
+    ctrl.addEventListener('change', () => { controlsToURL(); applyFilters(); });
+  });
 
   el.clear.addEventListener('click', () => {
     el.name.value = '';
     el.start.value = '';
     el.end.value = '';
     el.tag.value = '';
+    el.language.value = '';
+    el.contentType.value = 'single';
+    controlsToURL();
     applyFilters();
   });
 
@@ -93,7 +145,7 @@
         <div class="pw-poem-title">${escapeHtml(p.title)}</div>
         <div class="pw-poem-author">${escapeHtml(p.author)}</div>
         <div class="pw-poem-collapsible">
-          ${p.writtenDate ? `<div class="pw-poem-date">${escapeHtml(p.writtenDate)}</div>` : ''}
+          ${p.writtenDate || p.languageName ? `<div class="pw-poem-date">${escapeHtml([p.writtenDate, p.languageName].filter(Boolean).join(' · '))}</div>` : ''}
           <div class="poem-body" data-poem-id="${p.id}"></div>
           ${(p.tags || []).length ? `<div class="pw-poem-tags">${p.tags.map(t => `<span class="tag-chip-filter" style="color:${escapeHtml(t.color || '#00ffcc')};"><span class="dot" style="background:${escapeHtml(t.color || '#00ffcc')};"></span>${escapeHtml(t.name)}</span>`).join('')}</div>` : ''}
         </div>
@@ -102,10 +154,26 @@
   }
 
   function renderContent() {
-    const books = rawBooks
-      .map(b => ({ ...b, poems: (b.poems || []).filter(poemMatches) }))
-      .filter(b => b.poems.length > 0);
-    const poems = rawPoems.filter(poemMatches);
+    const contentType = el.contentType.value;
+    let books = [];
+    let poems = [];
+
+    if (contentType === 'single') {
+      // Flatten everything — poems inside books show as normal individual cards, ungrouped.
+      const allBookPoems = rawBooks.flatMap(b => b.poems || []);
+      poems = [...rawPoems, ...allBookPoems]
+        .filter(poemMatches)
+        .sort((a, b) => (b.writtenDate || '').localeCompare(a.writtenDate || ''));
+    } else if (contentType === 'books') {
+      books = rawBooks
+        .map(b => ({ ...b, poems: (b.poems || []).filter(poemMatches) }))
+        .filter(b => b.poems.length > 0);
+    } else {
+      books = rawBooks
+        .map(b => ({ ...b, poems: (b.poems || []).filter(poemMatches) }))
+        .filter(b => b.poems.length > 0);
+      poems = rawPoems.filter(poemMatches);
+    }
 
     if (!books.length && !poems.length) {
       el.content.innerHTML = '<div class="pw-empty">No poems match your filters.</div>';
@@ -205,7 +273,9 @@
       rawBooks = data.books || [];
       rawPoems = data.poems || [];
       allTags = collectTags();
+      allLanguages = collectLanguages();
       renderTagFilterList();
+      renderLanguageFilterList();
       applyFilters();
     } catch {
       el.content.innerHTML = '<div class="pw-empty">Failed to load poems. Please try refreshing.</div>';

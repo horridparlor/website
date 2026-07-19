@@ -78,7 +78,7 @@ function getStats(Database $database): string
 
     arsort($wordCounts);
     $topWords = [];
-    foreach (array_slice($wordCounts, 0, 30, true) as $word => $count) {
+    foreach (array_slice($wordCounts, 0, 100, true) as $word => $count) {
         $topWords[] = ['word' => $word, 'count' => $count];
     }
 

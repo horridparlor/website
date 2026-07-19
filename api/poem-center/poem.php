@@ -41,6 +41,9 @@ function updatePoem(Database $database): string
     $bookId = $database->getRawStringParam('bookId');
     $hasBookId = $bookId !== null;
     $bookIdInt = $database->getIntParam('bookId');
+    $languageId = $database->getRawStringParam('languageId');
+    $hasLanguageId = $languageId !== null;
+    $languageIdInt = $database->getIntParam('languageId');
     $sortOrder = $database->getIntParam('sortOrder');
 
     $contentLike = !is_null($title) || !is_null($author) || !is_null($content);
@@ -85,6 +88,17 @@ function updatePoem(Database $database): string
         }
         $updates[] = 'bookId = :bookId';
         $replacements['bookId'] = ['value' => $bookIdInt ?: null, 'type' => \PDO::PARAM_INT];
+    }
+    if ($hasLanguageId) {
+        if ($languageIdInt) {
+            $language = $database->query(
+                'SELECT id FROM poem_language WHERE id = :id',
+                ['id' => ['value' => $languageIdInt, 'type' => \PDO::PARAM_INT]]
+            );
+            if (!$language) return Database::responseBadRequest('language does not exist');
+        }
+        $updates[] = 'languageId = :languageId';
+        $replacements['languageId'] = ['value' => $languageIdInt ?: null, 'type' => \PDO::PARAM_INT];
     }
     if (!is_null($sortOrder)) {
         $updates[] = 'sortOrder = :sortOrder';

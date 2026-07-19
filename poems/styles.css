@@ -126,6 +126,7 @@
   max-width: 520px;
   margin: 0 auto 1.5rem;
 }
+.pw-book-title + .pw-poem-card { margin-top: 1rem; }
 
 .pw-poem-card {
   position: relative;
