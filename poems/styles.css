@@ -17,14 +17,82 @@
 
 .pw-wrap { max-width: 760px; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
 
-.tag-filter {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 0 1rem 1rem;
+/* ── Filter burger menu ─────────────────────────────────────────────── */
+.filter-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #1a1a1a;
+  border: 1px solid #444;
+  color: #aaa;
+  padding: 0.35rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.filter-toggle-btn.active { border-color: #00ffcc; color: #00ffcc; }
+.filter-badge {
+  background: #00ffcc;
+  color: #000;
+  border-radius: 10px;
+  padding: 0 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: none;
+  line-height: 1.5;
+}
+.filter-badge.visible { display: inline; }
+
+.filters {
   max-width: 760px;
   margin: 0 auto;
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.25s ease-out;
 }
+.filters.filters-open {
+  max-height: 700px;
+  transition: max-height 0.35s ease-in;
+}
+.filters-wrap {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(140px, 1fr));
+  gap: 0.75rem;
+  padding: 1rem 1rem 1.25rem;
+}
+@media (min-width: 640px) {
+  .filters-wrap { grid-template-columns: repeat(4, minmax(140px, 1fr)); }
+}
+.filters-wrap label { font-size: 0.85rem; color: #aaa; padding-left: 2px; margin-bottom: 4px; display: block; }
+.filters-wrap input[type="text"],
+.filters-wrap input[type="date"],
+.filters-wrap select {
+  width: 100%;
+  box-sizing: border-box;
+  background: #1a1a1a;
+  color: #fff;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  outline: none;
+}
+.filters-wrap .clear-btn { width: 100%; box-sizing: border-box; }
+.filter-count { font-size: 0.78rem; color: #888; min-height: 1.2em; }
+
+.clear-btn {
+  background: #1e1214;
+  color: #cc7788;
+  border: 1px solid #4a2233;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.clear-btn:hover:not(:disabled) { background: #271520; border-color: #aa4466; color: #ee8899; }
+.clear-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
 .tag-chip-filter {
   display: inline-flex;
   align-items: center;
@@ -60,19 +128,91 @@
 }
 
 .pw-poem-card {
+  position: relative;
   background: #131313;
   border: 1px solid #262626;
   border-radius: 14px;
-  padding: 1.75rem 1rem;
+  padding: 2.25rem 1rem 1rem;
   margin-bottom: 1.5rem;
   overflow: hidden;
 }
+.pw-poem-card.pw-collapsed { padding-bottom: 1rem; }
+.pw-poem-collapsible { overflow: hidden; }
+.pw-poem-card.pw-collapsed .pw-poem-collapsible { display: none; }
+
+.pw-collapse-btn {
+  position: absolute;
+  top: 0.7rem;
+  left: 0.7rem;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #aaa;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  z-index: 2;
+  transition: border-color 0.15s, color 0.15s;
+}
+.pw-collapse-btn:hover { border-color: #00ffcc; color: #00ffcc; }
+
+.pw-copy-btn {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: transparent;
+  color: #555;
+  opacity: 0.55;
+  font-size: 1rem;
+  border: 1px solid transparent;
+  box-shadow: none;
+  transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  z-index: 2;
+}
+.pw-copy-btn:hover, .pw-copy-btn:focus {
+  opacity: 1;
+  color: #00ffcc;
+  border-color: #00ffcc;
+  background: rgba(0,255,204,0.08);
+}
+.pw-copy-btn:focus { outline: none; }
+.pw-copy-btn.copied { opacity: 1; color: #00ffcc; border-color: #00ffcc; animation: pw-pop 0.28s ease; }
+@keyframes pw-pop { 0% { transform: scale(1); } 50% { transform: scale(1.12); } 100% { transform: scale(1); } }
+
+.pw-copy-btn .pw-tooltip {
+  position: absolute;
+  top: -34px;
+  right: 0;
+  padding: 5px 9px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  background: #111;
+  color: #fff;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+.pw-copy-btn:hover .pw-tooltip, .pw-copy-btn:focus .pw-tooltip { opacity: 1; transform: translateY(0); }
+
 .pw-poem-title {
   font-family: 'Playfair Display', 'Anton', sans-serif;
   color: #fff;
   font-size: 1.3rem;
   text-align: center;
   margin-bottom: 0.2rem;
+  padding: 0 2.4rem;
 }
 .pw-poem-author {
   text-align: center;

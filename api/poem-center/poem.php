@@ -37,6 +37,7 @@ function updatePoem(Database $database): string
     $author = $database->getRawStringParam('author');
     $content = $database->getRawStringParam('content');
     $writtenDate = $database->getRawStringParam('writtenDate');
+    $geniusUrl = $database->getRawStringParam('geniusUrl');
     $bookId = $database->getRawStringParam('bookId');
     $hasBookId = $bookId !== null;
     $bookIdInt = $database->getIntParam('bookId');
@@ -68,6 +69,11 @@ function updatePoem(Database $database): string
     if (!is_null($writtenDate)) {
         $updates[] = 'writtenDate = :writtenDate';
         $replacements['writtenDate'] = ['value' => $writtenDate ?: null, 'type' => \PDO::PARAM_STR];
+    }
+    if (!is_null($geniusUrl)) {
+        $geniusUrl = trim((string)$geniusUrl);
+        $updates[] = 'geniusUrl = :geniusUrl';
+        $replacements['geniusUrl'] = ['value' => $geniusUrl !== '' ? $geniusUrl : null, 'type' => \PDO::PARAM_STR];
     }
     if ($hasBookId) {
         if ($bookIdInt) {

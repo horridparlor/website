@@ -89,6 +89,7 @@ function createPoem(Database $database): string
     $content = (string)$database->getRawStringParam('content', '');
     $bookId = $database->getIntParam('bookId');
     $writtenDate = $database->getStringParam('writtenDate');
+    $geniusUrl = trim((string)$database->getRawStringParam('geniusUrl', ''));
 
     if (!$title) return Database::responseBadRequest('title required');
     if (!$author) $author = 'Eero Laine';
@@ -110,8 +111,8 @@ function createPoem(Database $database): string
 
     $database->query(
         <<<SQL
-            INSERT INTO poem (bookId, title, author, content, sortOrder, writtenDate)
-            VALUES (:bookId, :title, :author, :content, :sortOrder, :writtenDate)
+            INSERT INTO poem (bookId, title, author, content, sortOrder, writtenDate, geniusUrl)
+            VALUES (:bookId, :title, :author, :content, :sortOrder, :writtenDate, :geniusUrl)
         SQL,
         [
             'bookId' => ['value' => $bookId ?: null, 'type' => \PDO::PARAM_INT],
@@ -120,6 +121,7 @@ function createPoem(Database $database): string
             'content' => ['value' => $content, 'type' => \PDO::PARAM_STR],
             'sortOrder' => ['value' => $sortOrder, 'type' => \PDO::PARAM_INT],
             'writtenDate' => ['value' => $writtenDate ?: date('Y-m-d'), 'type' => \PDO::PARAM_STR],
+            'geniusUrl' => ['value' => $geniusUrl !== '' ? $geniusUrl : null, 'type' => \PDO::PARAM_STR],
         ]
     );
     $poemId = $database->getInsertId();

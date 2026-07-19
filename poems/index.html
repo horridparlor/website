@@ -18,9 +18,38 @@
 <body>
 <rk-topbar title="Poems">
   <a href="/poems-center" class="btn btn-nav">Poem Center →</a>
+  <button id="filter-toggle-btn" class="filter-toggle-btn" type="button" aria-expanded="false" aria-controls="filters-section">
+    ☰ Filters <span id="filter-badge" class="filter-badge"></span>
+  </button>
 </rk-topbar>
 
-<div id="tag-filter" class="tag-filter"></div>
+<section class="filters" id="filters-section">
+  <div class="filters-wrap" id="filters">
+    <div>
+      <label for="f-name">Name</label>
+      <input id="f-name" type="text" placeholder="Search title" />
+    </div>
+    <div>
+      <label for="f-start">Released From</label>
+      <input id="f-start" type="date" />
+    </div>
+    <div>
+      <label for="f-end">Released To</label>
+      <input id="f-end" type="date" />
+    </div>
+    <div>
+      <label for="f-tag">Tags</label>
+      <select id="f-tag">
+        <option value="">Any</option>
+      </select>
+    </div>
+    <div>
+      <label id="filter-count" class="filter-count"></label>
+      <button id="clear-filters" class="button clear-btn" type="button">Clear</button>
+    </div>
+  </div>
+</section>
+
 <div id="content" class="pw-wrap"></div>
 
 <rk-footer></rk-footer>

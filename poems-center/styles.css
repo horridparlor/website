@@ -153,6 +153,7 @@
 }
 .pc-editor-row input[type="text"],
 .pc-editor-row input[type="date"],
+.pc-editor-row input[type="url"],
 .pc-editor-row select,
 .pc-editor-row textarea {
   width: 100%;
@@ -170,6 +171,84 @@
   resize: vertical;
   line-height: 1.6;
 }
+.pc-content-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: #1a1a1a;
+  color: #fff;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: .65rem .8rem;
+  font-size: 1rem;
+  font-family: inherit;
+  min-height: 220px;
+  line-height: 1.6;
+  resize: none;
+  overflow: hidden;
+}
+.pc-inline-field { display: flex; gap: 0.5rem; align-items: stretch; }
+.pc-inline-field input { flex: 1; min-width: 0; }
+.pc-genius-link { padding: 0.5rem 0.9rem; font-size: 0.85rem; white-space: nowrap; }
+
+.pc-inline-link {
+  display: inline;
+  background: none;
+  border: none;
+  color: #00ffcc;
+  font-size: 0.72rem;
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 0.5rem;
+}
+.pc-inline-link:hover { text-decoration: underline; }
+
+.pc-tag-quick-add {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-top: 0.3rem;
+  width: 100%;
+}
+.pc-tag-quick-add input[type="text"] {
+  flex: 1 1 140px;
+  min-width: 0;
+  background: #1a1a1a;
+  color: #fff;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+}
+.pc-tag-quick-add input[type="color"] { width: 2.2rem; height: 1.9rem; padding: 0; border: none; background: none; cursor: pointer; }
+.pc-tag-quick-add .button { padding: 0.35rem 0.7rem; font-size: 0.8rem; }
+
+.pc-collapsible { margin-bottom: 0.85rem; }
+.pc-collapsible-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0 0 0.4rem;
+  cursor: pointer;
+  text-align: left;
+}
+.pc-collapsible-toggle:hover { color: #00ffcc; }
+.pc-collapsible-arrow {
+  display: inline-block;
+  font-size: 0.7rem;
+  transition: transform 0.15s ease;
+}
+.pc-collapsible.pc-collapsed .pc-collapsible-arrow { transform: rotate(-90deg); }
+.pc-collapsible.pc-collapsed .pc-collapsible-body { display: none; }
 .pc-editor-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -324,4 +403,12 @@
   color: #fff;
   font-size: 1.05rem;
   margin: 1.25rem 0 0.6rem;
+}
+.pc-section-subtitle {
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: #888;
+  text-transform: none;
+  letter-spacing: normal;
 }

@@ -20,6 +20,7 @@ CREATE TABLE poem (
     content MEDIUMTEXT NOT NULL,
     sortOrder INT NOT NULL DEFAULT 0,
     writtenDate DATE NULL,
+    geniusUrl VARCHAR(500) NULL,
     isPublished BOOLEAN NOT NULL DEFAULT 0,
     publishedAt DATETIME NULL,
     isDeleted BOOLEAN NOT NULL DEFAULT 0,

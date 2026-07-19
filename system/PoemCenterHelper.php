@@ -22,7 +22,7 @@ function poemFetchFull(Database $database, int $poemId): ?array
         <<<SQL
             SELECT
                 p.id, p.bookId, p.originalPoemId, p.title, p.author, p.content, p.sortOrder,
-                p.writtenDate, p.isPublished, p.publishedAt, p.createdAt, p.updatedAt,
+                p.writtenDate, p.geniusUrl, p.isPublished, p.publishedAt, p.createdAt, p.updatedAt,
                 orig.title originalTitle
             FROM poem p
             LEFT JOIN poem orig ON orig.id = p.originalPoemId
