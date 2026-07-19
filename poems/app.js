@@ -145,9 +145,9 @@
         <div class="pw-poem-title">${escapeHtml(p.title)}</div>
         <div class="pw-poem-author">${escapeHtml(p.author)}</div>
         <div class="pw-poem-collapsible">
-          ${p.writtenDate || p.languageName ? `<div class="pw-poem-date">${escapeHtml([p.writtenDate, p.languageName].filter(Boolean).join(' · '))}</div>` : ''}
+          ${p.writtenDate ? `<div class="pw-poem-date">${escapeHtml(p.writtenDate)}</div>` : ''}
+          ${(p.tags || []).length || p.languageName ? `<div class="pw-poem-tags">${(p.tags || []).map(t => `<span class="tag-chip-filter" style="color:${escapeHtml(t.color || '#00ffcc')};"><span class="dot" style="background:${escapeHtml(t.color || '#00ffcc')};"></span>${escapeHtml(t.name)}</span>`).join('')}${p.languageName ? `<span class="tag-chip-filter">${escapeHtml(p.languageName)}</span>` : ''}</div>` : ''}
           <div class="poem-body" data-poem-id="${p.id}"></div>
-          ${(p.tags || []).length ? `<div class="pw-poem-tags">${p.tags.map(t => `<span class="tag-chip-filter" style="color:${escapeHtml(t.color || '#00ffcc')};"><span class="dot" style="background:${escapeHtml(t.color || '#00ffcc')};"></span>${escapeHtml(t.name)}</span>`).join('')}</div>` : ''}
         </div>
       </article>
     `;
