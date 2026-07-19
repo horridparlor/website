@@ -1,6 +1,6 @@
 -- Migration: Add poem_language table and poem.languageId
 -- Migration: Add poem_language table and poem.languageId
-l
+
 -- Date: 2026-07-19
 
 CREATE TABLE IF NOT EXISTS poem_language (
