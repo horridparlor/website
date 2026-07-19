@@ -21,7 +21,7 @@ function listPoems(Database $database): string
             p.writtenDate, p.isPublished, p.publishedAt, p.createdAt, p.updatedAt,
             b.title bookTitle, lang.code languageCode, lang.name languageName
         FROM poem p
-        LEFT JOIN poem_book b ON b.id = p.bookId
+        LEFT JOIN poem_book b ON b.id = p.bookId AND b.isDeleted = 0
         LEFT JOIN poem_language lang ON lang.id = p.languageId
         WHERE p.isDeleted = 0
     SQL;
