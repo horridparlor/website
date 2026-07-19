@@ -82,7 +82,7 @@ function getStats(Database $database): string
         $topWords[] = ['word' => $word, 'count' => $count];
     }
 
-    ksort($perMonth);
+    krsort($perMonth);
     $poemsPerMonth = [];
     foreach ($perMonth as $month => $count) {
         $poemsPerMonth[] = ['month' => $month, 'count' => $count];
