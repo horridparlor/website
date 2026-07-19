@@ -660,10 +660,20 @@
     };
   }
 
+  // Strips leading/trailing blank lines and collapses runs of 2+ spaces down to one,
+  // without touching the line breaks that give the poem its shape.
+  function cleanPoemContent(raw) {
+    const lines = String(raw || '').replace(/\r\n/g, '\n').split('\n')
+      .map(l => l.replace(/[ \t]{2,}/g, ' '));
+    while (lines.length && lines[0].trim() === '') lines.shift();
+    while (lines.length && lines[lines.length - 1].trim() === '') lines.pop();
+    return lines.join('\n');
+  }
+
   async function savePoem() {
     const title = document.getElementById('ed-title').value.trim();
     const author = document.getElementById('ed-author').value.trim() || 'Eero Laine';
-    const content = document.getElementById('ed-content').value;
+    const content = cleanPoemContent(document.getElementById('ed-content').value);
     const bookVal = document.getElementById('ed-book').value;
     const languageVal = document.getElementById('ed-language').value;
     const writtenDate = getWrittenDateValue();
