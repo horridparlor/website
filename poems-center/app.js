@@ -81,6 +81,29 @@
   const fmtDate = (s) => s ? new Date(s.replace(' ', 'T')).toLocaleString() : '—';
   const todayStr = () => new Date().toISOString().slice(0, 10);
 
+  // Written-on date is entered as three Day/Month/Year selects (DD.MM.YYYY order),
+  // since a native <input type="date"> can't be reordered in Firefox.
+  function buildDateSelectsHtml(iso) {
+    const [y, m, d] = (iso || todayStr()).split('-').map(Number);
+    const pad = (n) => String(n).padStart(2, '0');
+    const currentYear = new Date().getFullYear();
+    const days = Array.from({ length: 31 }, (_, i) => i + 1);
+    const months = Array.from({ length: 12 }, (_, i) => i + 1);
+    const years = [];
+    for (let yr = currentYear + 1; yr >= 2024; yr--) years.push(yr);
+    return `
+      <select id="ed-written-day">${days.map(dd => `<option value="${pad(dd)}" ${dd === d ? 'selected' : ''}>${pad(dd)}</option>`).join('')}</select>
+      <select id="ed-written-month">${months.map(mm => `<option value="${pad(mm)}" ${mm === m ? 'selected' : ''}>${pad(mm)}</option>`).join('')}</select>
+      <select id="ed-written-year">${years.map(yr => `<option value="${yr}" ${yr === y ? 'selected' : ''}>${yr}</option>`).join('')}</select>
+    `;
+  }
+  function getWrittenDateValue() {
+    const d = document.getElementById('ed-written-day').value;
+    const m = document.getElementById('ed-written-month').value;
+    const y = document.getElementById('ed-written-year').value;
+    return `${y}-${m}-${d}`;
+  }
+
   // ── Tabs ─────────────────────────────────────────────────────────────
   function switchTab(view) {
     state.view = view;
@@ -434,7 +457,10 @@
               <option value="__new__">+ New Book…</option>
             </select>
           </div>
-          <div class="pc-editor-row"><label>Written on</label><input type="date" id="ed-written-date" value="${p.writtenDate || todayStr()}" /></div>
+          <div class="pc-editor-row">
+            <label>Written on</label>
+            <div class="pc-date-select-group">${buildDateSelectsHtml(p.writtenDate || todayStr())}</div>
+          </div>
         </div>
 
         <div class="pc-editor-grid two">
@@ -624,7 +650,7 @@
       title: document.getElementById('ed-title').value.trim() || 'Untitled',
       author: document.getElementById('ed-author').value.trim() || 'Eero Laine',
       content: document.getElementById('ed-content').value,
-      writtenDate: document.getElementById('ed-written-date').value,
+      writtenDate: getWrittenDateValue(),
     };
   }
 
@@ -634,7 +660,7 @@
     const content = document.getElementById('ed-content').value;
     const bookVal = document.getElementById('ed-book').value;
     const languageVal = document.getElementById('ed-language').value;
-    const writtenDate = document.getElementById('ed-written-date').value;
+    const writtenDate = getWrittenDateValue();
     const geniusUrl = document.getElementById('ed-genius-url').value.trim();
     if (!title) return showToast('Title required', true);
     if (bookVal === '__new__') return showToast('Finish creating the book first', true);

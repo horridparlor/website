@@ -28,10 +28,11 @@ function updatePoem(Database $database): string
     if (!$id) return Database::responseBadRequest('id required');
 
     $existing = $database->query(
-        'SELECT id FROM poem WHERE id = :id AND isDeleted = 0',
+        'SELECT id, title, author, content FROM poem WHERE id = :id AND isDeleted = 0',
         ['id' => ['value' => $id, 'type' => \PDO::PARAM_INT]]
     );
     if (!$existing) return Database::responseNotFound();
+    $current = $existing[0];
 
     $title = $database->getRawStringParam('title');
     $author = $database->getRawStringParam('author');
@@ -46,8 +47,12 @@ function updatePoem(Database $database): string
     $languageIdInt = $database->getIntParam('languageId');
     $sortOrder = $database->getIntParam('sortOrder');
 
-    $contentLike = !is_null($title) || !is_null($author) || !is_null($content);
-    if ($contentLike) {
+    // Only snapshot history if title/author/content actually changed — not just because
+    // the poem happened to be saved again (e.g. only tags or book changed).
+    $titleChanged = !is_null($title) && trim((string)$title) !== $current['title'];
+    $authorChanged = !is_null($author) && (trim((string)$author) ?: 'Eero Laine') !== $current['author'];
+    $contentChanged = !is_null($content) && (string)$content !== $current['content'];
+    if ($titleChanged || $authorChanged || $contentChanged) {
         poemSnapshotIfStale($database, $id);
     }
 

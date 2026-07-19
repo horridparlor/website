@@ -190,6 +190,8 @@
 .pc-inline-field { display: flex; gap: 0.5rem; align-items: stretch; }
 .pc-inline-field input { flex: 1; min-width: 0; }
 .pc-genius-link { padding: 0.5rem 0.9rem; font-size: 0.85rem; white-space: nowrap; }
+.pc-date-select-group { display: flex; gap: 0.5rem; }
+.pc-date-select-group select { width: auto; flex: 1; min-width: 0; }
 
 .pc-inline-link {
   display: inline;
@@ -278,7 +280,7 @@
 }
 .pc-based-on a { color: inherit; }
 
-.pc-tag-picker { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.pc-tag-picker { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
 
 .pc-preview-wrap {
   background: #0d0d0d;
