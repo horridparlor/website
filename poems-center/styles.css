@@ -92,6 +92,13 @@
   font-weight: 700;
   color: #fff;
 }
+.pc-card-date {
+  margin-left: 0.6rem;
+  font-family: Arial, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #888;
+}
 .pc-card-meta { color: #999; font-size: 0.82rem; margin-top: 0.25rem; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 .pc-badge {
   display: inline-block;

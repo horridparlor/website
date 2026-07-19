@@ -80,6 +80,12 @@
 
   const fmtDate = (s) => s ? new Date(s.replace(' ', 'T')).toLocaleString() : '—';
   const todayStr = () => new Date().toISOString().slice(0, 10);
+  const fmtWrittenDate = (iso) => {
+    if (!iso) return '';
+    const [y, m, d] = iso.split('-');
+    if (!y || !m || !d) return '';
+    return `${d}.${m}.${y}`;
+  };
 
   // Written-on date is entered as three Day/Month/Year selects (DD.MM.YYYY order),
   // since a native <input type="date"> can't be reordered in Firefox.
@@ -367,7 +373,7 @@
     }
     el.poemList.innerHTML = state.poems.map(p => `
       <div class="pc-card ${state.currentPoem && state.currentPoem.id === p.id ? 'active' : ''}" data-poem-id="${p.id}">
-        <div class="pc-card-title">${escapeHtml(p.title)}</div>
+        <div class="pc-card-title">${escapeHtml(p.title)}<span class="pc-card-date">${escapeHtml(fmtWrittenDate(p.writtenDate))}</span></div>
         <div class="pc-card-meta">
           <span>${escapeHtml(p.author)}</span>
           ${p.bookTitle ? `<span class="pc-badge">${escapeHtml(p.bookTitle)}</span>` : '<span class="pc-badge">Unsorted</span>'}
