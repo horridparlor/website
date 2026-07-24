@@ -1100,13 +1100,19 @@
   });
 
   $('#detailView').addEventListener('keydown', function (e) {
-    if (e.key !== 'Enter' || e.shiftKey) return;
+    if (e.key !== 'Enter') return;
     const textarea = e.target.closest('[data-role="new-comment-input"]');
     if (!textarea) return;
     e.preventDefault();
     const card = textarea.closest('.finding-card');
-    const addBtn = card && card.querySelector('[data-action="add-comment"]');
-    if (addBtn) addBtn.click();
+    if (!card) return;
+    if (e.shiftKey) {
+      const toggleBtn = card.querySelector('[data-action="toggle-checked"]');
+      if (toggleBtn) toggleBtn.click();
+    } else {
+      const addBtn = card.querySelector('[data-action="add-comment"]');
+      if (addBtn) addBtn.click();
+    }
   });
 
   $('#detailView').addEventListener('click', async function (e) {
