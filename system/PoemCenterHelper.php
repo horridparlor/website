@@ -21,11 +21,12 @@ function poemFetchFull(Database $database, int $poemId): ?array
     $rows = $database->query(
         <<<SQL
             SELECT
-                p.id, p.bookId, p.originalPoemId, p.title, p.author, p.content, p.sortOrder,
-                p.writtenDate, p.isPublished, p.publishedAt, p.createdAt, p.updatedAt,
-                orig.title originalTitle
+                p.id, p.bookId, p.languageId, p.originalPoemId, p.title, p.author, p.content, p.sortOrder,
+                p.writtenDate, p.geniusUrl, p.isPublished, p.publishedAt, p.createdAt, p.updatedAt,
+                orig.title originalTitle, lang.code languageCode, lang.name languageName
             FROM poem p
             LEFT JOIN poem orig ON orig.id = p.originalPoemId
+            LEFT JOIN poem_language lang ON lang.id = p.languageId
             WHERE p.id = :id AND p.isDeleted = 0
         SQL,
         ['id' => ['value' => $poemId, 'type' => PDO::PARAM_INT]]
@@ -36,6 +37,7 @@ function poemFetchFull(Database $database, int $poemId): ?array
     $poem = $rows[0];
     $poem['id'] = (int)$poem['id'];
     $poem['bookId'] = $poem['bookId'] !== null ? (int)$poem['bookId'] : null;
+    $poem['languageId'] = $poem['languageId'] !== null ? (int)$poem['languageId'] : null;
     $poem['originalPoemId'] = $poem['originalPoemId'] !== null ? (int)$poem['originalPoemId'] : null;
     $poem['sortOrder'] = (int)$poem['sortOrder'];
     $poem['isPublished'] = (bool)(int)$poem['isPublished'];

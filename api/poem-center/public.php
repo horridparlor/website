@@ -20,15 +20,19 @@ function listPublic(Database $database): string
     );
 
     $sql = <<<SQL
-        SELECT p.id, p.bookId, p.originalPoemId, p.title, p.author, p.content, p.sortOrder, p.writtenDate, p.publishedAt
+        SELECT p.id, p.bookId, p.languageId, p.originalPoemId, p.title, p.author, p.content, p.sortOrder, p.writtenDate, p.publishedAt,
+               lang.code languageCode, lang.name languageName
         FROM poem p
+        LEFT JOIN poem_language lang ON lang.id = p.languageId
+        LEFT JOIN poem_book b ON b.id = p.bookId AND b.isDeleted = 0
     SQL;
     $replacements = [];
     if ($tagId) {
         $sql .= ' JOIN poem_tag_link l ON l.poemId = p.id AND l.tagId = :tagId';
         $replacements['tagId'] = ['value' => $tagId, 'type' => \PDO::PARAM_INT];
     }
-    $sql .= ' WHERE p.isDeleted = 0 AND p.isPublished = 1 ORDER BY p.writtenDate DESC';
+    // A poem is visible if it's published itself, or its book is published (book publish cascades).
+    $sql .= ' WHERE p.isDeleted = 0 AND (p.isPublished = 1 OR b.isPublished = 1) ORDER BY p.writtenDate DESC';
 
     $poems = $database->query($sql, $replacements);
 
@@ -53,15 +57,20 @@ function listPublic(Database $database): string
         }
     }
 
+    $publishedBookIds = array_flip(array_map(fn($b) => (int)$b['id'], $books));
+
     $poemsByBook = [];
     $standalone = [];
     foreach ($poems as $poem) {
         $poem['id'] = (int)$poem['id'];
         $poem['bookId'] = $poem['bookId'] !== null ? (int)$poem['bookId'] : null;
+        $poem['languageId'] = $poem['languageId'] !== null ? (int)$poem['languageId'] : null;
         $poem['originalPoemId'] = $poem['originalPoemId'] !== null ? (int)$poem['originalPoemId'] : null;
         $poem['sortOrder'] = (int)$poem['sortOrder'];
         $poem['tags'] = $tagsByPoem[$poem['id']] ?? [];
-        if ($poem['bookId']) {
+        // Only group under a book section if that book is actually published — otherwise
+        // (e.g. an individually-published poem sitting in an unpublished book) show it standalone.
+        if ($poem['bookId'] && isset($publishedBookIds[$poem['bookId']])) {
             $poemsByBook[$poem['bookId']][] = $poem;
         } else {
             $standalone[] = $poem;

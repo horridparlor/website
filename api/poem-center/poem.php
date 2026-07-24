@@ -28,22 +28,31 @@ function updatePoem(Database $database): string
     if (!$id) return Database::responseBadRequest('id required');
 
     $existing = $database->query(
-        'SELECT id FROM poem WHERE id = :id AND isDeleted = 0',
+        'SELECT id, title, author, content FROM poem WHERE id = :id AND isDeleted = 0',
         ['id' => ['value' => $id, 'type' => \PDO::PARAM_INT]]
     );
     if (!$existing) return Database::responseNotFound();
+    $current = $existing[0];
 
     $title = $database->getRawStringParam('title');
     $author = $database->getRawStringParam('author');
     $content = $database->getRawStringParam('content');
     $writtenDate = $database->getRawStringParam('writtenDate');
+    $geniusUrl = $database->getRawStringParam('geniusUrl');
     $bookId = $database->getRawStringParam('bookId');
     $hasBookId = $bookId !== null;
     $bookIdInt = $database->getIntParam('bookId');
+    $languageId = $database->getRawStringParam('languageId');
+    $hasLanguageId = $languageId !== null;
+    $languageIdInt = $database->getIntParam('languageId');
     $sortOrder = $database->getIntParam('sortOrder');
 
-    $contentLike = !is_null($title) || !is_null($author) || !is_null($content);
-    if ($contentLike) {
+    // Only snapshot history if title/author/content actually changed — not just because
+    // the poem happened to be saved again (e.g. only tags or book changed).
+    $titleChanged = !is_null($title) && trim((string)$title) !== $current['title'];
+    $authorChanged = !is_null($author) && (trim((string)$author) ?: 'Eero Laine') !== $current['author'];
+    $contentChanged = !is_null($content) && (string)$content !== $current['content'];
+    if ($titleChanged || $authorChanged || $contentChanged) {
         poemSnapshotIfStale($database, $id);
     }
 
@@ -69,6 +78,11 @@ function updatePoem(Database $database): string
         $updates[] = 'writtenDate = :writtenDate';
         $replacements['writtenDate'] = ['value' => $writtenDate ?: null, 'type' => \PDO::PARAM_STR];
     }
+    if (!is_null($geniusUrl)) {
+        $geniusUrl = trim((string)$geniusUrl);
+        $updates[] = 'geniusUrl = :geniusUrl';
+        $replacements['geniusUrl'] = ['value' => $geniusUrl !== '' ? $geniusUrl : null, 'type' => \PDO::PARAM_STR];
+    }
     if ($hasBookId) {
         if ($bookIdInt) {
             $book = $database->query(
@@ -79,6 +93,17 @@ function updatePoem(Database $database): string
         }
         $updates[] = 'bookId = :bookId';
         $replacements['bookId'] = ['value' => $bookIdInt ?: null, 'type' => \PDO::PARAM_INT];
+    }
+    if ($hasLanguageId) {
+        if ($languageIdInt) {
+            $language = $database->query(
+                'SELECT id FROM poem_language WHERE id = :id',
+                ['id' => ['value' => $languageIdInt, 'type' => \PDO::PARAM_INT]]
+            );
+            if (!$language) return Database::responseBadRequest('language does not exist');
+        }
+        $updates[] = 'languageId = :languageId';
+        $replacements['languageId'] = ['value' => $languageIdInt ?: null, 'type' => \PDO::PARAM_INT];
     }
     if (!is_null($sortOrder)) {
         $updates[] = 'sortOrder = :sortOrder';

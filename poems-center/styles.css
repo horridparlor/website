@@ -67,6 +67,7 @@
   font-size: 0.95rem;
 }
 .pc-toolbar .button { flex: 0 0 auto; }
+.pc-toolbar .button svg { vertical-align: -1px; margin-right: 0.3rem; }
 
 .pc-list {
   display: flex;
@@ -90,6 +91,13 @@
   font-size: 1.1rem;
   font-weight: 700;
   color: #fff;
+}
+.pc-card-date {
+  margin-left: 0.6rem;
+  font-family: Arial, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #888;
 }
 .pc-card-meta { color: #999; font-size: 0.82rem; margin-top: 0.25rem; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 .pc-badge {
@@ -153,6 +161,7 @@
 }
 .pc-editor-row input[type="text"],
 .pc-editor-row input[type="date"],
+.pc-editor-row input[type="url"],
 .pc-editor-row select,
 .pc-editor-row textarea {
   width: 100%;
@@ -170,6 +179,98 @@
   resize: vertical;
   line-height: 1.6;
 }
+.pc-content-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: #1a1a1a;
+  color: #fff;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: .65rem .8rem;
+  font-size: 1rem;
+  font-family: inherit;
+  min-height: 220px;
+  line-height: 1.6;
+  resize: none;
+  overflow: hidden;
+}
+.pc-inline-field { display: flex; gap: 0.5rem; align-items: stretch; }
+.pc-inline-field input { flex: 1; min-width: 0; }
+.pc-genius-link { padding: 0.5rem 0.9rem; font-size: 0.85rem; white-space: nowrap; }
+.pc-date-select-group { display: flex; gap: 0.5rem; }
+.pc-date-select-group select { width: auto; flex: 1; min-width: 0; }
+
+.pc-inline-link {
+  display: inline;
+  background: none;
+  border: none;
+  color: #00ffcc;
+  font-size: 0.72rem;
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 0.5rem;
+}
+.pc-inline-link:hover { text-decoration: underline; }
+
+.pc-tag-quick-add {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-top: 0.3rem;
+  width: 100%;
+}
+.pc-tag-quick-add input[type="text"] {
+  flex: 1 1 140px;
+  min-width: 0;
+  background: #1a1a1a;
+  color: #fff;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+}
+.pc-tag-quick-add input[type="color"] { width: 2.2rem; height: 1.9rem; padding: 0; border: none; background: none; cursor: pointer; }
+.pc-tag-quick-add .button { padding: 0.35rem 0.7rem; font-size: 0.8rem; }
+
+.pc-collapsible { margin-bottom: 0.85rem; }
+.pc-collapsible-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0 0 0.4rem;
+  cursor: pointer;
+  text-align: left;
+}
+.pc-collapsible-toggle:hover { color: #00ffcc; }
+.pc-collapsible.pc-collapsed .pc-collapsible-toggle {
+  font-size: 0.95rem;
+  color: #ccc;
+  padding: 0.65rem 0;
+  border-bottom: 1px dashed #3a3a3a;
+  transition: color 0.15s, border-color 0.15s;
+}
+.pc-collapsible.pc-collapsed .pc-collapsible-toggle:hover {
+  color: #00ffcc;
+  border-color: #00ffcc;
+}
+.pc-collapsible-arrow {
+  display: inline-block;
+  font-size: 0.7rem;
+  transition: transform 0.15s ease;
+}
+.pc-collapsible.pc-collapsed .pc-collapsible-arrow { transform: rotate(-90deg); }
+.pc-collapsible.pc-collapsed .pc-collapsible-body { display: none; }
+.pc-collapsible[data-collapsible="content"] { margin-top: 1.25rem; }
 .pc-editor-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -186,7 +287,7 @@
 }
 .pc-based-on a { color: inherit; }
 
-.pc-tag-picker { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.pc-tag-picker { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
 
 .pc-preview-wrap {
   background: #0d0d0d;
@@ -224,7 +325,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-top: 0.5rem;
+  margin-top: 1.5rem;
 }
 .pc-actions .button {
   padding: 0.55rem 1rem;
@@ -249,6 +350,8 @@
   border: 1px solid #222;
   border-radius: 10px;
   padding: 0.65rem 0.8rem;
+}
+.pc-history-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -256,6 +359,19 @@
   flex-wrap: wrap;
 }
 .pc-history-item .meta { color: #999; font-size: 0.82rem; }
+.pc-history-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.pc-history-actions .button { padding: 0.3rem 0.65rem; font-size: 0.78rem; }
+.pc-history-detail { margin-top: 0.65rem; padding-top: 0.65rem; border-top: 1px dashed #2a2a2a; }
+
+.pc-diff-list { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.85rem; font-family: 'Roboto Mono', monospace; }
+.pc-diff-row { display: flex; gap: 0.5rem; padding: 0.3rem 0.5rem; border-radius: 6px; }
+.pc-diff-row.added { background: rgba(0,255,102,0.08); color: #7CFC9A; }
+.pc-diff-row.removed { background: rgba(255,60,80,0.08); color: #ff6b7d; }
+.pc-diff-row.changed { background: rgba(255,180,0,0.08); color: #ffd56a; }
+.pc-diff-badge { font-weight: 700; flex: 0 0 auto; }
+.pc-diff-text { flex: 1; word-break: break-word; white-space: pre-wrap; }
+.pc-diff-old { text-decoration: line-through; opacity: 0.7; }
+.pc-diff-new { color: #9ae8ff; }
 
 /* ── Books tab ──────────────────────────────────────────────────────── */
 .pc-book-detail {
@@ -324,4 +440,12 @@
   color: #fff;
   font-size: 1.05rem;
   margin: 1.25rem 0 0.6rem;
+}
+.pc-section-subtitle {
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: #888;
+  text-transform: none;
+  letter-spacing: normal;
 }

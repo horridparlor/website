@@ -11,15 +11,28 @@ CREATE TABLE poem_book (
     PRIMARY KEY (id)
 );
 
+CREATE TABLE poem_language (
+    id INT NOT NULL AUTO_INCREMENT,
+    code VARCHAR(8) NOT NULL,
+    name VARCHAR(64) NOT NULL,
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uniq_poem_language_code (code)
+);
+
+INSERT INTO poem_language (code, name) VALUES ('fi', 'Finnish'), ('en', 'English');
+
 CREATE TABLE poem (
     id INT NOT NULL AUTO_INCREMENT,
     bookId INT NULL,
+    languageId INT NULL,
     originalPoemId INT NULL,
     title VARCHAR(255) NOT NULL,
     author VARCHAR(255) NOT NULL DEFAULT 'Eero Laine',
     content MEDIUMTEXT NOT NULL,
     sortOrder INT NOT NULL DEFAULT 0,
     writtenDate DATE NULL,
+    geniusUrl VARCHAR(500) NULL,
     isPublished BOOLEAN NOT NULL DEFAULT 0,
     publishedAt DATETIME NULL,
     isDeleted BOOLEAN NOT NULL DEFAULT 0,
@@ -27,8 +40,10 @@ CREATE TABLE poem (
     updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     INDEX idx_poem_bookId (bookId),
+    INDEX idx_poem_languageId (languageId),
     INDEX idx_poem_originalPoemId (originalPoemId),
     CONSTRAINT fk_poem_book FOREIGN KEY (bookId) REFERENCES poem_book(id) ON DELETE SET NULL,
+    CONSTRAINT fk_poem_language FOREIGN KEY (languageId) REFERENCES poem_language(id) ON DELETE SET NULL,
     CONSTRAINT fk_poem_original FOREIGN KEY (originalPoemId) REFERENCES poem(id) ON DELETE SET NULL
 );
 

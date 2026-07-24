@@ -45,6 +45,7 @@
     poemBookFilter: document.getElementById('poem-book-filter'),
     poemSearch: document.getElementById('poem-search'),
     btnNewPoem: document.getElementById('btn-new-poem'),
+    btnExportPoems: document.getElementById('btn-export-poems'),
     poemList: document.getElementById('poem-list'),
     poemEditor: document.getElementById('poem-editor'),
     newBookTitle: document.getElementById('new-book-title'),
@@ -61,11 +62,13 @@
   const state = {
     books: [],
     tags: [],
+    languages: [],
     poems: [],
     currentPoem: null,
     selectedTagIds: new Set(),
     expandedBookId: null,
     view: 'poems',
+    collapsed: { preview: true, content: false },
   };
 
   const showToast = (msg, isError) => {
@@ -77,12 +80,44 @@
 
   const fmtDate = (s) => s ? new Date(s.replace(' ', 'T')).toLocaleString() : '—';
   const todayStr = () => new Date().toISOString().slice(0, 10);
+  const fmtWrittenDate = (iso) => {
+    if (!iso) return '';
+    const [y, m, d] = iso.split('-');
+    if (!y || !m || !d) return '';
+    return `${d}.${m}.${y}`;
+  };
+
+  // Written-on date is entered as three Day/Month/Year selects (DD.MM.YYYY order),
+  // since a native <input type="date"> can't be reordered in Firefox.
+  function buildDateSelectsHtml(iso) {
+    const [y, m, d] = (iso || todayStr()).split('-').map(Number);
+    const pad = (n) => String(n).padStart(2, '0');
+    const currentYear = new Date().getFullYear();
+    const days = Array.from({ length: 31 }, (_, i) => i + 1);
+    const months = Array.from({ length: 12 }, (_, i) => i + 1);
+    const years = [];
+    for (let yr = currentYear + 1; yr >= 2024; yr--) years.push(yr);
+    return `
+      <select id="ed-written-day">${days.map(dd => `<option value="${pad(dd)}" ${dd === d ? 'selected' : ''}>${pad(dd)}</option>`).join('')}</select>
+      <select id="ed-written-month">${months.map(mm => `<option value="${pad(mm)}" ${mm === m ? 'selected' : ''}>${pad(mm)}</option>`).join('')}</select>
+      <select id="ed-written-year">${years.map(yr => `<option value="${yr}" ${yr === y ? 'selected' : ''}>${yr}</option>`).join('')}</select>
+    `;
+  }
+  function getWrittenDateValue() {
+    const d = document.getElementById('ed-written-day').value;
+    const m = document.getElementById('ed-written-month').value;
+    const y = document.getElementById('ed-written-year').value;
+    return `${y}-${m}-${d}`;
+  }
 
   // ── Tabs ─────────────────────────────────────────────────────────────
   function switchTab(view) {
     state.view = view;
     Object.entries(el.tabs).forEach(([k, btn]) => btn.classList.toggle('active', k === view));
     Object.entries(el.views).forEach(([k, sec]) => sec.style.display = k === view ? '' : 'none');
+    const url = new URL(location.href);
+    if (view === 'poems') url.searchParams.delete('view'); else url.searchParams.set('view', view);
+    history.replaceState({}, '', url);
     if (view === 'poems') loadPoems();
     if (view === 'books') loadBooks();
     if (view === 'tags') loadTags();
@@ -100,6 +135,13 @@
     if (res.ok) state.tags = res.data.tags || [];
   }
 
+  // ── Languages (shared) ───────────────────────────────────────────────
+  async function ensureLanguagesLoaded() {
+    if (state.languages.length) return;
+    const res = await api('GET', 'languages');
+    if (res.ok) state.languages = res.data.languages || [];
+  }
+
   async function loadTags() {
     const res = await api('GET', 'tags');
     if (!res.ok) { showToast('Failed to load tags', true); return; }
@@ -115,8 +157,8 @@
     el.tagList.innerHTML = state.tags.map(t => `
       <div class="pc-card" data-tag-id="${t.id}" style="cursor:default;">
         <div class="pc-card-title" style="display:flex;align-items:center;gap:0.5rem;">
-          <span class="dot" style="width:0.9rem;height:0.9rem;border-radius:50%;background:${escapeHtml(t.color || '#00ffcc')};display:inline-block;"></span>
-          ${escapeHtml(t.name)}
+          <span class="dot" style="width:0.9rem;height:0.9rem;border-radius:50%;background:${escapeHtml(t.color || '#00ffcc')};display:inline-block;flex:0 0 auto;"></span>
+          <input type="text" class="tag-name-input" value="${escapeHtml(t.name)}" data-id="${t.id}" style="flex:1;min-width:0;background:#1a1a1a;color:#fff;border:1px solid #333;border-radius:6px;padding:0.3rem 0.5rem;font-size:0.95rem;font-family:inherit;" />
         </div>
         <div class="pc-card-meta">
           <span>${t.poemCount} poem${t.poemCount === 1 ? '' : 's'}</span>
@@ -125,6 +167,16 @@
         </div>
       </div>
     `).join('');
+
+    el.tagList.querySelectorAll('.tag-name-input').forEach(input => {
+      input.addEventListener('click', (e) => e.stopPropagation());
+      input.addEventListener('change', async () => {
+        const name = input.value.trim();
+        if (!name) { showToast('Tag name cannot be empty', true); loadTags(); return; }
+        const res = await api('PUT', 'tags', { id: Number(input.dataset.id), name });
+        if (res.ok) { showToast('Tag updated'); loadTags(); } else showToast((res.data && res.data.error) || 'Failed to update tag', true);
+      });
+    });
 
     el.tagList.querySelectorAll('.tag-color-input').forEach(input => {
       input.addEventListener('change', async () => {
@@ -281,6 +333,21 @@
   });
   el.poemBookFilter.addEventListener('change', loadPoems);
   el.btnNewPoem.addEventListener('click', () => openEditor(null));
+  el.btnExportPoems.addEventListener('click', () => {
+    if (state.currentPoem && state.currentPoem.id) {
+      exportPoemPDF(currentEditorPoem());
+      return;
+    }
+    if (!state.poems.length) return showToast('No poems to export', true);
+    let title = 'All Poems';
+    const bookVal = el.poemBookFilter.value;
+    if (bookVal === '0') title = 'Unsorted Poems';
+    else if (bookVal !== '') {
+      const book = state.books.find(b => String(b.id) === bookVal);
+      if (book) title = book.title;
+    }
+    exportBookPDF({ title, description: null }, state.poems);
+  });
 
   async function loadPoems() {
     const params = { q: el.poemSearch.value.trim() || undefined };
@@ -292,8 +359,12 @@
   }
 
   function poemSnippet(content) {
-    const line = (content || '').split(/\r?\n/).find(l => l.trim() !== '') || '';
-    return line.length > 60 ? line.slice(0, 60) + '…' : line;
+    const lines = (content || '').split(/\r?\n/)
+      .map(l => l.trim())
+      .filter(t => t !== '' && !/^\[[^\]]*\]$/.test(t));
+    const snippet = lines.slice(0, 4).join(' // ');
+    const alreadyEllipsized = /(…|\.\.\.)$/.test(snippet);
+    return lines.length > 4 && !alreadyEllipsized ? snippet + '…' : snippet;
   }
 
   function renderPoemList() {
@@ -303,21 +374,38 @@
     }
     el.poemList.innerHTML = state.poems.map(p => `
       <div class="pc-card ${state.currentPoem && state.currentPoem.id === p.id ? 'active' : ''}" data-poem-id="${p.id}">
-        <div class="pc-card-title">${escapeHtml(p.title)}</div>
+        <div class="pc-card-title">${escapeHtml(p.title)}<span class="pc-card-date">${escapeHtml(fmtWrittenDate(p.writtenDate))}</span></div>
         <div class="pc-card-meta">
           <span>${escapeHtml(p.author)}</span>
           ${p.bookTitle ? `<span class="pc-badge">${escapeHtml(p.bookTitle)}</span>` : '<span class="pc-badge">Unsorted</span>'}
           ${p.isPublished ? '<span class="pc-badge published">Published</span>' : ''}
           ${p.originalPoemId ? '<span class="pc-badge variant">Variant</span>' : ''}
           ${(p.tags || []).map(t => `<span class="pc-tag-chip" style="color:${escapeHtml(t.color || '#00ffcc')};background:${escapeHtml(t.color || '#00ffcc')}22;">${escapeHtml(t.name)}</span>`).join('')}
+          ${p.languageName ? `<span class="pc-tag-chip">${escapeHtml(p.languageName)}</span>` : ''}
         </div>
         <div class="pc-card-meta" style="color:#777;font-style:italic;">${escapeHtml(poemSnippet(p.content))}</div>
       </div>
     `).join('');
 
     el.poemList.querySelectorAll('.pc-card').forEach(card => {
-      card.addEventListener('click', () => openEditorById(Number(card.dataset.poemId)));
+      card.addEventListener('click', () => {
+        const id = Number(card.dataset.poemId);
+        if (state.currentPoem && state.currentPoem.id === id) {
+          state.currentPoem = null;
+          el.poemEditor.innerHTML = '';
+          renderPoemList();
+          return;
+        }
+        openEditorById(id);
+      });
     });
+
+    updateExportButtonState();
+  }
+
+  function updateExportButtonState() {
+    const hasOpen = !!(state.currentPoem && state.currentPoem.id);
+    el.btnExportPoems.querySelector('.pc-export-label').textContent = hasOpen ? 'Export poem as PDF' : 'Export all as PDF';
   }
 
   // ── Editor ───────────────────────────────────────────────────────────
@@ -329,8 +417,11 @@
 
   async function openEditor(poem) {
     await ensureTagsLoaded();
+    await ensureLanguagesLoaded();
     state.currentPoem = poem;
     state.selectedTagIds = new Set((poem && poem.tags || []).map(t => t.id));
+    const lineCount = ((poem && poem.content) || '').split(/\r?\n/).filter(l => l.trim() !== '').length;
+    state.collapsed.content = lineCount > 10;
     renderEditor();
     renderPoemList();
     el.poemEditor.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -338,18 +429,26 @@
 
   function renderEditor() {
     const p = state.currentPoem || {
-      id: null, title: '', author: 'Eero Laine', content: '', bookId: null,
-      writtenDate: todayStr(), isPublished: false, originalPoemId: null, originalTitle: null, historyCount: 0,
+      id: null, title: '', author: 'Eero Laine', content: '', bookId: null, languageId: null,
+      writtenDate: todayStr(), geniusUrl: null, isPublished: false, originalPoemId: null, originalTitle: null, historyCount: 0,
     };
+    const defaultLanguageId = p.languageId || (state.languages.find(l => l.code === 'fi') || {}).id || null;
 
     el.poemEditor.innerHTML = `
       <div class="pc-editor">
         ${p.originalPoemId ? `<div class="pc-based-on">Based on: <a href="#" id="jump-to-original">${escapeHtml(p.originalTitle || ('#' + p.originalPoemId))}</a></div>` : ''}
 
-        <div class="pc-preview-wrap">
-          <div class="poem-preview-title" id="preview-title"></div>
-          <div class="poem-preview-author" id="preview-author"></div>
-          <div class="poem-preview" id="preview-box"></div>
+        <div class="pc-collapsible ${state.collapsed.preview ? 'pc-collapsed' : ''}" data-collapsible="preview">
+          <button type="button" class="pc-collapsible-toggle" aria-expanded="${state.collapsed.preview ? 'false' : 'true'}">
+            <span class="pc-collapsible-arrow">▾</span> Preview
+          </button>
+          <div class="pc-collapsible-body">
+            <div class="pc-preview-wrap">
+              <div class="poem-preview-title" id="preview-title"></div>
+              <div class="poem-preview-author" id="preview-author"></div>
+              <div class="poem-preview" id="preview-box"></div>
+            </div>
+          </div>
         </div>
 
         <div class="pc-editor-grid two">
@@ -358,31 +457,52 @@
         </div>
         <div class="pc-editor-grid two">
           <div class="pc-editor-row">
-            <label>Book</label>
+            <label>Book <button type="button" class="pc-inline-link" id="ed-manage-books">Manage books →</button></label>
             <select id="ed-book">
               <option value="">Unsorted</option>
               ${state.books.map(b => `<option value="${b.id}" ${p.bookId === b.id ? 'selected' : ''}>${escapeHtml(b.title)}</option>`).join('')}
+              <option value="__new__">+ New Book…</option>
             </select>
           </div>
-          <div class="pc-editor-row"><label>Written on</label><input type="date" id="ed-written-date" value="${p.writtenDate || todayStr()}" /></div>
+          <div class="pc-editor-row">
+            <label>Written on</label>
+            <div class="pc-date-select-group">${buildDateSelectsHtml(p.writtenDate || todayStr())}</div>
+          </div>
+        </div>
+
+        <div class="pc-editor-grid two">
+          <div class="pc-editor-row">
+            <label>Language</label>
+            <select id="ed-language">
+              ${state.languages.map(l => `<option value="${l.id}" ${defaultLanguageId === l.id ? 'selected' : ''}>${escapeHtml(l.name)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="pc-editor-row">
+            <label>Genius Lyrics URL</label>
+            <div class="pc-inline-field">
+              <input type="url" id="ed-genius-url" value="${escapeHtml(p.geniusUrl || '')}" placeholder="https://genius.com/…" />
+              ${p.geniusUrl ? `<a href="${escapeHtml(p.geniusUrl)}" target="_blank" rel="noopener" class="button secondary pc-genius-link">View ↗</a>` : ''}
+            </div>
+          </div>
         </div>
 
         <div class="pc-editor-row">
           <label>Tags</label>
-          <div class="pc-tag-picker" id="ed-tags">
-            ${state.tags.map(t => `
-              <span class="pc-tag-chip tag-toggle ${state.selectedTagIds.has(t.id) ? 'selected' : ''}" data-id="${t.id}" style="color:${escapeHtml(t.color || '#00ffcc')};background:${escapeHtml(t.color || '#00ffcc')}${state.selectedTagIds.has(t.id) ? '33' : '15'};">
-                <span class="dot" style="background:${escapeHtml(t.color || '#00ffcc')};"></span>${escapeHtml(t.name)}
-              </span>
-            `).join('')}
+          <div class="pc-tag-picker" id="ed-tags"></div>
+        </div>
+
+        <div class="pc-collapsible ${state.collapsed.content ? 'pc-collapsed' : ''}" data-collapsible="content">
+          <button type="button" class="pc-collapsible-toggle" aria-expanded="${state.collapsed.content ? 'false' : 'true'}">
+            <span class="pc-collapsible-arrow">▾</span> Poem
+          </button>
+          <div class="pc-collapsible-body">
+            <textarea id="ed-content" class="pc-content-textarea">${escapeHtml(p.content)}</textarea>
           </div>
         </div>
 
-        <div class="pc-editor-row"><label>Poem</label><textarea id="ed-content">${escapeHtml(p.content)}</textarea></div>
-
         <div class="pc-actions">
           <button class="button" id="btn-save-poem" type="button">Save</button>
-          ${p.id ? `<button class="button secondary" id="btn-publish-poem" type="button">${p.isPublished ? 'Unpublish' : 'Publish'}</button>` : ''}
+          ${p.id ? `<button class="button ${p.isPublished ? 'danger' : 'secondary'}" id="btn-publish-poem" type="button">${p.isPublished ? 'Unpublish' : 'Publish'}</button>` : ''}
           ${p.id ? `<button class="button secondary" id="btn-new-version" type="button">New Version</button>` : ''}
           ${p.id ? `<button class="button secondary" id="btn-export-poem" type="button">Export PDF</button>` : ''}
           ${p.id ? `<button class="button secondary" id="btn-history" type="button">History (${p.historyCount || 0})</button>` : ''}
@@ -403,23 +523,48 @@
       document.getElementById('preview-title').textContent = titleInput.value || 'Untitled';
       document.getElementById('preview-author').textContent = authorInput.value || 'Eero Laine';
       renderPoemLines(previewBox, contentInput.value);
-      fitPoemText(previewBox, { min: 14, max: 40 });
+      const previewCollapsible = previewBox.closest('.pc-collapsible');
+      if (!previewCollapsible || !previewCollapsible.classList.contains('pc-collapsed')) {
+        fitPoemText(previewBox, { min: 14, max: 40 });
+      }
     };
     updatePreview();
 
+    const autoGrow = () => {
+      if (state.collapsed.content) return;
+      const scrollY = window.scrollY;
+      contentInput.style.height = 'auto';
+      contentInput.style.height = contentInput.scrollHeight + 'px';
+      window.scrollTo(0, scrollY);
+    };
+    autoGrow();
+
     let previewDebounce = null;
-    contentInput.addEventListener('input', () => { clearTimeout(previewDebounce); previewDebounce = setTimeout(updatePreview, 80); });
+    contentInput.addEventListener('input', () => {
+      autoGrow();
+      clearTimeout(previewDebounce); previewDebounce = setTimeout(updatePreview, 80);
+    });
     titleInput.addEventListener('input', updatePreview);
     authorInput.addEventListener('input', updatePreview);
     window.addEventListener('resize', updatePreview);
 
-    document.querySelectorAll('.tag-toggle').forEach(chip => {
-      chip.addEventListener('click', () => {
-        const id = Number(chip.dataset.id);
-        if (state.selectedTagIds.has(id)) state.selectedTagIds.delete(id); else state.selectedTagIds.add(id);
-        renderEditor();
+    document.querySelectorAll('.pc-collapsible-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const wrap = btn.closest('.pc-collapsible');
+        const collapsed = wrap.classList.toggle('pc-collapsed');
+        btn.setAttribute('aria-expanded', String(!collapsed));
+        const key = wrap.dataset.collapsible;
+        if (key) state.collapsed[key] = collapsed;
+        if (!collapsed && key === 'preview') updatePreview();
+        if (!collapsed && key === 'content') autoGrow();
       });
     });
+
+    renderTagPicker();
+
+    const bookSelect = document.getElementById('ed-book');
+    bookSelect.addEventListener('change', () => handleBookSelectChange(bookSelect));
+    document.getElementById('ed-manage-books').addEventListener('click', () => switchTab('books'));
 
     document.getElementById('btn-close-editor').addEventListener('click', () => { state.currentPoem = null; el.poemEditor.innerHTML = ''; renderPoemList(); });
     document.getElementById('btn-save-poem').addEventListener('click', savePoem);
@@ -438,6 +583,73 @@
     }
   }
 
+  function renderTagPicker() {
+    const wrap = document.getElementById('ed-tags');
+    if (!wrap) return;
+    const scrollY = window.scrollY;
+    wrap.innerHTML = state.tags.map(t => `
+      <span class="pc-tag-chip tag-toggle ${state.selectedTagIds.has(t.id) ? 'selected' : ''}" data-id="${t.id}" style="color:${escapeHtml(t.color || '#00ffcc')};background:${escapeHtml(t.color || '#00ffcc')}${state.selectedTagIds.has(t.id) ? '33' : '15'};">
+        <span class="dot" style="background:${escapeHtml(t.color || '#00ffcc')};"></span>${escapeHtml(t.name)}
+      </span>
+    `).join('') + `<span class="pc-tag-chip add-new" id="tag-add-new-btn" type="button">+ New Tag</span>`;
+    window.scrollTo(0, scrollY);
+
+    wrap.querySelectorAll('.tag-toggle').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const id = Number(chip.dataset.id);
+        if (state.selectedTagIds.has(id)) state.selectedTagIds.delete(id); else state.selectedTagIds.add(id);
+        renderTagPicker();
+      });
+    });
+
+    const addBtn = document.getElementById('tag-add-new-btn');
+    if (addBtn) addBtn.addEventListener('click', () => { addBtn.remove(); renderTagQuickAdd(wrap); });
+  }
+
+  function renderTagQuickAdd(wrap) {
+    const form = document.createElement('div');
+    form.className = 'pc-tag-quick-add';
+    form.innerHTML = `
+      <input type="text" id="tag-quick-name" placeholder="Tag name…" />
+      <input type="color" id="tag-quick-color" value="#00ffcc" />
+      <button type="button" class="button secondary" id="tag-quick-save">Add</button>
+      <button type="button" class="button secondary" id="tag-quick-cancel">Cancel</button>
+    `;
+    wrap.appendChild(form);
+    document.getElementById('tag-quick-name').focus();
+
+    document.getElementById('tag-quick-cancel').addEventListener('click', () => renderTagPicker());
+    document.getElementById('tag-quick-save').addEventListener('click', async () => {
+      const name = document.getElementById('tag-quick-name').value.trim();
+      if (!name) return;
+      const color = document.getElementById('tag-quick-color').value;
+      const res = await api('POST', 'tags', { name, color });
+      if (!res.ok || !res.data || !res.data.tag) { showToast((res.data && res.data.error) || 'Failed to create tag', true); return; }
+      if (!state.tags.some(t => t.id === res.data.tag.id)) {
+        state.tags.push(res.data.tag);
+        state.tags.sort((a, b) => a.name.localeCompare(b.name));
+      }
+      state.selectedTagIds.add(res.data.tag.id);
+      showToast('Tag created');
+      renderTagPicker();
+    });
+  }
+
+  async function handleBookSelectChange(selectEl) {
+    if (selectEl.value !== '__new__') return;
+    const title = prompt('New book title:');
+    if (!title || !title.trim()) { selectEl.value = ''; return; }
+    const res = await api('POST', 'books', { title: title.trim() });
+    if (!res.ok) { showToast((res.data && res.data.error) || 'Failed to create book', true); selectEl.value = ''; return; }
+    await loadBooks();
+    const created = state.books.find(b => b.id === res.data.id);
+    selectEl.innerHTML = `<option value="">Unsorted</option>` +
+      state.books.map(b => `<option value="${b.id}">${escapeHtml(b.title)}</option>`).join('') +
+      `<option value="__new__">+ New Book…</option>`;
+    selectEl.value = created ? String(created.id) : '';
+    showToast('Book created');
+  }
+
   function currentEditorPoem() {
     const p = state.currentPoem || {};
     return {
@@ -445,21 +657,35 @@
       title: document.getElementById('ed-title').value.trim() || 'Untitled',
       author: document.getElementById('ed-author').value.trim() || 'Eero Laine',
       content: document.getElementById('ed-content').value,
-      writtenDate: document.getElementById('ed-written-date').value,
+      writtenDate: getWrittenDateValue(),
     };
+  }
+
+  // Strips leading/trailing blank lines and collapses runs of 2+ spaces down to one,
+  // without touching the line breaks that give the poem its shape.
+  function cleanPoemContent(raw) {
+    const lines = String(raw || '').replace(/\r\n/g, '\n').split('\n')
+      .map(l => l.replace(/[ \t]{2,}/g, ' '));
+    while (lines.length && lines[0].trim() === '') lines.shift();
+    while (lines.length && lines[lines.length - 1].trim() === '') lines.pop();
+    return lines.join('\n');
   }
 
   async function savePoem() {
     const title = document.getElementById('ed-title').value.trim();
     const author = document.getElementById('ed-author').value.trim() || 'Eero Laine';
-    const content = document.getElementById('ed-content').value;
+    const content = cleanPoemContent(document.getElementById('ed-content').value);
     const bookVal = document.getElementById('ed-book').value;
-    const writtenDate = document.getElementById('ed-written-date').value;
+    const languageVal = document.getElementById('ed-language').value;
+    const writtenDate = getWrittenDateValue();
+    const geniusUrl = document.getElementById('ed-genius-url').value.trim();
     if (!title) return showToast('Title required', true);
+    if (bookVal === '__new__') return showToast('Finish creating the book first', true);
 
     const payload = {
-      title, author, content, writtenDate,
+      title, author, content, writtenDate, geniusUrl,
       bookId: bookVal === '' ? 0 : Number(bookVal),
+      languageId: languageVal ? Number(languageVal) : 0,
       tagIds: Array.from(state.selectedTagIds),
     };
 
@@ -470,9 +696,14 @@
 
     if (!res.ok) { showToast((res.data && res.data.error) || 'Failed to save poem', true); return; }
     showToast('Poem saved');
+    const scrollY = window.scrollY;
     state.currentPoem = res.data.poem;
+    const lineCount = content.split(/\r?\n/).filter(l => l.trim() !== '').length;
+    state.collapsed.preview = true;
+    state.collapsed.content = lineCount > 10;
     renderEditor();
-    loadPoems();
+    await loadPoems();
+    window.scrollTo(0, scrollY);
   }
 
   async function togglePublishPoem(p) {
@@ -501,6 +732,27 @@
     loadPoems();
   }
 
+  // Positional line diff — same approach as /find-difference's text fallback mode.
+  function diffTextLines(a, b) {
+    const out = [];
+    const max = Math.max(a.length, b.length);
+    for (let i = 0; i < max; i++) {
+      if (i >= a.length) out.push({ kind: 'added', b: b[i] });
+      else if (i >= b.length) out.push({ kind: 'removed', a: a[i] });
+      else if (a[i] !== b[i]) out.push({ kind: 'changed', a: a[i], b: b[i] });
+    }
+    return out;
+  }
+
+  function renderDiffHtml(diffs) {
+    if (!diffs.length) return '<div class="pc-empty">No differences from the current version.</div>';
+    return `<div class="pc-diff-list">${diffs.map(d => {
+      if (d.kind === 'added') return `<div class="pc-diff-row added"><span class="pc-diff-badge">+</span><span class="pc-diff-text">${escapeHtml(d.b)}</span></div>`;
+      if (d.kind === 'removed') return `<div class="pc-diff-row removed"><span class="pc-diff-badge">−</span><span class="pc-diff-text">${escapeHtml(d.a)}</span></div>`;
+      return `<div class="pc-diff-row changed"><span class="pc-diff-badge">±</span><span class="pc-diff-text"><span class="pc-diff-old">${escapeHtml(d.a)}</span> → <span class="pc-diff-new">${escapeHtml(d.b)}</span></span></div>`;
+    }).join('')}</div>`;
+  }
+
   async function toggleHistory(poemId) {
     const panel = document.getElementById('history-panel');
     if (panel.style.display !== 'none' && panel.dataset.loaded === 'true') {
@@ -517,16 +769,62 @@
       <div class="pc-section-title">Version History</div>
       ${history.length ? `<div class="pc-history-list">${history.map(h => `
         <div class="pc-history-item" data-history-id="${h.id}">
-          <div class="meta">${fmtDate(h.snapshotAt)} — "${escapeHtml(h.title)}"</div>
-          <button class="button secondary restore-btn" type="button">Restore</button>
+          <div class="pc-history-row">
+            <div class="meta">${fmtDate(h.snapshotAt)} — "${escapeHtml(h.title)}"</div>
+            <div class="pc-history-actions">
+              <button class="button secondary preview-btn" type="button">Preview</button>
+              <button class="button secondary changes-btn" type="button">Changes</button>
+              <button class="button secondary restore-btn" type="button">Restore</button>
+            </div>
+          </div>
+          <div class="pc-history-detail" style="display:none;"></div>
         </div>
       `).join('')}</div>` : '<div class="pc-empty">No history yet — history is only saved when you edit a poem more than an hour after its last edit.</div>'}
     `;
-    panel.querySelectorAll('.restore-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const historyId = Number(btn.closest('[data-history-id]').dataset.historyId);
+
+    history.forEach(h => {
+      const item = panel.querySelector(`[data-history-id="${h.id}"]`);
+      const detail = item.querySelector('.pc-history-detail');
+
+      item.querySelector('.preview-btn').addEventListener('click', () => {
+        if (detail.dataset.mode === 'preview' && detail.style.display !== 'none') {
+          detail.style.display = 'none';
+          detail.dataset.mode = '';
+          return;
+        }
+        detail.dataset.mode = 'preview';
+        detail.style.display = '';
+        detail.innerHTML = `
+          <div class="pc-preview-wrap">
+            <div class="poem-preview-title">${escapeHtml(h.title)}</div>
+            <div class="poem-preview-author">${escapeHtml(h.author)}</div>
+            <div class="poem-preview" id="hist-preview-${h.id}"></div>
+          </div>
+        `;
+        const box = document.getElementById(`hist-preview-${h.id}`);
+        renderPoemLines(box, h.content);
+        fitPoemText(box, { min: 14, max: 32 });
+      });
+
+      item.querySelector('.changes-btn').addEventListener('click', () => {
+        if (detail.dataset.mode === 'changes' && detail.style.display !== 'none') {
+          detail.style.display = 'none';
+          detail.dataset.mode = '';
+          return;
+        }
+        detail.dataset.mode = 'changes';
+        detail.style.display = '';
+        const current = state.currentPoem || {};
+        const diffs = diffTextLines(
+          (h.content || '').split(/\r?\n/),
+          (current.content || '').split(/\r?\n/)
+        );
+        detail.innerHTML = renderDiffHtml(diffs);
+      });
+
+      item.querySelector('.restore-btn').addEventListener('click', async () => {
         if (!confirm('Restore this version? The current content will be saved to history first.')) return;
-        const r = await api('POST', 'history', { action: 'restore', historyId });
+        const r = await api('POST', 'history', { action: 'restore', historyId: h.id });
         if (!r.ok) return showToast('Failed to restore', true);
         showToast('Version restored');
         await openEditor(r.data.poem);
@@ -648,9 +946,9 @@
     el.statsContent.innerHTML = `
       <div class="pc-stats-grid">
         <div class="pc-stat-tile"><div class="pc-stat-value">${s.totalPoems}</div><div class="pc-stat-label">Poems</div></div>
-        <div class="pc-stat-tile"><div class="pc-stat-value">${s.totalWords}</div><div class="pc-stat-label">Words</div></div>
-        <div class="pc-stat-tile"><div class="pc-stat-value">${s.avgWordsPerPoem}</div><div class="pc-stat-label">Avg Words / Poem</div></div>
-        <div class="pc-stat-tile"><div class="pc-stat-value">${s.avgLinesPerPoem}</div><div class="pc-stat-label">Avg Lines / Poem</div></div>
+        <div class="pc-stat-tile"><div class="pc-stat-value">${s.uniqueWords}</div><div class="pc-stat-label">Unique Words</div></div>
+        <div class="pc-stat-tile"><div class="pc-stat-value">${s.avgWordsPerPoem}</div><div class="pc-stat-label">Avg Words</div></div>
+        <div class="pc-stat-tile"><div class="pc-stat-value">${s.avgVersesPerPoem}</div><div class="pc-stat-label">Avg Verses</div></div>
       </div>
 
       <div class="pc-section-title">Poems Per Month</div>
@@ -662,7 +960,7 @@
         </div>
       `).join('') : '<div class="pc-empty">No poems yet.</div>'}
 
-      <div class="pc-section-title">Most Used Words</div>
+      <div class="pc-section-title">Most Used Words <span class="pc-section-subtitle">(by poems it appears in, not raw occurrences)</span></div>
       <div class="pc-word-list">
         ${s.topWords.length ? s.topWords.map(w => `<span class="pc-word-chip">${escapeHtml(w.word)} <strong>${w.count}</strong></span>`).join('') : '<div class="pc-empty">No poems yet.</div>'}
       </div>
@@ -679,5 +977,9 @@
     state.poems = res.data.poems || [];
     renderPoemList();
     await loadBooks();
+
+    const qs = new URLSearchParams(location.search);
+    const initialView = qs.get('view');
+    if (initialView && el.views[initialView]) switchTab(initialView);
   })();
 })();

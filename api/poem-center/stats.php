@@ -31,7 +31,9 @@ function getStats(Database $database): string
 
     $totalPoems = sizeof($poems);
     $totalWords = 0;
-    $totalLines = 0;
+    $totalVerses = 0;
+    $poemsWithTaggedVerses = 0;
+    $uniqueWords = [];
     $wordCounts = [];
     $perMonth = [];
 
@@ -39,15 +41,43 @@ function getStats(Database $database): string
         $content = (string)$poem['content'];
         $lines = preg_split('/\r\n|\r|\n/', trim($content));
         $lines = array_filter($lines, fn($l) => trim($l) !== '');
-        $totalLines += sizeof($lines);
 
-        $tokens = preg_split('/[^\p{L}\p{N}\']+/u', mb_strtolower($content, 'UTF-8'));
+        // A line like "[Verse]" or "[Verse 2]" marks the start of a verse section.
+        // Many poems never tag their verses at all, so a poem with zero tags isn't
+        // really "0 verses" — it's missing data, and shouldn't drag the average down.
+        $versesInPoem = 0;
+        foreach ($lines as $line) {
+            if (preg_match('/^\[\s*verse\b[^\]]*\]\s*$/i', trim($line))) {
+                $versesInPoem++;
+            }
+        }
+        if ($versesInPoem > 0) {
+            $totalVerses += $versesInPoem;
+            $poemsWithTaggedVerses++;
+        }
+
+        // Strip structure tags like [Intro]/[Verse]/[Chorus] before tokenizing — they're
+        // song-structure markup, not words, and shouldn't count toward any word stat.
+        $wordContent = preg_replace('/\[[^\]]*\]/', ' ', $content);
+
+        // Tokenize every word for the true total word count, but only feed the
+        // "most used words" ranking with words longer than 2 letters that aren't stopwords.
+        $tokens = preg_split('/[^\p{L}\p{N}\']+/u', mb_strtolower($wordContent, 'UTF-8'));
+        $seenInPoem = [];
         foreach ($tokens as $token) {
             $token = trim($token, "'");
+            if ($token === '') continue;
+            $totalWords++;
+            $uniqueWords[$token] = true;
+
             if (mb_strlen($token) <= 2) continue;
             if (in_array($token, POEM_STOPWORDS, true)) continue;
-            $totalWords++;
-            $wordCounts[$token] = ($wordCounts[$token] ?? 0) + 1;
+            // Count each word once per poem, so a word repeated many times in one poem's
+            // hook doesn't outrank a word that recurs across many different poems.
+            if (!isset($seenInPoem[$token])) {
+                $seenInPoem[$token] = true;
+                $wordCounts[$token] = ($wordCounts[$token] ?? 0) + 1;
+            }
         }
 
         $month = substr($poem['writtenDate'] ?: $poem['createdAt'], 0, 7);
@@ -56,11 +86,11 @@ function getStats(Database $database): string
 
     arsort($wordCounts);
     $topWords = [];
-    foreach (array_slice($wordCounts, 0, 30, true) as $word => $count) {
+    foreach (array_slice($wordCounts, 0, 100, true) as $word => $count) {
         $topWords[] = ['word' => $word, 'count' => $count];
     }
 
-    ksort($perMonth);
+    krsort($perMonth);
     $poemsPerMonth = [];
     foreach ($perMonth as $month => $count) {
         $poemsPerMonth[] = ['month' => $month, 'count' => $count];
@@ -68,9 +98,9 @@ function getStats(Database $database): string
 
     return Database::responseSuccess([
         'totalPoems' => $totalPoems,
-        'totalWords' => $totalWords,
+        'uniqueWords' => sizeof($uniqueWords),
         'avgWordsPerPoem' => $totalPoems ? round($totalWords / $totalPoems, 1) : 0,
-        'avgLinesPerPoem' => $totalPoems ? round($totalLines / $totalPoems, 1) : 0,
+        'avgVersesPerPoem' => $poemsWithTaggedVerses ? round($totalVerses / $poemsWithTaggedVerses, 1) : 0,
         'poemsPerMonth' => $poemsPerMonth,
         'topWords' => $topWords,
     ]);

@@ -118,6 +118,13 @@ function deleteBook(Database $database): string
         ['id' => ['value' => $id, 'type' => \PDO::PARAM_INT]]
     );
 
+    // Deleting a book unsorts its poems rather than deleting them — clear the
+    // reference so they don't keep showing the now-deleted book as theirs.
+    $database->query(
+        'UPDATE poem SET bookId = NULL WHERE bookId = :id',
+        ['id' => ['value' => $id, 'type' => \PDO::PARAM_INT]]
+    );
+
     return Database::responseSuccess(['id' => $id]);
 }
 

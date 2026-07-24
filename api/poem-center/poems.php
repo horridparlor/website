@@ -17,11 +17,12 @@ function listPoems(Database $database): string
 
     $sql = <<<SQL
         SELECT
-            p.id, p.bookId, p.originalPoemId, p.title, p.author, p.content, p.sortOrder,
+            p.id, p.bookId, p.languageId, p.originalPoemId, p.title, p.author, p.content, p.sortOrder,
             p.writtenDate, p.isPublished, p.publishedAt, p.createdAt, p.updatedAt,
-            b.title bookTitle
+            b.title bookTitle, lang.code languageCode, lang.name languageName
         FROM poem p
-        LEFT JOIN poem_book b ON b.id = p.bookId
+        LEFT JOIN poem_book b ON b.id = p.bookId AND b.isDeleted = 0
+        LEFT JOIN poem_language lang ON lang.id = p.languageId
         WHERE p.isDeleted = 0
     SQL;
     $replacements = [];
@@ -39,7 +40,11 @@ function listPoems(Database $database): string
         $replacements['q'] = ['value' => '%' . $q . '%', 'type' => \PDO::PARAM_STR];
     }
 
-    $sql .= ' ORDER BY p.sortOrder ASC, p.updatedAt DESC';
+    if ($hasBookId && $bookId) {
+        $sql .= ' ORDER BY p.sortOrder ASC, p.updatedAt DESC';
+    } else {
+        $sql .= ' ORDER BY p.writtenDate DESC, p.id DESC';
+    }
 
     $poems = $database->query($sql, $replacements);
 
@@ -67,6 +72,7 @@ function listPoems(Database $database): string
     foreach ($poems as &$poem) {
         $poem['id'] = (int)$poem['id'];
         $poem['bookId'] = $poem['bookId'] !== null ? (int)$poem['bookId'] : null;
+        $poem['languageId'] = $poem['languageId'] !== null ? (int)$poem['languageId'] : null;
         $poem['originalPoemId'] = $poem['originalPoemId'] !== null ? (int)$poem['originalPoemId'] : null;
         $poem['sortOrder'] = (int)$poem['sortOrder'];
         $poem['isPublished'] = (bool)(int)$poem['isPublished'];
@@ -84,7 +90,9 @@ function createPoem(Database $database): string
     $author = trim((string)$database->getRawStringParam('author', ''));
     $content = (string)$database->getRawStringParam('content', '');
     $bookId = $database->getIntParam('bookId');
+    $languageId = $database->getIntParam('languageId');
     $writtenDate = $database->getStringParam('writtenDate');
+    $geniusUrl = trim((string)$database->getRawStringParam('geniusUrl', ''));
 
     if (!$title) return Database::responseBadRequest('title required');
     if (!$author) $author = 'Eero Laine';
@@ -97,6 +105,17 @@ function createPoem(Database $database): string
         if (!$book) return Database::responseBadRequest('book does not exist');
     }
 
+    if ($languageId) {
+        $language = $database->query(
+            'SELECT id FROM poem_language WHERE id = :id',
+            ['id' => ['value' => $languageId, 'type' => \PDO::PARAM_INT]]
+        );
+        if (!$language) return Database::responseBadRequest('language does not exist');
+    } else {
+        $finnish = $database->query("SELECT id FROM poem_language WHERE code = 'fi'");
+        $languageId = $finnish ? (int)$finnish[0]['id'] : null;
+    }
+
     $maxSort = $database->query(
         'SELECT MAX(sortOrder) maxSort FROM poem WHERE isDeleted = 0 AND ' .
         ($bookId ? 'bookId = :bookId' : 'bookId IS NULL'),
@@ -106,16 +125,18 @@ function createPoem(Database $database): string
 
     $database->query(
         <<<SQL
-            INSERT INTO poem (bookId, title, author, content, sortOrder, writtenDate)
-            VALUES (:bookId, :title, :author, :content, :sortOrder, :writtenDate)
+            INSERT INTO poem (bookId, languageId, title, author, content, sortOrder, writtenDate, geniusUrl)
+            VALUES (:bookId, :languageId, :title, :author, :content, :sortOrder, :writtenDate, :geniusUrl)
         SQL,
         [
             'bookId' => ['value' => $bookId ?: null, 'type' => \PDO::PARAM_INT],
+            'languageId' => ['value' => $languageId ?: null, 'type' => \PDO::PARAM_INT],
             'title' => ['value' => $title, 'type' => \PDO::PARAM_STR],
             'author' => ['value' => $author, 'type' => \PDO::PARAM_STR],
             'content' => ['value' => $content, 'type' => \PDO::PARAM_STR],
             'sortOrder' => ['value' => $sortOrder, 'type' => \PDO::PARAM_INT],
             'writtenDate' => ['value' => $writtenDate ?: date('Y-m-d'), 'type' => \PDO::PARAM_STR],
+            'geniusUrl' => ['value' => $geniusUrl !== '' ? $geniusUrl : null, 'type' => \PDO::PARAM_STR],
         ]
     );
     $poemId = $database->getInsertId();
