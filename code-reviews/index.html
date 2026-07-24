@@ -127,6 +127,19 @@
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
 
+  function getReviewIdFromUrl() {
+    const raw = new URLSearchParams(window.location.search).get('id');
+    const id = raw ? Number(raw) : null;
+    return Number.isFinite(id) && id > 0 ? id : null;
+  }
+
+  function setReviewIdInUrl(id) {
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set('id', id);
+    else url.searchParams.delete('id');
+    history.replaceState(null, '', url.toString());
+  }
+
   // ---------- helpers ----------
   function escapeHtml(str) {
     return String(str == null ? '' : str)
@@ -610,6 +623,7 @@
   }
 
   function goBackToList() {
+    setReviewIdInUrl(null);
     showView('listView');
     loadReviewsList();
   }
@@ -692,7 +706,7 @@
       const data = await apiJson('review.php', { method: 'DELETE', body: JSON.stringify({ id: id }) });
       showToast(data.mode === 'soft' ? 'Review archived (older than a day, soft-deleted).' : 'Review deleted.');
       if (String(id) === localStorage.getItem(LAST_OPEN_KEY)) localStorage.removeItem(LAST_OPEN_KEY);
-      if (currentReview && currentReview.id === id) { currentReview = null; showView('listView'); }
+      if (currentReview && currentReview.id === id) { currentReview = null; setReviewIdInUrl(null); showView('listView'); }
       loadReviewsList();
     } catch (e) {
       showToast(e.message, true);
@@ -1085,6 +1099,16 @@
     if (toggleBtn) toggleBtn.textContent = textarea.value.trim() ? 'Mark resolved with a comment' : 'Mark resolved';
   });
 
+  $('#detailView').addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' || e.shiftKey) return;
+    const textarea = e.target.closest('[data-role="new-comment-input"]');
+    if (!textarea) return;
+    e.preventDefault();
+    const card = textarea.closest('.finding-card');
+    const addBtn = card && card.querySelector('[data-action="add-comment"]');
+    if (addBtn) addBtn.click();
+  });
+
   $('#detailView').addEventListener('click', async function (e) {
     const stripCheckbox = e.target.closest('[data-role="strip-checkbox"]');
     if (stripCheckbox) {
@@ -1257,6 +1281,7 @@
     currentReview = review;
     collapseOverrides.clear();
     localStorage.setItem(LAST_OPEN_KEY, String(review.id));
+    setReviewIdInUrl(review.id);
     measureTopbarHeight();
     renderDetail(review);
     showView('detailView');
@@ -1277,6 +1302,17 @@
 
   // ---------- boot ----------
   async function bootAfterAuth() {
+    const urlId = getReviewIdFromUrl();
+    if (urlId) {
+      try {
+        const data = await apiJson('review.php?id=' + urlId, { method: 'GET' });
+        if (data.review) {
+          openReviewObject(data.review);
+          return;
+        }
+      } catch (e) { /* fall through */ }
+    }
+
     const lastId = localStorage.getItem(LAST_OPEN_KEY);
     if (lastId) {
       try {
