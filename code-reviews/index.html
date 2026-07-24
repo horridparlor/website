@@ -921,6 +921,7 @@
       '<div class="detail-actions">' +
       '<span class="status-badge status-' + review.status + '">' + review.status + '</span>' +
       '<button type="button" class="btn btn-ghost btn-sm" data-action="copy-raw">Copy raw</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-action="edit-review-meta">Edit</button>' +
       '<button type="button" class="btn btn-danger btn-sm" data-action="delete-review-detail">Delete</button>' +
       '</div>' +
       '</div>' +
@@ -1076,6 +1077,46 @@
       showToast(ok ? 'Raw markdown copied.' : 'Copy failed.', !ok);
       return;
     }
+
+    const editMetaBtn = e.target.closest('[data-action="edit-review-meta"]');
+    if (editMetaBtn) {
+      const header = $('.detail-header');
+      header.innerHTML =
+        '<div class="detail-edit-fields">' +
+        '<label class="field"><span>Identifier</span><input type="text" id="editIdentifierInput" value="' + escapeHtml(currentReview.identifier || '') + '" /></label>' +
+        '<label class="field"><span>Title</span><input type="text" id="editTitleInput" value="' + escapeHtml(currentReview.title || '') + '" /></label>' +
+        '</div>' +
+        '<div class="detail-actions">' +
+        '<button type="button" class="btn btn-primary btn-sm" data-action="save-review-meta">Save</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-action="cancel-review-meta">Cancel</button>' +
+        '</div>';
+      $('#editTitleInput').focus();
+      return;
+    }
+
+    const saveMetaBtn = e.target.closest('[data-action="save-review-meta"]');
+    if (saveMetaBtn) {
+      const identifier = $('#editIdentifierInput').value.trim();
+      const title = $('#editTitleInput').value.trim();
+      if (!title) { showToast('Title is required.', true); return; }
+      setLoading(true);
+      try {
+        const data = await apiJson('review.php', { method: 'PUT', body: JSON.stringify({ id: currentReview.id, identifier: identifier, title: title }) });
+        currentReview.identifier = data.review.identifier;
+        currentReview.title = data.review.title;
+        currentReview.updatedAt = data.review.updatedAt;
+        renderDetail(currentReview);
+        showToast('Review updated.');
+      } catch (e) {
+        showToast(e.message, true);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    const cancelMetaBtn = e.target.closest('[data-action="cancel-review-meta"]');
+    if (cancelMetaBtn) { renderDetail(currentReview); return; }
 
     const codeCopyBtn = e.target.closest('.copy-btn-sm[data-code]');
     if (codeCopyBtn) {

@@ -338,6 +338,8 @@ label.field input, label.field select { color: var(--text); }
 }
 .detail-header .dh-meta { color: var(--muted); font-size: .8rem; }
 .detail-actions { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+.detail-edit-fields { display: flex; gap: .8rem; flex-wrap: wrap; flex: 1 1 320px; }
+.detail-edit-fields .field { flex: 1 1 160px; }
 
 .closed-banner {
   background: rgba(0,255,204,.08);
