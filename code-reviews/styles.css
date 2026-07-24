@@ -436,7 +436,7 @@ label.field input, label.field select { color: var(--text); }
   transition: opacity .25s ease, border-color .2s ease;
 }
 .finding-card.is-checked { border-color: #262626; border-left-color: var(--card-accent, #262626); }
-.finding-card.is-checked .finding-body-wrap { display: none; }
+.finding-card.collapsed .finding-body-wrap { display: none; }
 .finding-head {
   display: flex;
   align-items: flex-start;

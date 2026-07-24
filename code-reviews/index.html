@@ -122,7 +122,7 @@
   let authToken = localStorage.getItem(TOKEN_KEY);
   let currentReview = null;
   let parsedDraft = null;
-  const expandedOverrides = new Set();
+  const collapseOverrides = new Set();
 
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
@@ -814,7 +814,10 @@
     const readOnly = !!opts.readOnly;
     const key = severityKey(f.severity);
     const checkedCls = f.checked ? 'is-checked' : '';
-    const expandCls = f.checked && f.id != null && expandedOverrides.has(f.id) ? 'force-expand' : '';
+    const defaultCollapsed = !!f.checked;
+    const overridden = f.id != null && collapseOverrides.has(f.id);
+    const collapsed = overridden ? !defaultCollapsed : defaultCollapsed;
+    const collapsedCls = collapsed ? 'collapsed' : '';
     const idAttr = f.id != null ? ' data-finding-id="' + f.id + '"' : '';
 
     let footer = '';
@@ -833,7 +836,7 @@
         '</div>';
     }
 
-    return '<div class="finding-card ' + checkedCls + ' ' + expandCls + '" style="--card-accent:var(--sev-' + key + ')"' + idAttr + '>' +
+    return '<div class="finding-card ' + checkedCls + ' ' + collapsedCls + '" style="--card-accent:var(--sev-' + key + ')"' + idAttr + '>' +
       '<div class="finding-head" data-role="finding-head">' +
       '<div class="finding-checkbox' + (f.checked ? ' checked' : '') + '" data-role="finding-checkbox">' + (f.checked ? '&#10003;' : '') + '</div>' +
       '<div class="finding-main">' +
@@ -843,7 +846,7 @@
       '</div>' +
       (f.filePath ? '<span class="finding-file">' + escapeHtml(f.filePath) + '</span>' : '') +
       '</div>' +
-      (f.checked ? '<div class="finding-toggle-icon">&#9662;</div>' : '') +
+      '<div class="finding-toggle-icon">&#9662;</div>' +
       '</div>' +
       '<div class="finding-body-wrap">' +
       '<div class="finding-body">' + renderMarkdown(f.bodyMarkdown) + '</div>' +
@@ -942,7 +945,7 @@
       const finding = findFinding(id);
       if (finding) finding.checked = data.checked;
       currentReview.status = data.reviewStatus;
-      expandedOverrides.delete(id);
+      collapseOverrides.delete(id);
       renderDetail(currentReview);
       window.scrollTo(0, scrollY);
       showToast(checked ? 'Marked resolved.' : 'Marked unresolved.');
@@ -969,7 +972,7 @@
       const finding = findFinding(id);
       if (finding) finding.checked = data.checked;
       currentReview.status = data.reviewStatus;
-      expandedOverrides.delete(id);
+      collapseOverrides.delete(id);
       renderDetail(currentReview);
       window.scrollTo(0, scrollY);
       showToast(commentBody ? 'Comment added and marked resolved.' : (checked ? 'Marked resolved.' : 'Marked unresolved.'));
@@ -991,7 +994,7 @@
       }));
       const data = await apiJson('review.php?id=' + currentReview.id, { method: 'GET' });
       currentReview = data.review;
-      expandedOverrides.clear();
+      collapseOverrides.clear();
       renderDetail(currentReview);
       window.scrollTo(0, scrollY);
       showToast(checked ? 'All findings marked resolved.' : 'All findings marked unresolved.');
@@ -1234,12 +1237,12 @@
       return;
     }
 
-    // toggle manual expand/collapse for checked findings when clicking the head
+    // toggle manual expand/collapse when clicking the head, independent of resolved status
     const headEl = e.target.closest('[data-role="finding-head"]');
-    if (headEl && finding.checked) {
-      if (expandedOverrides.has(findingId)) expandedOverrides.delete(findingId);
-      else expandedOverrides.add(findingId);
-      card.classList.toggle('force-expand');
+    if (headEl) {
+      if (collapseOverrides.has(findingId)) collapseOverrides.delete(findingId);
+      else collapseOverrides.add(findingId);
+      card.classList.toggle('collapsed');
     }
   });
 
@@ -1252,7 +1255,7 @@
 
   function openReviewObject(review) {
     currentReview = review;
-    expandedOverrides.clear();
+    collapseOverrides.clear();
     localStorage.setItem(LAST_OPEN_KEY, String(review.id));
     measureTopbarHeight();
     renderDetail(review);
