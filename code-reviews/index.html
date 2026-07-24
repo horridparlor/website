@@ -953,6 +953,33 @@
     }
   }
 
+  async function resolveFindingWithComment(id, checked, commentBody) {
+    const scrollY = window.scrollY;
+    setLoading(true);
+    try {
+      if (commentBody) {
+        const commentData = await apiJson('comment.php', { method: 'POST', body: JSON.stringify({ findingId: id, body: commentBody }) });
+        const finding = findFinding(id);
+        if (finding) {
+          finding.comments = finding.comments || [];
+          finding.comments.push(commentData.comment);
+        }
+      }
+      const data = await apiJson('finding.php', { method: 'PUT', body: JSON.stringify({ id: id, checked: checked }) });
+      const finding = findFinding(id);
+      if (finding) finding.checked = data.checked;
+      currentReview.status = data.reviewStatus;
+      expandedOverrides.delete(id);
+      renderDetail(currentReview);
+      window.scrollTo(0, scrollY);
+      showToast(commentBody ? 'Comment added and marked resolved.' : (checked ? 'Marked resolved.' : 'Marked unresolved.'));
+    } catch (e) {
+      showToast(e.message, true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function setAllFindingsChecked(checked) {
     const targets = currentReview.findings.filter(function (f) { return f.isCheckable && f.checked !== checked; });
     if (!targets.length) return;
@@ -1042,6 +1069,18 @@
     out += f.bodyMarkdown || '';
     return out;
   }
+
+  $('#detailView').addEventListener('input', function (e) {
+    const textarea = e.target.closest('[data-role="new-comment-input"]');
+    if (!textarea) return;
+    const card = textarea.closest('.finding-card');
+    if (!card) return;
+    const findingId = Number(card.dataset.findingId);
+    const finding = findFinding(findingId);
+    if (!finding || finding.checked) return;
+    const toggleBtn = card.querySelector('[data-action="toggle-checked"]');
+    if (toggleBtn) toggleBtn.textContent = textarea.value.trim() ? 'Mark resolved with a comment' : 'Mark resolved';
+  });
 
   $('#detailView').addEventListener('click', async function (e) {
     const stripCheckbox = e.target.closest('[data-role="strip-checkbox"]');
@@ -1136,7 +1175,13 @@
     const checkboxEl = e.target.closest('[data-role="finding-checkbox"]');
     const toggleBtn = e.target.closest('[data-action="toggle-checked"]');
     if (checkboxEl || toggleBtn) {
-      setFindingChecked(findingId, !finding.checked);
+      const willCheck = !finding.checked;
+      let commentBody = '';
+      if (willCheck) {
+        const textarea = card.querySelector('[data-role="new-comment-input"]');
+        if (textarea) commentBody = textarea.value.trim();
+      }
+      resolveFindingWithComment(findingId, willCheck, commentBody);
       return;
     }
 
