@@ -203,12 +203,34 @@
     renderContent();
   }
 
+  // Fitting a poem's font size is expensive (forces a synchronous layout on
+  // every 1px step). Doing that for all ~100 poems up front is what made the
+  // page slow, especially on mobile. Instead, render the (cheap) text lines
+  // immediately for every poem, but only run the expensive fit pass once a
+  // poem's card actually scrolls near the viewport.
+  let fitObserver = null;
+
+  function fitBox(box) {
+    fitPoemText(box, { min: 15, max: 34 });
+    box.dataset.fitted = '1';
+  }
+
   function fitAllPoems() {
+    if (fitObserver) fitObserver.disconnect();
+    fitObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        fitObserver.unobserve(entry.target);
+        fitBox(entry.target);
+      });
+    }, { rootMargin: '600px 0px' });
+
     document.querySelectorAll('.poem-body').forEach(box => {
       const p = poemsById.get(box.dataset.poemId);
       if (!p) return;
       renderPoemLines(box, p.content);
-      fitPoemText(box, { min: 15, max: 34 });
+      delete box.dataset.fitted;
+      fitObserver.observe(box);
     });
   }
 
@@ -216,7 +238,7 @@
   window.addEventListener('resize', () => {
     clearTimeout(resizeDebounce);
     resizeDebounce = setTimeout(() => {
-      document.querySelectorAll('.pw-poem-card:not(.pw-collapsed) .poem-body').forEach(box => fitPoemText(box, { min: 15, max: 34 }));
+      document.querySelectorAll('.pw-poem-card:not(.pw-collapsed) .poem-body[data-fitted="1"]').forEach(box => fitPoemText(box, { min: 15, max: 34 }));
     }, 100);
   });
 
@@ -235,7 +257,10 @@
     btn.textContent = collapsed ? '▸' : '▾';
     if (!collapsed) {
       const box = card.querySelector('.poem-body');
-      if (box) fitPoemText(box, { min: 15, max: 34 });
+      if (box) {
+        if (fitObserver) fitObserver.unobserve(box);
+        fitBox(box);
+      }
     }
   }
 
