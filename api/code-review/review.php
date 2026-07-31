@@ -21,6 +21,40 @@ function getReview(Database $database): string
     return Database::responseSuccess(['review' => $review]);
 }
 
+function updateReview(Database $database): string
+{
+    $user = $database->getUser();
+    if (!$user) return Database::responseUnauthorized();
+
+    $id = $database->getIntParam('id');
+    if (!$id) return Database::responseBadRequest('id required');
+
+    $identifier = trim((string)$database->getRawStringParam('identifier', ''));
+    $title = trim((string)$database->getRawStringParam('title', ''));
+    if (!$title) return Database::responseBadRequest('title required');
+
+    $rows = $database->query(
+        'SELECT id FROM code_reviews WHERE id = :id AND userId = :userId AND isDeleted = 0',
+        [
+            'id' => ['value' => $id, 'type' => \PDO::PARAM_INT],
+            'userId' => ['value' => $user->getId(), 'type' => \PDO::PARAM_INT],
+        ]
+    );
+    if (!$rows) return Database::responseNotFound();
+
+    $database->query(
+        'UPDATE code_reviews SET identifier = :identifier, title = :title, updatedAt = NOW() WHERE id = :id',
+        [
+            'identifier' => ['value' => $identifier ?: null, 'type' => \PDO::PARAM_STR],
+            'title' => ['value' => $title, 'type' => \PDO::PARAM_STR],
+            'id' => ['value' => $id, 'type' => \PDO::PARAM_INT],
+        ]
+    );
+
+    $review = codeReviewFetchFull($database, $id, $user->getId());
+    return Database::responseSuccess(['review' => $review]);
+}
+
 function deleteReview(Database $database): string
 {
     $user = $database->getUser();
@@ -60,4 +94,4 @@ function deleteReview(Database $database): string
 }
 
 $database = new Database();
-$database->handleRequest('getReview', null, null, 'deleteReview');
+$database->handleRequest('getReview', null, 'updateReview', 'deleteReview');

@@ -122,10 +122,23 @@
   let authToken = localStorage.getItem(TOKEN_KEY);
   let currentReview = null;
   let parsedDraft = null;
-  const expandedOverrides = new Set();
+  const collapseOverrides = new Set();
 
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+
+  function getReviewIdFromUrl() {
+    const raw = new URLSearchParams(window.location.search).get('id');
+    const id = raw ? Number(raw) : null;
+    return Number.isFinite(id) && id > 0 ? id : null;
+  }
+
+  function setReviewIdInUrl(id) {
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set('id', id);
+    else url.searchParams.delete('id');
+    history.replaceState(null, '', url.toString());
+  }
 
   // ---------- helpers ----------
   function escapeHtml(str) {
@@ -610,6 +623,7 @@
   }
 
   function goBackToList() {
+    setReviewIdInUrl(null);
     showView('listView');
     loadReviewsList();
   }
@@ -692,7 +706,7 @@
       const data = await apiJson('review.php', { method: 'DELETE', body: JSON.stringify({ id: id }) });
       showToast(data.mode === 'soft' ? 'Review archived (older than a day, soft-deleted).' : 'Review deleted.');
       if (String(id) === localStorage.getItem(LAST_OPEN_KEY)) localStorage.removeItem(LAST_OPEN_KEY);
-      if (currentReview && currentReview.id === id) { currentReview = null; showView('listView'); }
+      if (currentReview && currentReview.id === id) { currentReview = null; setReviewIdInUrl(null); showView('listView'); }
       loadReviewsList();
     } catch (e) {
       showToast(e.message, true);
@@ -814,7 +828,10 @@
     const readOnly = !!opts.readOnly;
     const key = severityKey(f.severity);
     const checkedCls = f.checked ? 'is-checked' : '';
-    const expandCls = f.checked && f.id != null && expandedOverrides.has(f.id) ? 'force-expand' : '';
+    const defaultCollapsed = !!f.checked;
+    const overridden = f.id != null && collapseOverrides.has(f.id);
+    const collapsed = overridden ? !defaultCollapsed : defaultCollapsed;
+    const collapsedCls = collapsed ? 'collapsed' : '';
     const idAttr = f.id != null ? ' data-finding-id="' + f.id + '"' : '';
 
     let footer = '';
@@ -833,7 +850,7 @@
         '</div>';
     }
 
-    return '<div class="finding-card ' + checkedCls + ' ' + expandCls + '" style="--card-accent:var(--sev-' + key + ')"' + idAttr + '>' +
+    return '<div class="finding-card ' + checkedCls + ' ' + collapsedCls + '" style="--card-accent:var(--sev-' + key + ')"' + idAttr + '>' +
       '<div class="finding-head" data-role="finding-head">' +
       '<div class="finding-checkbox' + (f.checked ? ' checked' : '') + '" data-role="finding-checkbox">' + (f.checked ? '&#10003;' : '') + '</div>' +
       '<div class="finding-main">' +
@@ -843,7 +860,7 @@
       '</div>' +
       (f.filePath ? '<span class="finding-file">' + escapeHtml(f.filePath) + '</span>' : '') +
       '</div>' +
-      (f.checked ? '<div class="finding-toggle-icon">&#9662;</div>' : '') +
+      '<div class="finding-toggle-icon">&#9662;</div>' +
       '</div>' +
       '<div class="finding-body-wrap">' +
       '<div class="finding-body">' + renderMarkdown(f.bodyMarkdown) + '</div>' +
@@ -921,6 +938,7 @@
       '<div class="detail-actions">' +
       '<span class="status-badge status-' + review.status + '">' + review.status + '</span>' +
       '<button type="button" class="btn btn-ghost btn-sm" data-action="copy-raw">Copy raw</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-action="edit-review-meta">Edit</button>' +
       '<button type="button" class="btn btn-danger btn-sm" data-action="delete-review-detail">Delete</button>' +
       '</div>' +
       '</div>' +
@@ -941,10 +959,37 @@
       const finding = findFinding(id);
       if (finding) finding.checked = data.checked;
       currentReview.status = data.reviewStatus;
-      expandedOverrides.delete(id);
+      collapseOverrides.delete(id);
       renderDetail(currentReview);
       window.scrollTo(0, scrollY);
       showToast(checked ? 'Marked resolved.' : 'Marked unresolved.');
+    } catch (e) {
+      showToast(e.message, true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function resolveFindingWithComment(id, checked, commentBody) {
+    const scrollY = window.scrollY;
+    setLoading(true);
+    try {
+      if (commentBody) {
+        const commentData = await apiJson('comment.php', { method: 'POST', body: JSON.stringify({ findingId: id, body: commentBody }) });
+        const finding = findFinding(id);
+        if (finding) {
+          finding.comments = finding.comments || [];
+          finding.comments.push(commentData.comment);
+        }
+      }
+      const data = await apiJson('finding.php', { method: 'PUT', body: JSON.stringify({ id: id, checked: checked }) });
+      const finding = findFinding(id);
+      if (finding) finding.checked = data.checked;
+      currentReview.status = data.reviewStatus;
+      collapseOverrides.delete(id);
+      renderDetail(currentReview);
+      window.scrollTo(0, scrollY);
+      showToast(commentBody ? 'Comment added and marked resolved.' : (checked ? 'Marked resolved.' : 'Marked unresolved.'));
     } catch (e) {
       showToast(e.message, true);
     } finally {
@@ -963,7 +1008,7 @@
       }));
       const data = await apiJson('review.php?id=' + currentReview.id, { method: 'GET' });
       currentReview = data.review;
-      expandedOverrides.clear();
+      collapseOverrides.clear();
       renderDetail(currentReview);
       window.scrollTo(0, scrollY);
       showToast(checked ? 'All findings marked resolved.' : 'All findings marked unresolved.');
@@ -1042,6 +1087,34 @@
     return out;
   }
 
+  $('#detailView').addEventListener('input', function (e) {
+    const textarea = e.target.closest('[data-role="new-comment-input"]');
+    if (!textarea) return;
+    const card = textarea.closest('.finding-card');
+    if (!card) return;
+    const findingId = Number(card.dataset.findingId);
+    const finding = findFinding(findingId);
+    if (!finding || finding.checked) return;
+    const toggleBtn = card.querySelector('[data-action="toggle-checked"]');
+    if (toggleBtn) toggleBtn.textContent = textarea.value.trim() ? 'Mark resolved with a comment' : 'Mark resolved';
+  });
+
+  $('#detailView').addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    const textarea = e.target.closest('[data-role="new-comment-input"]');
+    if (!textarea) return;
+    e.preventDefault();
+    const card = textarea.closest('.finding-card');
+    if (!card) return;
+    if (e.shiftKey) {
+      const toggleBtn = card.querySelector('[data-action="toggle-checked"]');
+      if (toggleBtn) toggleBtn.click();
+    } else {
+      const addBtn = card.querySelector('[data-action="add-comment"]');
+      if (addBtn) addBtn.click();
+    }
+  });
+
   $('#detailView').addEventListener('click', async function (e) {
     const stripCheckbox = e.target.closest('[data-role="strip-checkbox"]');
     if (stripCheckbox) {
@@ -1077,6 +1150,46 @@
       return;
     }
 
+    const editMetaBtn = e.target.closest('[data-action="edit-review-meta"]');
+    if (editMetaBtn) {
+      const header = $('.detail-header');
+      header.innerHTML =
+        '<div class="detail-edit-fields">' +
+        '<label class="field"><span>Identifier</span><input type="text" id="editIdentifierInput" value="' + escapeHtml(currentReview.identifier || '') + '" /></label>' +
+        '<label class="field"><span>Title</span><input type="text" id="editTitleInput" value="' + escapeHtml(currentReview.title || '') + '" /></label>' +
+        '</div>' +
+        '<div class="detail-actions">' +
+        '<button type="button" class="btn btn-primary btn-sm" data-action="save-review-meta">Save</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-action="cancel-review-meta">Cancel</button>' +
+        '</div>';
+      $('#editTitleInput').focus();
+      return;
+    }
+
+    const saveMetaBtn = e.target.closest('[data-action="save-review-meta"]');
+    if (saveMetaBtn) {
+      const identifier = $('#editIdentifierInput').value.trim();
+      const title = $('#editTitleInput').value.trim();
+      if (!title) { showToast('Title is required.', true); return; }
+      setLoading(true);
+      try {
+        const data = await apiJson('review.php', { method: 'PUT', body: JSON.stringify({ id: currentReview.id, identifier: identifier, title: title }) });
+        currentReview.identifier = data.review.identifier;
+        currentReview.title = data.review.title;
+        currentReview.updatedAt = data.review.updatedAt;
+        renderDetail(currentReview);
+        showToast('Review updated.');
+      } catch (e) {
+        showToast(e.message, true);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    const cancelMetaBtn = e.target.closest('[data-action="cancel-review-meta"]');
+    if (cancelMetaBtn) { renderDetail(currentReview); return; }
+
     const codeCopyBtn = e.target.closest('.copy-btn-sm[data-code]');
     if (codeCopyBtn) {
       const ok = await copyToClipboard(codeCopyBtn.dataset.code);
@@ -1095,7 +1208,13 @@
     const checkboxEl = e.target.closest('[data-role="finding-checkbox"]');
     const toggleBtn = e.target.closest('[data-action="toggle-checked"]');
     if (checkboxEl || toggleBtn) {
-      setFindingChecked(findingId, !finding.checked);
+      const willCheck = !finding.checked;
+      let commentBody = '';
+      if (willCheck) {
+        const textarea = card.querySelector('[data-role="new-comment-input"]');
+        if (textarea) commentBody = textarea.value.trim();
+      }
+      resolveFindingWithComment(findingId, willCheck, commentBody);
       return;
     }
 
@@ -1148,12 +1267,12 @@
       return;
     }
 
-    // toggle manual expand/collapse for checked findings when clicking the head
+    // toggle manual expand/collapse when clicking the head, independent of resolved status
     const headEl = e.target.closest('[data-role="finding-head"]');
-    if (headEl && finding.checked) {
-      if (expandedOverrides.has(findingId)) expandedOverrides.delete(findingId);
-      else expandedOverrides.add(findingId);
-      card.classList.toggle('force-expand');
+    if (headEl) {
+      if (collapseOverrides.has(findingId)) collapseOverrides.delete(findingId);
+      else collapseOverrides.add(findingId);
+      card.classList.toggle('collapsed');
     }
   });
 
@@ -1166,8 +1285,9 @@
 
   function openReviewObject(review) {
     currentReview = review;
-    expandedOverrides.clear();
+    collapseOverrides.clear();
     localStorage.setItem(LAST_OPEN_KEY, String(review.id));
+    setReviewIdInUrl(review.id);
     measureTopbarHeight();
     renderDetail(review);
     showView('detailView');
@@ -1188,6 +1308,17 @@
 
   // ---------- boot ----------
   async function bootAfterAuth() {
+    const urlId = getReviewIdFromUrl();
+    if (urlId) {
+      try {
+        const data = await apiJson('review.php?id=' + urlId, { method: 'GET' });
+        if (data.review) {
+          openReviewObject(data.review);
+          return;
+        }
+      } catch (e) { /* fall through */ }
+    }
+
     const lastId = localStorage.getItem(LAST_OPEN_KEY);
     if (lastId) {
       try {
