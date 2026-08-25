@@ -206,17 +206,153 @@
     @media (min-width: 768px) {
       textarea { width: 45%; }
       .sql-output { width: 45%; }
+      .left-col { width: 45%; }
     }
+
+    .rk-topbar-title { flex: 0 0 auto; }
+
+    .mode-tabs {
+      display: flex;
+      gap: 14px;
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 0;
+      padding: 10px 18px;
+    }
+    @media (max-width: 700px) {
+      .mode-tabs {
+        position: static;
+        transform: none;
+        margin: 10px auto 0;
+      }
+    }
+
+    .mode-description {
+      text-align: center;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 300;
+      margin: 0.4rem 0 1rem;
+      padding: 0 1rem;
+    }
+    .mode-tab {
+      background: transparent;
+      color: #8b949e;
+      border: none;
+      border-radius: 0;
+      padding: 7px 20px;
+      font-size: 14px;
+      font-family: 'Roboto Mono', monospace;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .mode-tab:hover { background: #21262d; color: #e6edf3; }
+    .mode-tab.active {
+      background: #1f6feb;
+      color: #fff;
+      font-weight: bold;
+    }
+
+    #formatBtn, #readBtn, #fillBtn {
+      padding: 12px 24px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      text-decoration: none;
+      text-align: center;
+      display: inline-block;
+      transition: transform 0.2s, box-shadow 0.2s;
+      background: linear-gradient(90deg, #00ffcc, #00ccff);
+      color: #000;
+    }
+    #formatBtn:hover, #readBtn:hover, #fillBtn:hover { transform: scale(1.05); box-shadow: 0 0 14px #00ffcc; }
+    #formatBtn[hidden], #readBtn[hidden], #fillBtn[hidden] { display: none; }
+
+    .left-col {
+      width: 100%;
+      max-width: 600px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .left-col textarea {
+      width: 100%;
+    }
+
+    .params-panel {
+      background-color: #1e1e1e;
+      border: 2px solid #00ffcc;
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+    .params-title {
+      color: #00ffcc;
+      font-weight: bold;
+      font-size: 13px;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .params-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .param-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .param-row label {
+      flex: 0 0 auto;
+      min-width: 140px;
+      color: #ffcc66;
+      font-size: 13px;
+      word-break: break-word;
+    }
+    .param-row input {
+      flex: 1 1 auto;
+      min-width: 0;
+      font-family: 'Roboto Mono', monospace;
+      font-size: 13px;
+      padding: 8px 10px;
+      background-color: #111;
+      color: #00ffcc;
+      border: 1px solid #00ffcc;
+      border-radius: 6px;
+    }
+    .param-row input::placeholder { color: #555; }
+    .param-row input:focus { outline: none; box-shadow: 0 0 6px #00ffcc; }
   </style>
 </head>
 <body>
 
 <rk-topbar title="SQL Formatter">
-  <button id="formatBtn">Format SQL</button>
+  <div class="mode-tabs" role="tablist">
+    <button type="button" class="mode-tab active" data-mode="format" role="tab" aria-selected="true">Formatter</button>
+    <button type="button" class="mode-tab" data-mode="fill" role="tab" aria-selected="false">Fill Query</button>
+  </div>
+  <button id="formatBtn" type="button">Format SQL</button>
+  <button id="readBtn" type="button" hidden>Read SQL</button>
+  <button id="fillBtn" type="button" hidden>Fill SQL</button>
 </rk-topbar>
 
+<p id="modeDescription" class="mode-description"></p>
+
 <div class="container">
-  <textarea id="input" placeholder="Paste raw SQL queries or PHP migration addSql() lines here..."></textarea>
+  <div class="left-col">
+    <textarea id="input" placeholder="Paste raw SQL queries or PHP migration addSql() lines here..."></textarea>
+    <div id="paramsPanel" class="params-panel" hidden>
+      <div class="params-title">Detected parameters</div>
+      <div id="paramsList" class="params-list"></div>
+    </div>
+  </div>
   <div id="output" class="sql-output" aria-live="polite" role="region"></div>
 </div>
 
@@ -229,6 +365,13 @@ const outputEl = document.getElementById('output');
 const formatBtn = document.getElementById('formatBtn');
 const toast    = document.getElementById('toast');
 
+const readBtn       = document.getElementById('readBtn');
+const fillBtn       = document.getElementById('fillBtn');
+const paramsPanelEl = document.getElementById('paramsPanel');
+const paramsListEl  = document.getElementById('paramsList');
+const modeTabs      = document.querySelectorAll('.mode-tab');
+const modeDescriptionEl = document.getElementById('modeDescription');
+
 // ── Toast ──────────────────────────────────────────────────────────────────
 function showToast(msg, isError = false) {
   toast.textContent = msg;
@@ -238,12 +381,12 @@ function showToast(msg, isError = false) {
 }
 
 // ── Animated output ────────────────────────────────────────────────────────
-function showAnimatedOutput(node) {
-  outputEl.classList.remove('visible');
-  outputEl.replaceChildren();
+function showAnimatedOutput(targetEl, node) {
+  targetEl.classList.remove('visible');
+  targetEl.replaceChildren();
   setTimeout(() => {
-    outputEl.appendChild(node);
-    outputEl.classList.add('visible');
+    targetEl.appendChild(node);
+    targetEl.classList.add('visible');
   }, 50);
 }
 
@@ -496,6 +639,51 @@ function formatDelete(sql) {
     .replace(/\s+OR\b/gi,           '\n    OR');
 }
 
+function indentBlock(text, indent = '    ') {
+  return text.split('\n').map(line => line ? indent + line : line).join('\n');
+}
+
+// Handles `WITH name AS (...), name2 AS (...) SELECT ...` common table expressions.
+function formatWithCte(sql) {
+  let rest = sql.replace(/^WITH\s+/i, '');
+  let recursive = '';
+  if (/^RECURSIVE\s+/i.test(rest)) {
+    recursive = 'RECURSIVE ';
+    rest = rest.replace(/^RECURSIVE\s+/i, '');
+  }
+
+  const ctes = [];
+  while (true) {
+    const nameMatch = /^([A-Za-z_][A-Za-z0-9_]*)\s*/.exec(rest);
+    if (!nameMatch) break;
+    let name = nameMatch[1];
+    rest = rest.slice(nameMatch[0].length);
+
+    if (rest[0] === '(') {
+      const colListEnd = findMatchingParen(rest, 0);
+      name += ' ' + rest.slice(0, colListEnd + 1);
+      rest = rest.slice(colListEnd + 1).trim();
+    }
+
+    const asMatch = /^AS\s*/i.exec(rest);
+    if (!asMatch) break;
+    rest = rest.slice(asMatch[0].length).trim();
+    if (rest[0] !== '(') break;
+
+    const closeIdx = findMatchingParen(rest, 0);
+    const body = rest.slice(1, closeIdx).trim();
+    ctes.push({ name, body: formatStatement(body) });
+    rest = rest.slice(closeIdx + 1).trim();
+
+    if (rest[0] === ',') { rest = rest.slice(1).trim(); continue; }
+    break;
+  }
+
+  const finalStmt = formatStatement(rest);
+  const cteBlocks = ctes.map(c => `${c.name} AS (\n${indentBlock(c.body)}\n)`).join(',\n');
+  return 'WITH ' + recursive + cteBlocks + '\n' + finalStmt;
+}
+
 function formatStatement(sql) {
   sql = sql.trim().replace(/\s+/g, ' ');
   const upper = sql.toUpperCase();
@@ -503,6 +691,8 @@ function formatStatement(sql) {
     return formatCreateTable(sql);
   if (upper.startsWith('ALTER TABLE'))
     return formatAlterTable(sql);
+  if (upper.startsWith('WITH'))
+    return formatWithCte(sql);
   if (upper.startsWith('SELECT'))
     return formatSelect(sql);
   if (upper.startsWith('INSERT'))
@@ -676,8 +866,8 @@ function createCopyButton(text) {
 }
 
 // ── Main format ────────────────────────────────────────────────────────────
-function formatAll() {
-  const raw = inputEl.value.trim();
+function renderFormattedSql(raw, targetEl) {
+  raw = raw.trim();
   if (!raw) { showToast('Paste some SQL first!', true); return; }
 
   try {
@@ -713,13 +903,133 @@ function formatAll() {
     });
 
     wrapper.appendChild(content);
-    showAnimatedOutput(wrapper);
+    showAnimatedOutput(targetEl, wrapper);
     showToast(stmts.length === 1 ? 'Formatted!' : `Formatted ${stmts.length} statements!`);
   } catch (err) {
     showToast('Error: ' + err.message, true);
     console.error(err);
   }
 }
+
+function formatAll() {
+  renderFormattedSql(inputEl.value, outputEl);
+}
+
+// ── Fill Query mode ────────────────────────────────────────────────────────
+function extractParamNames(sql) {
+  const tokens = tokenize(sql);
+  const seen = new Set();
+  const order = [];
+  for (let i = 0; i < tokens.length - 1; i++) {
+    if (tokens[i].type === 'plain' && tokens[i].text === ':' &&
+        (tokens[i + 1].type === 'plain' || tokens[i + 1].type === 'kw')) {
+      const name = tokens[i + 1].text;
+      if (!seen.has(name)) { seen.add(name); order.push(name); }
+    }
+  }
+  return order;
+}
+
+function sqlLiteral(rawValue) {
+  const v = (rawValue || '').trim();
+  return v === '' ? 'NULL' : v;
+}
+
+function fillParams(sql, valuesMap) {
+  const tokens = tokenize(sql);
+  let result = '';
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    const next = tokens[i + 1];
+    if (t.type === 'plain' && t.text === ':' && next &&
+        (next.type === 'plain' || next.type === 'kw')) {
+      result += sqlLiteral(valuesMap.get(next.text));
+      i++; // consume the identifier token too
+      continue;
+    }
+    result += t.text;
+  }
+  return result;
+}
+
+function readParams() {
+  const raw = inputEl.value;
+  if (!raw.trim()) { showToast('Paste a query first!', true); return; }
+
+  const names = extractParamNames(raw);
+  paramsListEl.replaceChildren();
+
+  if (names.length === 0) {
+    paramsPanelEl.hidden = true;
+    showToast('No :params found in query.', true);
+    return;
+  }
+
+  const savedValues = loadParamValues();
+
+  names.forEach(name => {
+    const row = document.createElement('div');
+    row.className = 'param-row';
+
+    const label = document.createElement('label');
+    label.textContent = name;
+    label.htmlFor = 'param-' + name;
+
+    const field = document.createElement('input');
+    field.type = 'text';
+    field.id = 'param-' + name;
+    field.dataset.param = name;
+    field.placeholder = 'NULL';
+    field.value = savedValues[name] || '';
+
+    row.append(label, field);
+    paramsListEl.appendChild(row);
+  });
+
+  paramsPanelEl.hidden = false;
+  showToast(`Found ${names.length} parameter${names.length === 1 ? '' : 's'}.`);
+}
+
+function fillSql() {
+  const raw = inputEl.value;
+  if (!raw.trim()) { showToast('Paste a query first!', true); return; }
+
+  const valuesMap = new Map();
+  paramsListEl.querySelectorAll('input[data-param]').forEach(inp => {
+    valuesMap.set(inp.dataset.param, inp.value);
+  });
+
+  const filled = fillParams(raw, valuesMap);
+  renderFormattedSql(filled, outputEl);
+}
+
+// ── Mode switching ─────────────────────────────────────────────────────────
+const PLACEHOLDERS = {
+  format: 'Paste raw SQL queries or PHP migration addSql() lines here...',
+  fill: 'Paste a query with :paramName placeholders here...',
+};
+
+const MODE_DESCRIPTIONS = {
+  format: 'Paste raw SQL or PHP migration addSql() lines, then click Format SQL to get clean, indented, syntax-highlighted output.',
+  fill: 'Paste a query containing :paramName placeholders, click Read SQL to list them, fill in values (blank = NULL), then click Fill SQL to get the substituted, formatted query.',
+};
+
+function setMode(mode) {
+  modeTabs.forEach(tab => {
+    const active = tab.dataset.mode === mode;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', String(active));
+  });
+  formatBtn.hidden = mode !== 'format';
+  readBtn.hidden   = mode !== 'fill';
+  fillBtn.hidden   = mode !== 'fill';
+  paramsPanelEl.hidden = mode !== 'fill' || paramsListEl.children.length === 0;
+  inputEl.placeholder = PLACEHOLDERS[mode];
+  modeDescriptionEl.textContent = MODE_DESCRIPTIONS[mode];
+  try { localStorage.setItem('sqlFormatter.mode', mode); } catch (e) {}
+}
+
+modeTabs.forEach(tab => tab.addEventListener('click', () => setMode(tab.dataset.mode)));
 
 // ── Persistence ────────────────────────────────────────────────────────────
 const saveInput = debounce(() => {
@@ -728,10 +1038,36 @@ const saveInput = debounce(() => {
 
 inputEl.addEventListener('input', saveInput);
 
+const PARAM_VALUES_KEY = 'sqlFormatter.paramValues';
+
+function loadParamValues() {
+  try { return JSON.parse(localStorage.getItem(PARAM_VALUES_KEY) || '{}'); }
+  catch (e) { return {}; }
+}
+
+const saveParamValues = debounce(() => {
+  const values = {};
+  paramsListEl.querySelectorAll('input[data-param]').forEach(inp => {
+    values[inp.dataset.param] = inp.value;
+  });
+  try { localStorage.setItem(PARAM_VALUES_KEY, JSON.stringify(values)); } catch (e) {}
+}, 200);
+
+paramsListEl.addEventListener('input', saveParamValues);
+
 document.addEventListener('DOMContentLoaded', () => {
+  let savedMode = 'format';
+  try {
+    if (localStorage.getItem('sqlFormatter.mode') === 'fill') savedMode = 'fill';
+  } catch (e) {}
+  setMode(savedMode);
+
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) { inputEl.value = saved; formatAll(); }
+    if (saved) {
+      inputEl.value = saved;
+      if (savedMode === 'fill') readParams(); else formatAll();
+    }
   } catch (e) {}
 });
 
@@ -739,6 +1075,13 @@ formatBtn.addEventListener('click', () => {
   try { localStorage.setItem(STORAGE_KEY, inputEl.value || ''); } catch (e) {}
   formatAll();
 });
+
+readBtn.addEventListener('click', () => {
+  try { localStorage.setItem(STORAGE_KEY, inputEl.value || ''); } catch (e) {}
+  readParams();
+});
+
+fillBtn.addEventListener('click', fillSql);
 </script>
 
 <rk-footer></rk-footer>

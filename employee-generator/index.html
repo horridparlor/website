@@ -197,7 +197,12 @@
   const femaleNames = ["Anna","Laura","Sari","Katja","Tiina","Emilia","Johanna","Maria","Elina","Aino"];
   const lastNames = ["Virtanen","Korhonen","Nieminen","Mäkinen","Hämäläinen","Laine","Heikkinen","Koski","Järvinen","Lehtonen"];
   const checksumChars = "0123456789ABCDEFHJKLMNPRSTUVWXY";
-  const bicCodes = ["NDEAFIHH","OKOYFIHH","DABAFIHH","SBANFIHH"];
+  const banks = [
+    { bic: "NDEAFIHH", prefix: "10" }, // Nordea
+    { bic: "OKOYFIHH", prefix: "50" }, // OP
+    { bic: "DABAFIHH", prefix: "80" }, // Danske Bank
+    { bic: "SBANFIHH", prefix: "39" }, // S-Pankki
+  ];
 
   const rand = arr => arr[Math.floor(Math.random() * arr.length)];
 
@@ -222,9 +227,10 @@
     return `${dd}${mm}${yy}${c}${n}${check}`;
   }
 
-  function generateFinnishIban() {
-    const bban = String(Math.floor(100000 + Math.random()*900000)) +
-                 String(Math.floor(10000000 + Math.random()*90000000));
+  function generateFinnishIban(bank) {
+    const restLen = 14 - bank.prefix.length;
+    const rest = String(Math.floor(Math.random()*Math.pow(10,restLen))).padStart(restLen,"0");
+    const bban = bank.prefix + rest;
     const r = bban + "FI00";
     const num = r.replace(/[A-Z]/g,c=>c.charCodeAt(0)-55);
     const mod = BigInt(num) % 97n;
@@ -249,8 +255,9 @@
     firstName.textContent = sexSelect.value==="Mies" ? rand(maleNames) : rand(femaleNames);
     lastName.textContent  = rand(lastNames);
     hetu.textContent      = generateHetu(sexSelect.value, +yearInput.value);
-    iban.textContent      = generateFinnishIban();
-    bic.textContent       = rand(bicCodes);
+    const bank            = rand(banks);
+    iban.textContent      = generateFinnishIban(bank);
+    bic.textContent       = bank.bic;
   }
 
   function regenerateAll(){
