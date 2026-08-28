@@ -488,6 +488,14 @@
         title = h1[1].replace(/`/g, '').trim();
         continue;
       }
+      const h2Numbered = h2 && /^(\d+)\.\s*(.*)$/.exec(h2[1].trim());
+      if (h2 && h2Numbered) {
+        // Flat "## N. Title" finding (no wrapping section) — treat like ### within the current section.
+        if (!curSection) curSection = { sectionTitle: '', findings: [], bodyLines: [] };
+        closeFinding();
+        curFinding = { number: h2Numbered[1], title: h2Numbered[2].trim(), bodyLines: [] };
+        continue;
+      }
       if (h2) {
         closeSection();
         sawH2 = true;
