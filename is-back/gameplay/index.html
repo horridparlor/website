@@ -1208,8 +1208,10 @@ function processState(state) {
     }
   }
 
-  // Win/complete
-  if (state.phase === 'game_over' || state._matchStatus === 'completed') {
+  // Win/complete — only the match (best-of-N series) ending should show the final
+  // overlay and stop polling. state.phase === 'game_over' fires after every single
+  // game in the series (not just the deciding one), so it must not gate this.
+  if (state._matchStatus === 'completed') {
     handleMatchComplete(state);
   }
 
