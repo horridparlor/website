@@ -279,23 +279,13 @@ class GameEngine
                         $pendingEffects[] = ['type' => 'sahkotalo', 'playerIndex' => $playerIndex, 'cardId' => $cardId];
                     }
                     break;
-                case 'watch-quick':
+                case 'exam':
                     if (!$isFaceDown) {
-                        // Find all face-down cards on the field
-                        $faceDownTargets = [];
-                        foreach ([0, 1] as $pIdx) {
-                            foreach (['primary', 'left', 'right'] as $s) {
-                                $stack = $state['players'][$pIdx]['field'][$s] ?? [];
-                                if (!empty($stack)) {
-                                    $top = end($stack);
-                                    if (!empty($top['faceDown'])) {
-                                        $faceDownTargets[] = ['playerIndex' => $pIdx, 'slot' => $s];
-                                    }
-                                }
-                            }
-                        }
-                        if (!empty($faceDownTargets)) {
-                            $pendingEffects[] = ['type' => 'watch_quick', 'playerIndex' => $playerIndex, 'cardId' => $cardId, 'targets' => $faceDownTargets];
+                        $oppIdx = 1 - $playerIndex;
+                        if (!empty($state['players'][$playerIndex]['deckIds'])) {
+                            $state['lastExamEffect'] = ['ts' => nextEventStamp(), 'playerIndex' => $playerIndex, 'cardId' => $cardId, 'slot' => $slot];
+                            $state['lastExamEffectAcks'] = [0, 0];
+                            $pendingEffects[] = ['type' => 'exam_guess', 'playerIndex' => $oppIdx, 'sourcePlayerIndex' => $playerIndex, 'cardId' => $cardId];
                         }
                     }
                     break;
@@ -1035,6 +1025,125 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
             } else {
                 $state['log'][] = $p['username'] . ' used Cultism! Reshuffled 7 Little Sisters into deck.';
             }
+            return null;
+        }
+        case 'watch-quick': {
+            $p = &$state['players'][$playerIndex];
+            // Watch Quick card must be in graveyard
+            $watchQuickCardId = null;
+            foreach ($p['graveyardIds'] as $cid) {
+                if ($engine->hasKeyword((int)$cid, 'watch-quick')) { $watchQuickCardId = (int)$cid; break; }
+            }
+            if ($watchQuickCardId === null) return 'No Watch Quick card in graveyard';
+            // Find all face-down cards on the field
+            $faceDownTargets = [];
+            foreach ([0, 1] as $pIdx) {
+                foreach (['primary', 'left', 'right'] as $s) {
+                    $stack = $state['players'][$pIdx]['field'][$s] ?? [];
+                    if (!empty($stack)) {
+                        $top = end($stack);
+                        if (!empty($top['faceDown'])) {
+                            $faceDownTargets[] = ['playerIndex' => $pIdx, 'slot' => $s];
+                        }
+                    }
+                }
+            }
+            if (empty($faceDownTargets)) return 'No face-down cards on the field';
+            // Reshuffle the Watch Quick card from graveyard into deck
+            $pos = array_search($watchQuickCardId, $p['graveyardIds']);
+            if ($pos !== false) array_splice($p['graveyardIds'], $pos, 1);
+            $p['deckIds'][] = $watchQuickCardId;
+            shuffle($p['deckIds']);
+            $state['log'][] = $p['username'] . ' used Watch Quick! Reshuffled the card into their deck.';
+            enqueuePendingEffects($state, [['type' => 'watch_quick', 'playerIndex' => $playerIndex, 'cardId' => $watchQuickCardId, 'targets' => $faceDownTargets]]);
+            return null;
+        }
+        case 'exam_guess_respond': {
+            $pending = getCurrentPendingEffect($state);
+            if (!$pending || $pending['type'] !== 'exam_guess') return 'No Exam guess pending';
+            if ((int)($pending['playerIndex'] ?? -1) !== $playerIndex) return 'Not your response';
+            $guess = strtolower((string)($params['guess'] ?? ''));
+            if (!in_array($guess, ['rock', 'paper', 'scissors'])) return 'Invalid guess';
+            $examPlayerIndex = (int)($pending['sourcePlayerIndex'] ?? -1);
+            $examCardId = (int)($pending['cardId'] ?? 0);
+            $state['log'][] = $state['players'][$playerIndex]['username'] . ' guessed ' . ucfirst($guess) . ' (Exam).';
+            consumePendingEffect($state);
+            enqueuePendingEffects($state, [[
+                'type' => 'exam_reveal',
+                'playerIndex' => $examPlayerIndex,
+                'sourcePlayerIndex' => $playerIndex,
+                'cardId' => $examCardId,
+                'guess' => $guess,
+            ]]);
+            return null;
+        }
+        case 'exam_reveal_respond': {
+            $pending = getCurrentPendingEffect($state);
+            if (!$pending || $pending['type'] !== 'exam_reveal') return 'No Exam reveal pending';
+            if ((int)($pending['playerIndex'] ?? -1) !== $playerIndex) return 'Not your response';
+            $oppIdx = (int)($pending['sourcePlayerIndex'] ?? -1);
+            $guess = strtolower((string)($pending['guess'] ?? ''));
+            $examCardId = (int)($pending['cardId'] ?? 0);
+            $p = &$state['players'][$playerIndex];
+            consumePendingEffect($state);
+            if (empty($p['deckIds'])) {
+                $state['log'][] = 'Exam: no card left to mill.';
+                return null;
+            }
+            $milledId = (int)array_shift($p['deckIds']);
+            $p['graveyardIds'][] = $milledId;
+            $milledCard = $engine->getCard($milledId);
+            $actualType = strtolower($milledCard['type'] ?? '');
+            $correct = ($guess === $actualType);
+            $state['lastExamMill'] = [
+                'ts' => nextEventStamp(),
+                'playerIndex' => $playerIndex,
+                'opponentIndex' => $oppIdx,
+                'cardId' => $examCardId,
+                'milledCardId' => $milledId,
+                'guess' => $guess,
+                'actualType' => $actualType,
+                'correct' => $correct,
+            ];
+            $state['lastExamMillAcks'] = [0, 0];
+            $state['log'][] = $p['username'] . "'s top deck card was milled: " . ($milledCard['name'] ?? '?') . '. Guess was ' . ($correct ? 'correct!' : 'wrong.');
+            if ($correct) {
+                $engine->drawCards($state, $oppIdx, 1);
+                $state['log'][] = $state['players'][$oppIdx]['username'] . ' drew a card (Exam).';
+            } else {
+                $oppHandCount = count($state['players'][$oppIdx]['handIds']);
+                if ($oppHandCount <= 1) {
+                    if ($oppHandCount === 1) {
+                        $last = array_pop($state['players'][$oppIdx]['handIds']);
+                        $state['players'][$oppIdx]['graveyardIds'][] = $last;
+                        pushDiscardAnim($state, (int)$last, $oppIdx, 'exam');
+                        $state['log'][] = $state['players'][$oppIdx]['username'] . ' discarded a card (Exam).';
+                    }
+                } else {
+                    enqueuePendingEffects($state, [[
+                        'type' => 'exam_discard',
+                        'playerIndex' => $oppIdx,
+                        'discardCount' => 1,
+                        'sourcePlayerIndex' => $playerIndex,
+                    ]]);
+                    $state['log'][] = $state['players'][$oppIdx]['username'] . ' must choose a card to discard (Exam).';
+                }
+            }
+            return null;
+        }
+        case 'exam_discard_respond': {
+            $pending = getCurrentPendingEffect($state);
+            if (!$pending || $pending['type'] !== 'exam_discard') return 'No Exam discard pending';
+            if ((int)($pending['playerIndex'] ?? -1) !== $playerIndex) return 'Not your response';
+            $discardIds = array_map('intval', $params['discardIds'] ?? []);
+            $required = (int)($pending['discardCount'] ?? 1);
+            if (count($discardIds) !== $required) return "Must select $required card(s) to discard";
+            foreach ($discardIds as $did) {
+                if (!$engine->discardFromHand($state, $playerIndex, $did)) return 'Card not in hand';
+                pushDiscardAnim($state, $did, $playerIndex, 'exam');
+            }
+            $state['log'][] = $state['players'][$playerIndex]['username'] . ' discarded ' . count($discardIds) . ' card(s) (Exam).';
+            consumePendingEffect($state);
             return null;
         }
         case 'rizz': {
@@ -1867,6 +1976,24 @@ function handleAcknowledgeNotification(array &$state, int $playerIndex, array $p
         return null;
     }
 
+    if ($kind === 'exam_effect') {
+        $current = (int)($state['lastExamEffect']['ts'] ?? 0);
+        if ($current && $stamp === $current) {
+            if (!isset($state['lastExamEffectAcks']) || !is_array($state['lastExamEffectAcks'])) $state['lastExamEffectAcks'] = [0, 0];
+            $state['lastExamEffectAcks'][$playerIndex] = $stamp;
+        }
+        return null;
+    }
+
+    if ($kind === 'exam_mill') {
+        $current = (int)($state['lastExamMill']['ts'] ?? 0);
+        if ($current && $stamp === $current) {
+            if (!isset($state['lastExamMillAcks']) || !is_array($state['lastExamMillAcks'])) $state['lastExamMillAcks'] = [0, 0];
+            $state['lastExamMillAcks'][$playerIndex] = $stamp;
+        }
+        return null;
+    }
+
     return 'Unknown notification kind';
 }
 
@@ -2546,6 +2673,7 @@ function performAction(Database $database): string
         'playCommunism'            => handleUseKeyword($state, $playerIndex, array_merge($paramsArr, ['keyword' => 'communism']), $engine),
         'useRizz'                  => handleUseKeyword($state, $playerIndex, array_merge($paramsArr, ['keyword' => 'rizz']), $engine),
         'activateCultism'          => handleUseKeyword($state, $playerIndex, array_merge($paramsArr, ['keyword' => 'cultism']), $engine),
+        'activateWatchQuick'       => handleUseKeyword($state, $playerIndex, array_merge($paramsArr, ['keyword' => 'watch-quick']), $engine),
         'pass'                     => handlePass($state, $playerIndex, $paramsArr, $engine),
         'surrender'                => handleSurrender($state, $playerIndex, $paramsArr, $engine),
         'gameSurrender'            => handleGameSurrender($state, $playerIndex, $paramsArr, $engine),

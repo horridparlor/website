@@ -423,6 +423,36 @@ const GameEngine = (() => {
     }) ?? null;
   }
 
+  // ─── Check if Watch Quick can be activated from grave ─────────────────────────
+  function hasFaceDownCardOnField(state) {
+    for (const pIdx of [0, 1]) {
+      const field = state.players[pIdx].field;
+      for (const slot of ['primary', 'left', 'right']) {
+        const top = topOfStack(field[slot]);
+        if (top && top.faceDown) return true;
+      }
+    }
+    return false;
+  }
+
+  function canActivateWatchQuick(state, playerIndex, allCardsMap) {
+    const playerState = state.players[playerIndex];
+    const grave = playerState.graveyardIds || [];
+    const hasWatchQuick = grave.some(id => {
+      const c = allCardsMap[id];
+      return c && cardHasKeyword(c, 'watch-quick');
+    });
+    if (!hasWatchQuick) return false;
+    return hasFaceDownCardOnField(state);
+  }
+
+  function getWatchQuickCardInGrave(playerState, allCardsMap) {
+    return (playerState.graveyardIds || []).find(id => {
+      const c = allCardsMap[id];
+      return c && cardHasKeyword(c, 'watch-quick');
+    }) ?? null;
+  }
+
   // ─── Elder-Slime trigger check ────────────────────────────────────────────────
   function elderSlimeTriggers(newCard, prevTopCard) {
     if (!cardHasKeyword(newCard, 'Elder-Slime')) return false;
@@ -529,6 +559,8 @@ const GameEngine = (() => {
       });
       // Cultism from grave
       if (canActivateCultism(player, allCardsMap)) actions.push({ type: 'activateCultism' });
+      // Watch Quick from grave
+      if (canActivateWatchQuick(state, playerIndex, allCardsMap)) actions.push({ type: 'activateWatchQuick' });
       if (canPass(state, playerIndex)) actions.push({ type: 'pass' });
       actions.push({ type: 'surrender' });
     }
@@ -563,6 +595,8 @@ const GameEngine = (() => {
     canPlayCommunism,
     canActivateCultism,
     getCultismCardInGrave,
+    canActivateWatchQuick,
+    getWatchQuickCardInGrave,
     elderSlimeTriggers,
     getAvailableActions,
     hasWizardOnPrimary,

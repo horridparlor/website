@@ -167,6 +167,7 @@
     .grave-pile { width: 50px; height: 70px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg2); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--muted); cursor: pointer; position: relative; }
     .grave-pile:hover { border-color: var(--muted); }
     .grave-pile.cultism-trigger { border-color: #9b59b6 !important; box-shadow: 0 0 8px #9b59b666; }
+    .grave-pile.watch-quick-trigger { border-color: #9b59b6 !important; box-shadow: 0 0 8px #9b59b666; }
     .grave-pile.purge-pile { border-color: #f85149; }
     .grave-pile.purge-pile:hover { border-color: #ff7b72; }
     .grave-count { position: absolute; top: -6px; right: -6px; background: var(--border); color: var(--text); border-radius: 10px; font-size: 10px; padding: 1px 5px; }
@@ -219,6 +220,19 @@
     .card-fly img, .greed-card-fly img { width:100%; height:100%; object-fit:cover; display:block; }
     @keyframes coinFall { 0%{opacity:1;transform:translate(0,0) rotate(0deg);} 100%{opacity:0;transform:translate(var(--cx,0px),var(--cy,80px)) rotate(var(--cr,180deg));} }
     .greed-coin { position:fixed; pointer-events:none; z-index:1201; font-size:18px; animation:coinFall var(--cd,.8s) ease-in forwards; }
+    /* ── Exam mill animation ── */
+    .exam-card-fly { position:fixed; top:86px; pointer-events:none; z-index:1200; width:74px; height:104px; border-radius:8px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,.8), 0 0 18px #9b59b6; animation:cardSlide 2.2s cubic-bezier(.4,0,.2,1) forwards; }
+    .exam-card-fly img { width:100%; height:100%; object-fit:cover; display:block; }
+    .exam-verdict { position:absolute; top:4px; right:4px; font-size:20px; filter:drop-shadow(0 0 4px #000); }
+    @keyframes skullFall { 0%{opacity:1;transform:translate(0,0) rotate(0deg);} 100%{opacity:0;transform:translate(var(--cx,0px),var(--cy,80px)) rotate(var(--cr,180deg));} }
+    .exam-skull { position:fixed; pointer-events:none; z-index:1201; font-size:18px; animation:skullFall var(--cd,.8s) ease-in forwards; }
+    /* ── Exam played-card emoji burst ── */
+    @keyframes examEmojiPop {
+      0%   { opacity:0; transform:translate(-50%,-50%) scale(.4) rotate(0deg); }
+      30%  { opacity:1; transform:translate(-50%,-50%) scale(1.15) rotate(var(--er,0deg)); }
+      100% { opacity:0; transform:translate(calc(-50% + var(--ex,0px)), calc(-50% + var(--ey,-60px))) scale(.9) rotate(var(--er,0deg)); }
+    }
+    .exam-emoji-pop { position:fixed; pointer-events:none; z-index:1150; font-size:22px; animation:examEmojiPop 1.1s ease-out forwards; }
     .hand-card:hover { transform: translateY(-12px) scale(1.48); border-color: var(--blue2); z-index: 10; }
     .hand-card.selected { border-color: var(--gold); transform: translateY(-16px) scale(1.48); }
     .hand-card img { width: 100%; height: 100%; object-fit: cover; border-radius: 5px; }
@@ -317,6 +331,7 @@
     #stack-cards .sc-card { width: 160px; }
     #stack-cards .sc-card img { width: 160px; height: 224px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
     #stack-cards .sc-card.cultism-trigger img { border-color: #9b59b6; box-shadow: 0 0 8px #9b59b666; }
+    #stack-cards .sc-card.watch-quick-trigger img { border-color: #9b59b6; box-shadow: 0 0 8px #9b59b666; }
     #stack-cards .sc-label { font-size: 13px; color: var(--muted); text-align: center; margin-top: 3px; }
     #stack-close { margin-top: 14px; background: #21262d; border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 7px 20px; cursor: pointer; }
 
@@ -332,6 +347,10 @@
     .modal-box .m-confirm:hover { opacity:.85; }
     .modal-box .m-cancel { background: transparent; color: var(--text); border-color: var(--border); }
     .modal-box .m-cancel:hover { background: #21262d; }
+    .modal-box .m-guess-rock     { background: #398f5b; color: #fff; border-color: #398f5b; }
+    .modal-box .m-guess-paper    { background: #2499c8; color: #fff; border-color: #2499c8; }
+    .modal-box .m-guess-scissors { background: #f7793e; color: #fff; border-color: #f7793e; }
+    .modal-box .m-guess-rock:hover, .modal-box .m-guess-paper:hover, .modal-box .m-guess-scissors:hover { opacity:.85; }
     .modal-box .m-disabled { background: transparent; color: #555; border-color: #333; cursor: not-allowed; opacity: 0.5; }
     .modal-box .m-disabled:hover { background: transparent; }
     .modal-card-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
@@ -791,6 +810,8 @@ let lastSuckDestroyTs = 0;
 let lastFieldExitTs = 0;
 let lastWatchQuickRevealTs = 0;
 let lastCultismTs = 0;
+let lastExamEffectTs = 0;
+let lastExamMillTs = 0;
 let phaseToastTimeout = null;
 let activePendingModalSig = null;
 let pendingActionInFlight = false;
@@ -1167,6 +1188,26 @@ function processState(state) {
     }
   }
 
+  const examEffectEvt = state.lastExamEffect;
+  if (examEffectEvt && examEffectEvt.ts) {
+    const examEffectAck = state.lastExamEffectAcks?.[myIndex] ?? 0;
+    if (examEffectEvt.ts !== lastExamEffectTs && examEffectEvt.ts !== examEffectAck) {
+      lastExamEffectTs = examEffectEvt.ts;
+      showExamEffectBurst(examEffectEvt);
+      acknowledgeNotification('exam_effect', examEffectEvt.ts);
+    }
+  }
+
+  const examMillEvt = state.lastExamMill;
+  if (examMillEvt && examMillEvt.ts) {
+    const examMillAck = state.lastExamMillAcks?.[myIndex] ?? 0;
+    if (examMillEvt.ts !== lastExamMillTs && examMillEvt.ts !== examMillAck) {
+      lastExamMillTs = examMillEvt.ts;
+      showExamMillAnimation(examMillEvt);
+      acknowledgeNotification('exam_mill', examMillEvt.ts);
+    }
+  }
+
   // Win/complete
   if (state.phase === 'game_over' || state._matchStatus === 'completed') {
     handleMatchComplete(state);
@@ -1219,6 +1260,9 @@ function isPendingResponder(effect, mi) {
     case 'mic_pass':
     case 'teleportation_discard':
     case 'just_ok':
+    case 'exam_guess':
+    case 'exam_reveal':
+    case 'exam_discard':
       return mi === owner;
     default:
       return false;
@@ -1296,6 +1340,15 @@ function openPendingEffectModal(effect, state) {
     case 'watch_quick':
       openWatchQuickModal(effect, state);
       return;
+    case 'exam_guess':
+      openExamGuessModal(effect, state);
+      return;
+    case 'exam_reveal':
+      openExamRevealModal(effect, state);
+      return;
+    case 'exam_discard':
+      openExamDiscardModal(effect, state);
+      return;
     case 'sus_respond':
       openSusRespondModal(effect, state);
       return;
@@ -1362,6 +1415,87 @@ function openWatchQuickModal(effect, state) {
     };
   });
   openKwModalCustom('Watch Quick', 'Choose a face-down card to reveal.', [], buttons);
+}
+
+function openExamGuessModal(effect, state) {
+  const examIdx = Number(effect.sourcePlayerIndex);
+  const examName = examIdx === myIndex ? 'You' : (state.players?.[examIdx]?.username || 'Opponent');
+  const buttons = ['rock', 'paper', 'scissors'].map(type => ({
+    label: `${RPS_EMOJI[type]} ${type.charAt(0).toUpperCase() + type.slice(1)}`,
+    className: `m-guess-${type}`,
+    onClick: () => resolvePendingKeyword({ keyword: 'exam_guess_respond', guess: type }),
+  }));
+  openKwModalCustom('Exam', `${examName} played Exam! Guess the type of the top card of their deck.`, [], buttons);
+}
+
+function openExamRevealModal(effect, state) {
+  const guesserIdx = Number(effect.sourcePlayerIndex);
+  const guesserName = guesserIdx === myIndex ? 'You' : (state.players?.[guesserIdx]?.username || 'Opponent');
+  const guess = String(effect.guess || '');
+  const guessLabel = guess ? guess.charAt(0).toUpperCase() + guess.slice(1) : '?';
+  openKwModalCustom(
+    'Exam',
+    `${guesserName} guessed ${RPS_EMOJI[guess] || ''} ${guessLabel}!`,
+    [],
+    [{ label: 'Mill top card', className: 'm-confirm', onClick: () => resolvePendingKeyword({ keyword: 'exam_reveal_respond' }) }]
+  );
+}
+
+function openExamDiscardModal(effect, state) {
+  const me = state.players[myIndex];
+  const required = Math.max(1, Number(effect.discardCount || 1));
+  const handIds = me.handIds || [];
+  if (handIds.length <= required) {
+    resolvePendingKeyword({ keyword: 'exam_discard_respond', discardIds: [...handIds] });
+    return;
+  }
+
+  const cards = handIds.map(id => allCards[id]).filter(Boolean);
+  const selectedIds = new Set();
+
+  function updateModal() {
+    document.getElementById('kw-modal-desc').textContent =
+      `Wrong guess! Choose ${required} card(s) to discard (${selectedIds.size}/${required}).`;
+    const okBtn = document.getElementById('exam-discard-ok');
+    if (okBtn) okBtn.disabled = selectedIds.size !== required;
+    document.querySelectorAll('#kw-modal-cards .modal-card-item').forEach(el => {
+      const id = Number(el.dataset.id);
+      el.classList.toggle('selected', selectedIds.has(id));
+    });
+  }
+
+  const okBtn = document.createElement('button');
+  okBtn.id = 'exam-discard-ok';
+  okBtn.className = 'm-confirm';
+  okBtn.textContent = 'OK';
+  okBtn.disabled = true;
+  okBtn.addEventListener('click', () => {
+    closeKwModal();
+    resolvePendingKeyword({ keyword: 'exam_discard_respond', discardIds: [...selectedIds] });
+  });
+
+  openKwModalCustom(
+    'Exam',
+    `Wrong guess! Choose ${required} card(s) to discard (0/${required}).`,
+    cards,
+    [],
+    null
+  );
+
+  window._kwModalCallback = null;
+  document.querySelectorAll('#kw-modal-cards .modal-card-item').forEach(el => {
+    el.onclick = () => {
+      const id = Number(el.dataset.id);
+      if (selectedIds.has(id)) {
+        selectedIds.delete(id);
+      } else if (selectedIds.size < required) {
+        selectedIds.add(id);
+      }
+      updateModal();
+    };
+  });
+
+  document.getElementById('kw-modal-btns').appendChild(okBtn);
 }
 
 function openSusRespondModal(effect, state) {
@@ -2046,6 +2180,8 @@ function updateField(state, mi, oi) {
   if (myGravePile) {
     const canCultism = isMyTurn && GameEngine.canActivateCultism(me, allCards);
     myGravePile.classList.toggle('cultism-trigger', canCultism);
+    const canWatchQuick = isMyTurn && GameEngine.canActivateWatchQuick(state, mi, allCards);
+    myGravePile.classList.toggle('watch-quick-trigger', canWatchQuick);
   }
 }
 
@@ -2233,6 +2369,58 @@ function showGreedAnimation(cardId) {
   }, 130);
 
   setTimeout(() => { flyCard.remove(); clearInterval(coinTimer); }, 2400);
+}
+
+function showExamMillAnimation(evt) {
+  const card = allCards[Number(evt.milledCardId)];
+  if (!card) return;
+
+  const flyCard = document.createElement('div');
+  flyCard.className = 'exam-card-fly';
+  flyCard.innerHTML = `<img src="${cardImg(card)}" alt="" /><div class="exam-verdict">${evt.correct ? '✅' : '❌'}</div>`;
+  document.body.appendChild(flyCard);
+
+  let spawned = 0;
+  const skullTimer = setInterval(() => {
+    spawned++;
+    if (spawned > 14) { clearInterval(skullTimer); return; }
+    const rect = flyCard.getBoundingClientRect();
+    if (!rect.width) return;
+    const skull = document.createElement('div');
+    skull.className = 'exam-skull';
+    skull.textContent = '💀';
+    skull.style.left = `${rect.left + rect.width * Math.random()}px`;
+    skull.style.top  = `${rect.top  + rect.height * (0.2 + Math.random() * 0.5)}px`;
+    skull.style.setProperty('--cx', `${(Math.random() - 0.5) * 70}px`);
+    skull.style.setProperty('--cy', `${60 + Math.random() * 80}px`);
+    skull.style.setProperty('--cr', `${(Math.random() - 0.5) * 360}deg`);
+    skull.style.setProperty('--cd', `${0.55 + Math.random() * 0.5}s`);
+    document.body.appendChild(skull);
+    setTimeout(() => skull.remove(), 1200);
+  }, 130);
+
+  setTimeout(() => { flyCard.remove(); clearInterval(skullTimer); }, 2400);
+}
+
+function showExamEffectBurst(evt) {
+  const prefix = Number(evt.playerIndex) === myIndex ? 'my' : 'opp';
+  const slotEl = document.getElementById(`${prefix}-${evt.slot || 'primary'}`);
+  if (!slotEl) return;
+  const rect = slotEl.getBoundingClientRect();
+  const emojis = ['📝', '📚', '✏️', '💯', '🔔'];
+  emojis.forEach((emoji, i) => {
+    const el = document.createElement('div');
+    el.className = 'exam-emoji-pop';
+    el.textContent = emoji;
+    el.style.left = `${rect.left + rect.width / 2}px`;
+    el.style.top  = `${rect.top  + rect.height / 2}px`;
+    el.style.setProperty('--ex', `${(Math.random() - 0.5) * 100}px`);
+    el.style.setProperty('--ey', `${-40 - Math.random() * 60}px`);
+    el.style.setProperty('--er', `${(Math.random() - 0.5) * 60}deg`);
+    el.style.animationDelay = `${i * 60}ms`;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1300);
+  });
 }
 
 function runMagicPotionAnimationQueue() {
@@ -2737,18 +2925,31 @@ function showGrave(playerIndex) {
   const p = gameState.players[playerIndex];
   if (!p) return;
   const isMine = playerIndex === myIndex;
-  const canCultism = isMine &&
-    gameState.phase === 'main_phase' &&
-    gameState.turn === myIndex &&
-    GameEngine.canActivateCultism(p, allCards);
+  const isMyActivateTurn = isMine && gameState.phase === 'main_phase' && gameState.turn === myIndex;
+  const canCultism = isMyActivateTurn && GameEngine.canActivateCultism(p, allCards);
   const cultismCardId = canCultism ? GameEngine.getCultismCardInGrave(p, allCards) : null;
+  const canWatchQuick = isMyActivateTurn && GameEngine.canActivateWatchQuick(gameState, playerIndex, allCards);
+  const watchQuickCardId = canWatchQuick ? GameEngine.getWatchQuickCardInGrave(p, allCards) : null;
   const cards = (p.graveyardIds || []).map(id => allCards[id]).filter(Boolean);
   showStackPopup(
     `${isMine ? 'Your' : 'Opponent\'s'} Graveyard (${cards.length})`,
     cards.map(c => ({ cardId: c.id, faceDown: false })),
     isMine,
     cultismCardId,
-    playerIndex
+    playerIndex,
+    watchQuickCardId
+  );
+}
+
+function openWatchQuickActivateModal(cardId) {
+  openKwModalCustom(
+    'Watch Quick',
+    'Reshuffle this card into your deck and reveal a face-down card on the field?',
+    [],
+    [
+      { label: 'Cancel', className: 'm-cancel', onClick: closeKwModal },
+      { label: 'Activate Watch Quick!', className: 'm-confirm', onClick: () => { closeKwModal(); sendAction('activateWatchQuick', { cardId }); } },
+    ]
   );
 }
 
@@ -2838,7 +3039,7 @@ function showStack(playerIndex, slot) {
   const label = isMine ? 'Your' : (p.username || 'Opponent\'s');
   showStackPopup(`${label} ${slot} (${stack.length} card${stack.length>1?'s':''})`, stack, isMine, null, playerIndex);
 }
-function showStackPopup(title, stack, isMine = false, cultismCardId = null, playerIndex = undefined) {
+function showStackPopup(title, stack, isMine = false, cultismCardId = null, playerIndex = undefined, watchQuickCardId = null) {
   document.getElementById('stack-title').textContent = title;
   const pi = playerIndex !== undefined ? playerIndex : (isMine ? myIndex : 1 - myIndex);
   const container = document.getElementById('stack-cards');
@@ -2847,8 +3048,10 @@ function showStackPopup(title, stack, isMine = false, cultismCardId = null, play
     const isActive = i === 0;
     const hidden = entry.faceDown && !isMine && !entry.knownFaceDown;
     const isCultism = cultismCardId !== null && entry.cardId === cultismCardId;
+    const isWatchQuick = !isCultism && watchQuickCardId !== null && entry.cardId === watchQuickCardId;
+    const triggerClass = isCultism ? ' cultism-trigger' : (isWatchQuick ? ' watch-quick-trigger' : '');
     const knownDownNote = entry.knownFaceDown && !isMine ? ' (face-down)' : '';
-    return `<div class="sc-card${isCultism ? ' cultism-trigger' : ''}" ${isCultism ? `data-cultism="${cultismCardId}"` : ''} style="${isCultism ? 'cursor:pointer;' : ''}">
+    return `<div class="sc-card${triggerClass}" ${isCultism ? `data-cultism="${cultismCardId}"` : ''}${isWatchQuick ? ` data-watch-quick="${watchQuickCardId}"` : ''} style="${isCultism || isWatchQuick ? 'cursor:pointer;' : ''}">
       <img src="${hidden||!card ? cardBack() : cardImg(card, pi)}" alt="" />
       <div class="sc-label">${isActive?'▶ Active':''} ${hidden?'(face-down)':card?stripBB(card.name):''}${knownDownNote}</div>
     </div>`;
@@ -2859,6 +3062,14 @@ function showStackPopup(title, stack, isMine = false, cultismCardId = null, play
         closeStack();
         const me = gameState && gameState.players[myIndex];
         if (me) openCultismModal(me);
+      });
+    });
+  }
+  if (watchQuickCardId !== null) {
+    container.querySelectorAll('.sc-card.watch-quick-trigger').forEach(el => {
+      el.addEventListener('click', () => {
+        closeStack();
+        openWatchQuickActivateModal(watchQuickCardId);
       });
     });
   }
