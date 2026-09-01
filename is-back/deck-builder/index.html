@@ -577,14 +577,34 @@
   });
 
   /* ── Expansion visibility ───────────────────────────────────────── */
+  // Sub-releases don't appear as their own category — they just grant a
+  // subset of a master expansion's cards visibility ahead of the full release.
   const getExpansionForCard = (cardId) =>
     expansions.find(e => cardId >= e.firstCardId && cardId <= e.lastCardId) || null;
 
-  const shouldShowInDeckBuilder = (expansion) => {
-    if (!expansion) return expansions.length === 0; // no expansions configured → show all
-    if (expansion.showInDeckBuilder === true) return true;
-    if (expansion.showInDeckBuilder === null && expansion.isReleased) return true;
+  const getSubReleaseForCard = (expansion, cardId) =>
+    (expansion && Array.isArray(expansion.subReleases))
+      ? (expansion.subReleases.find(s => Array.isArray(s.cardIds) && s.cardIds.includes(cardId)) || null)
+      : null;
+
+  const showsInDeckBuilder = (entity) => {
+    if (!entity) return false;
+    if (entity.showInDeckBuilder === true) return true;
+    if (entity.showInDeckBuilder === null && entity.isReleased) return true;
     return false;
+  };
+
+  // Whether the expansion itself should be offered in the expansion filter dropdown —
+  // true if the master expansion or any of its sub-releases would show cards.
+  const isExpansionVisibleInDeckBuilder = (expansion) =>
+    showsInDeckBuilder(expansion) ||
+    (Array.isArray(expansion.subReleases) && expansion.subReleases.some(s => showsInDeckBuilder(s)));
+
+  const shouldShowCardInDeckBuilder = (cardId) => {
+    const expansion = getExpansionForCard(cardId);
+    if (!expansion) return expansions.length === 0; // no expansions configured → show all
+    const sub = getSubReleaseForCard(expansion, cardId);
+    return showsInDeckBuilder(expansion) || showsInDeckBuilder(sub);
   };
 
   const loadExpansions = async () => {
@@ -593,7 +613,7 @@
       if (!res.ok) return;
       const data = await res.json();
       expansions = data.expansions || [];
-      const visible = expansions.filter(e => shouldShowInDeckBuilder(e));
+      const visible = expansions.filter(e => isExpansionVisibleInDeckBuilder(e));
       if (visible.length > 0) {
         el.fExpansion.innerHTML = '<option value="">Any</option>' +
           visible.map(e => `<option value="${e.id}">${esc(e.name)}</option>`).join('');
@@ -606,7 +626,7 @@
     const res  = await fetch(CARDS_URL);
     const data = await res.json();
     const raw  = Array.isArray(data) ? data : (data.cards || []);
-    allCards   = raw.filter(c => shouldShowInDeckBuilder(getExpansionForCard(c.id)));
+    allCards   = raw.filter(c => shouldShowCardInDeckBuilder(c.id));
   };
 
   const loadKeywords = async () => {

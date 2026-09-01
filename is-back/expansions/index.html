@@ -32,6 +32,8 @@
     .btn-orange:hover { background:#b46005; }
     .btn-red    { background:#4d1c1c; color:#f85149; border-color:#f85149; }
     .btn-red:hover { background:#612424; }
+    .btn-purple { background:#3b1f6e; color:#fff; border-color:#8957e5; }
+    .btn-purple:hover { background:#553a90; }
     .btn-ghost  { background:transparent; color:#8b949e; border-color:#30363d; }
     .btn-ghost:hover { background:#21262d; color:#e6edf3; }
     .btn:disabled { opacity:.45; cursor:not-allowed; }
@@ -48,6 +50,45 @@
     .badge-null { background:#1c1c2d; color:#8b949e; border:1px solid #30363d; }
     .range-badge { font-family:monospace; color:#79c0ff; }
     .row-actions { display:flex; gap:6px; }
+    .dim { color:#555; font-size:12px; }
+
+    /* Sub-release rows */
+    tr.sub-row td { background:#0f1420; }
+    tr.sub-row:hover td { background:#161b22; }
+    tr.sub-row td:first-child { border-left:3px solid #8957e5; }
+    .sub-indent { padding-left:16px; color:#c9d1d9; }
+    .sub-tag { display:inline-block; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:#a371f7; background:#251644; border:1px solid #8957e5; border-radius:4px; padding:1px 6px; margin-left:6px; vertical-align:middle; }
+
+    /* Card picker (sub-release modal) */
+    .picker-toolbar { display:flex; gap:8px; margin-bottom:6px; }
+    .picker-toolbar button { font-size:12px; padding:4px 10px; }
+    .card-picker { max-height:380px; overflow-y:auto; border:1px solid #30363d; border-radius:6px; padding:10px; background:#0d1117; display:grid; grid-template-columns:repeat(auto-fill, minmax(84px,1fr)); gap:10px; }
+    .card-picker-empty { color:#8b949e; font-size:13px; padding:12px; text-align:center; grid-column:1/-1; }
+    .picker-card { cursor:pointer; display:flex; flex-direction:column; gap:5px; user-select:none; }
+    .picker-card-img { position:relative; aspect-ratio:1086/1512; border-radius:6px; overflow:hidden; background:#161b22; border:1px solid #30363d; transition:transform .15s ease, box-shadow .15s ease; }
+    .picker-card-img img { width:100%; height:100%; object-fit:cover; display:block; }
+    .picker-card:hover .picker-card-img { transform:scale(1.03); border-color:#484f58; }
+    /* Same neon highlight used for selection in the card-gallery page */
+    .picker-card.selected .picker-card-img {
+      box-shadow: 0 0 0 3px #00ffcc, 0 0 14px 3px rgba(0,255,204,.65), 0 0 30px 8px rgba(0,255,204,.3);
+      transform: scale(1.02);
+      border-color: #00ffcc;
+    }
+    .picker-card-name { font-size:11px; color:#c9d1d9; text-align:center; line-height:1.25; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+    .picker-card.selected .picker-card-name { color:#00ffcc; font-weight:600; }
+    .picker-card.disabled { cursor:not-allowed; opacity:.4; }
+    .picker-card.disabled:hover .picker-card-img { transform:none; border-color:#30363d; }
+    /* Falls back to a name-only tile when the card image doesn't exist */
+    .picker-card.img-missing .picker-card-img { display:none; }
+    .picker-card.img-missing .picker-card-name {
+      aspect-ratio:1086/1512; display:flex; align-items:center; justify-content:center;
+      background:#161b22; border:1px solid #30363d; border-radius:6px; padding:8px;
+      -webkit-line-clamp:8; transition:box-shadow .15s ease, border-color .15s ease;
+    }
+    .picker-card.img-missing.selected .picker-card-name {
+      box-shadow: 0 0 0 3px #00ffcc, 0 0 14px 3px rgba(0,255,204,.65), 0 0 30px 8px rgba(0,255,204,.3);
+      border-color: #00ffcc;
+    }
 
     /* Modal */
     .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.7); display:flex; align-items:center; justify-content:center; z-index:100; }
@@ -118,6 +159,10 @@
       </div>
     </div>
     <div class="field">
+      <label for="edit-releaseDate">Release Date <span style="color:#555">(optional, dd.mm.yyyy)</span></label>
+      <input type="text" id="edit-releaseDate" placeholder="dd.mm.yyyy" inputmode="numeric" maxlength="10" />
+    </div>
+    <div class="field">
       <label for="edit-released">Is Released</label>
       <select id="edit-released">
         <option value="1">Yes</option>
@@ -144,6 +189,68 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" id="btn-edit-cancel">Cancel</button>
       <button class="btn btn-green" id="btn-edit-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sub-Release Edit / Create modal -->
+<div class="modal-backdrop hidden" id="modal-sub-edit">
+  <div class="modal-box" style="max-width:640px;">
+    <h3 id="modal-sub-edit-title">New Sub-Release</h3>
+    <div class="modal-error" id="modal-sub-edit-error"></div>
+    <input type="hidden" id="sub-edit-id" />
+    <input type="hidden" id="sub-edit-expansion-id" />
+    <div class="field">
+      <label>Parent Expansion</label>
+      <div id="sub-edit-parent-name" style="padding:9px 12px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#8b949e;">—</div>
+    </div>
+    <div class="field">
+      <label for="sub-edit-name">Name <span style="color:#555">(optional — suggestion prefilled)</span></label>
+      <input type="text" id="sub-edit-name" placeholder="e.g. Set 1.1" maxlength="100" />
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="sub-edit-releaseDate">Release Date <span style="color:#555">(optional, dd.mm.yyyy)</span></label>
+        <input type="text" id="sub-edit-releaseDate" placeholder="dd.mm.yyyy" inputmode="numeric" maxlength="10" />
+      </div>
+      <div class="field">
+        <label for="sub-edit-released">Is Released</label>
+        <select id="sub-edit-released">
+          <option value="1">Yes</option>
+          <option value="0">No</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="sub-edit-gallery">Show Expansion In Card Gallery</label>
+        <select id="sub-edit-gallery">
+          <option value="">Auto</option>
+          <option value="0">No</option>
+          <option value="1">Yes</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="sub-edit-deckbuilder">Show In Deck Builder</label>
+        <select id="sub-edit-deckbuilder">
+          <option value="">Auto</option>
+          <option value="1">Yes</option>
+          <option value="0">No</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Cards In This Sub-Release (<b id="sub-edit-card-count">0</b>)</label>
+      <div class="field-hint" style="margin:0 0 6px;">Click a card's image (or its name, if no image exists) to select it. Cards already released under another sub-release of this expansion are greyed out and can't be selected.</div>
+      <div class="picker-toolbar">
+        <button type="button" class="btn btn-ghost" id="btn-sub-select-all">Select all available</button>
+        <button type="button" class="btn btn-ghost" id="btn-sub-select-none">Clear</button>
+      </div>
+      <div class="card-picker" id="sub-edit-card-picker"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btn-sub-edit-cancel">Cancel</button>
+      <button class="btn btn-green" id="btn-sub-edit-save">Save</button>
     </div>
   </div>
 </div>
@@ -180,15 +287,46 @@
   const API_BASE      = '../../api/is-back';
   const API_USER      = '../../api/user';
   const EXPANSIONS_URL = API_BASE + '/expansions';
+  const CARDS_URL       = API_BASE + '/cards';
   const AUTH_URL       = API_USER + '/authenticate';
 
   let expansions = [];
+  let cards      = []; // [{id, name, ...}] — used to render the sub-release card picker
   let authToken  = localStorage.getItem('authToken');
   let toastTimer = null;
 
   const root = document.getElementById('page-root');
 
   const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  // ── Date formatting (dd.mm.yyyy in the UI, yyyy-mm-dd over the API) ────────
+
+  const isoToDisplayDate = (iso) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
+    return m ? `${m[3]}.${m[2]}.${m[1]}` : '';
+  };
+
+  // Returns { ok: true, iso } (iso is null for an empty input) or { ok: false } for a malformed/invalid date.
+  const parseDisplayDate = (display) => {
+    const trimmed = (display || '').trim();
+    if (!trimmed) return { ok: true, iso: null };
+    const m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(trimmed);
+    if (!m) return { ok: false };
+    const day = parseInt(m[1], 10), month = parseInt(m[2], 10), year = parseInt(m[3], 10);
+    const d = new Date(Date.UTC(year, month - 1, day));
+    if (d.getUTCFullYear() !== year || d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) return { ok: false };
+    const pad = n => String(n).padStart(2, '0');
+    return { ok: true, iso: `${year}-${pad(month)}-${pad(day)}` };
+  };
+
+  // Auto-inserts dots as digits are typed, e.g. "01092026" → "01.09.2026"
+  const maskDateInput = (input) => {
+    const digits = input.value.replace(/\D/g, '').slice(0, 8);
+    let out = digits.slice(0, 2);
+    if (digits.length > 2) out += '.' + digits.slice(2, 4);
+    if (digits.length > 4) out += '.' + digits.slice(4, 8);
+    input.value = out;
+  };
 
   const showToast = (msg, type = '') => {
     const t = document.getElementById('toast');
@@ -216,6 +354,11 @@
         return;
       }
       expansions = data.expansions || [];
+      try {
+        const cardsRes  = await fetch(CARDS_URL);
+        const cardsData = await cardsRes.json();
+        cards = cardsData.cards || [];
+      } catch (_) { cards = []; }
       renderPage();
     } catch (e) {
       document.getElementById('loading-msg').textContent = 'Failed to load. ' + e.message;
@@ -245,6 +388,7 @@
               <th>Name</th>
               <th>Card Range</th>
               <th>Cards</th>
+              <th>Release Date</th>
               <th>Released</th>
               <th>Show In Gallery</th>
               <th>Show In Deck Builder</th>
@@ -267,31 +411,58 @@
       : `<span class="badge badge-no">No</span>`;
   };
 
+  const dateCell = (d) => d ? esc(isoToDisplayDate(d)) : '<span class="dim">—</span>';
+
+  const masterRowHtml = (e) => {
+    const count = e.lastCardId - e.firstCardId + 1;
+    return `
+      <tr>
+        <td>${e.id}</td>
+        <td>${esc(e.name || '')} ${!e.name ? '<span class="dim">—</span>' : ''}</td>
+        <td><span class="range-badge">${e.firstCardId}–${e.lastCardId}</span></td>
+        <td>${count}</td>
+        <td>${dateCell(e.releaseDate)}</td>
+        <td>${badge(e.isReleased)}</td>
+        <td>${badge(e.isReleased ? null : e.showExpansionInCardGallery)}</td>
+        <td>${badge(e.isReleased ? null : e.showInDeckBuilder)}</td>
+        <td>
+          <div class="row-actions">
+            <button class="btn btn-blue btn-sm" style="padding:5px 12px;font-size:13px;" data-id="${e.id}" data-action="edit">Edit</button>
+            <button class="btn btn-purple btn-sm" style="padding:5px 12px;font-size:13px;" data-id="${e.id}" data-action="addSub">+ Sub</button>
+            <button class="btn btn-red btn-sm"  style="padding:5px 12px;font-size:13px;" data-id="${e.id}" data-action="delete">Delete</button>
+          </div>
+        </td>
+      </tr>`;
+  };
+
+  const subRowHtml = (parent, s) => `
+      <tr class="sub-row">
+        <td>${s.id}</td>
+        <td><span class="sub-indent">↳ ${esc(s.name || '(unnamed)')}</span><span class="sub-tag">sub</span></td>
+        <td><span class="range-badge dim">—</span></td>
+        <td>${(s.cardIds || []).length}</td>
+        <td>${dateCell(s.releaseDate)}</td>
+        <td>${badge(s.isReleased)}</td>
+        <td>${badge(s.isReleased ? null : s.showExpansionInCardGallery)}</td>
+        <td>${badge(s.isReleased ? null : s.showInDeckBuilder)}</td>
+        <td>
+          <div class="row-actions">
+            <button class="btn btn-blue btn-sm" style="padding:5px 12px;font-size:13px;" data-id="${s.id}" data-expansion-id="${parent.id}" data-action="editSub">Edit</button>
+            <button class="btn btn-red btn-sm"  style="padding:5px 12px;font-size:13px;" data-id="${s.id}" data-action="deleteSub">Delete</button>
+          </div>
+        </td>
+      </tr>`;
+
   const renderTable = () => {
     const tbody = document.getElementById('expansions-tbody');
     if (!tbody) return;
     if (!expansions.length) {
-      tbody.innerHTML = `<tr><td colspan="8" style="color:#8b949e;text-align:center;padding:32px;">No expansions yet. Click "+ New Expansion" to add one.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" style="color:#8b949e;text-align:center;padding:32px;">No expansions yet. Click "+ New Expansion" to add one.</td></tr>`;
       return;
     }
     tbody.innerHTML = expansions.map(e => {
-      const count = e.lastCardId - e.firstCardId + 1;
-      return `
-        <tr>
-          <td>${e.id}</td>
-          <td>${esc(e.name || '')} ${!e.name ? '<span style="color:#555;font-size:12px;">—</span>' : ''}</td>
-          <td><span class="range-badge">${e.firstCardId}–${e.lastCardId}</span></td>
-          <td>${count}</td>
-          <td>${badge(e.isReleased)}</td>
-          <td>${badge(e.isReleased ? null : e.showExpansionInCardGallery)}</td>
-          <td>${badge(e.isReleased ? null : e.showInDeckBuilder)}</td>
-          <td>
-            <div class="row-actions">
-              <button class="btn btn-blue btn-sm" style="padding:5px 12px;font-size:13px;" data-id="${e.id}" data-action="edit">Edit</button>
-              <button class="btn btn-red btn-sm"  style="padding:5px 12px;font-size:13px;" data-id="${e.id}" data-action="delete">Delete</button>
-            </div>
-          </td>
-        </tr>`;
+      const subRows = (e.subReleases || []).map(s => subRowHtml(e, s)).join('');
+      return masterRowHtml(e) + subRows;
     }).join('');
 
     tbody.querySelectorAll('[data-action="edit"]').forEach(btn =>
@@ -299,6 +470,15 @@
     );
     tbody.querySelectorAll('[data-action="delete"]').forEach(btn =>
       btn.addEventListener('click', () => deleteExpansion(Number(btn.dataset.id)))
+    );
+    tbody.querySelectorAll('[data-action="addSub"]').forEach(btn =>
+      btn.addEventListener('click', () => openCreateSubModal(Number(btn.dataset.id)))
+    );
+    tbody.querySelectorAll('[data-action="editSub"]').forEach(btn =>
+      btn.addEventListener('click', () => openEditSubModal(Number(btn.dataset.expansionId), Number(btn.dataset.id)))
+    );
+    tbody.querySelectorAll('[data-action="deleteSub"]').forEach(btn =>
+      btn.addEventListener('click', () => deleteSubRelease(Number(btn.dataset.id)))
     );
   };
 
@@ -331,6 +511,7 @@
     document.getElementById('edit-name').value    = '';
     document.getElementById('edit-first').value   = '';
     document.getElementById('edit-last').value    = '';
+    document.getElementById('edit-releaseDate').value = '';
     document.getElementById('edit-released').value     = '0';
     document.getElementById('edit-gallery').value      = '';
     document.getElementById('edit-deckbuilder').value  = '';
@@ -348,6 +529,7 @@
     document.getElementById('edit-name').value    = e.name || '';
     document.getElementById('edit-first').value   = e.firstCardId;
     document.getElementById('edit-last').value    = e.lastCardId;
+    document.getElementById('edit-releaseDate').value = isoToDisplayDate(e.releaseDate);
     document.getElementById('edit-released').value     = e.isReleased ? '1' : '0';
     document.getElementById('edit-gallery').value      =
       e.showExpansionInCardGallery === null ? '' : (e.showExpansionInCardGallery ? '1' : '0');
@@ -379,6 +561,7 @@
   document.getElementById('edit-released').addEventListener('change', syncAutoFields);
   document.getElementById('edit-first').addEventListener('input', checkOverlapWarning);
   document.getElementById('edit-last').addEventListener('input', checkOverlapWarning);
+  document.getElementById('edit-releaseDate').addEventListener('input', e => maskDateInput(e.target));
 
   document.getElementById('btn-edit-save').addEventListener('click', async () => {
     const idVal    = document.getElementById('edit-id').value;
@@ -399,6 +582,13 @@
       return;
     }
 
+    const parsedDate = parseDisplayDate(document.getElementById('edit-releaseDate').value);
+    if (!parsedDate.ok) {
+      errEl.textContent = 'Release Date must be in dd.mm.yyyy format.';
+      errEl.style.display = 'block';
+      return;
+    }
+
     const galVal = document.getElementById('edit-gallery').value;
     const dbVal  = document.getElementById('edit-deckbuilder').value;
     const body   = {
@@ -406,6 +596,7 @@
       name:                      document.getElementById('edit-name').value.trim() || null,
       firstCardId,
       lastCardId,
+      releaseDate:               parsedDate.iso,
       isReleased:                document.getElementById('edit-released').value === '1',
       showExpansionInCardGallery: galVal === '' ? null : (galVal === '1'),
       showInDeckBuilder:         dbVal === '' ? null : (dbVal === '1'),
@@ -444,6 +635,233 @@
     }
   };
 
+  // ── Sub-releases ─────────────────────────────────────────────────────────────
+
+  // Parses a trailing number off a set name, e.g. "Set 2" → { prefix: "Set ", num: 2 }
+  const parseSetName = (name) => {
+    const m = /^(.*?)(\d+)\s*$/.exec((name || '').trim());
+    if (!m) return null;
+    return { prefix: m[1], num: parseInt(m[2], 10) };
+  };
+
+  // Sub-releases are named after the *previous* full set, since they're partial
+  // drops released between that set and the parent's own full release.
+  // e.g. parent "Set 2" with no sub-releases yet → "Set 1.1", then "Set 1.2", ...
+  const suggestSubReleaseName = (parent) => {
+    const n = (parent.subReleases || []).length + 1;
+    const parsed = parseSetName(parent.name);
+    if (parsed && parsed.num > 1) {
+      return `${parsed.prefix}${parsed.num - 1}.${n}`;
+    }
+    return `${(parent.name || 'Set').trim()} Part ${n}`;
+  };
+
+  const cardNameById = (id) => {
+    const c = cards.find(c => c.id === id);
+    return c ? c.name : `Card #${id}`;
+  };
+
+  // Same card-image naming convention as card-gallery/deck-builder
+  const removeBB = (s) => (s || '').replace(/\[[^\]]*\]/g, '');
+  const cardImgName = (id, name) => {
+    const cleaned = removeBB(name);
+    const n = cleaned.startsWith('The ') ? cleaned.slice(4) : cleaned;
+    return `${id} - ${n}`;
+  };
+  const cardImagePath = (id, name) => `../card-images/${encodeURIComponent(cardImgName(id, name))}.png`;
+
+  // Selection state for the card picker — the picker re-renders each time the
+  // modal opens, so click handling is delegated against this state rather than checkbox DOM nodes.
+  let pickerSelectedIds = new Set();
+  let pickerDisabledIds = new Set();
+
+  const updateCardPickerCount = () => {
+    const countEl = document.getElementById('sub-edit-card-count');
+    if (countEl) countEl.textContent = pickerSelectedIds.size;
+  };
+
+  const renderCardPicker = (parent, excludeSubId, checkedIds) => {
+    const picker = document.getElementById('sub-edit-card-picker');
+    pickerSelectedIds = new Set(checkedIds);
+    pickerDisabledIds = new Set();
+    (parent.subReleases || []).forEach(s => {
+      if (s.id === excludeSubId) return;
+      (s.cardIds || []).forEach(id => pickerDisabledIds.add(id));
+    });
+
+    const ids = [];
+    for (let id = parent.firstCardId; id <= parent.lastCardId; id++) ids.push(id);
+    if (!ids.length) {
+      picker.innerHTML = `<div class="card-picker-empty">No cards in this expansion's range.</div>`;
+      updateCardPickerCount();
+      return;
+    }
+    picker.innerHTML = ids.map(id => {
+      const disabled  = pickerDisabledIds.has(id);
+      const isChecked = pickerSelectedIds.has(id);
+      const name      = cardNameById(id);
+      const classes   = ['picker-card', isChecked ? 'selected' : '', disabled ? 'disabled' : ''].filter(Boolean).join(' ');
+      return `
+        <div class="${classes}" data-id="${id}" ${disabled ? 'title="Already released under another sub-release"' : ''}>
+          <div class="picker-card-img">
+            <img src="${cardImagePath(id, name)}" alt="" loading="lazy"
+                 onerror="this.closest('.picker-card').classList.add('img-missing'); this.remove();" />
+          </div>
+          <div class="picker-card-name">#${id} ${esc(name)}</div>
+        </div>`;
+    }).join('');
+    updateCardPickerCount();
+  };
+
+  document.getElementById('sub-edit-card-picker').addEventListener('click', (e) => {
+    const item = e.target.closest('.picker-card[data-id]');
+    if (!item || item.classList.contains('disabled')) return;
+    const id = Number(item.dataset.id);
+    if (pickerSelectedIds.has(id)) {
+      pickerSelectedIds.delete(id);
+      item.classList.remove('selected');
+    } else {
+      pickerSelectedIds.add(id);
+      item.classList.add('selected');
+    }
+    updateCardPickerCount();
+  });
+
+  const syncSubAutoFields = () => {
+    const released = document.getElementById('sub-edit-released').value === '1';
+    const gallery  = document.getElementById('sub-edit-gallery');
+    const deckBld  = document.getElementById('sub-edit-deckbuilder');
+    if (released) {
+      gallery.value = '';
+      deckBld.value = '';
+      gallery.disabled = true;
+      deckBld.disabled = true;
+    } else {
+      gallery.disabled = false;
+      deckBld.disabled = false;
+    }
+  };
+  document.getElementById('sub-edit-released').addEventListener('change', syncSubAutoFields);
+  document.getElementById('sub-edit-releaseDate').addEventListener('input', e => maskDateInput(e.target));
+
+  const openCreateSubModal = (expansionId) => {
+    const parent = expansions.find(e => e.id === expansionId);
+    if (!parent) return;
+    document.getElementById('modal-sub-edit-title').textContent = `New Sub-Release of #${parent.id}`;
+    document.getElementById('modal-sub-edit-error').style.display = 'none';
+    document.getElementById('sub-edit-id').value = '';
+    document.getElementById('sub-edit-expansion-id').value = parent.id;
+    document.getElementById('sub-edit-parent-name').textContent =
+      `${parent.name || 'Set'} (#${parent.id}, cards ${parent.firstCardId}–${parent.lastCardId})`;
+    document.getElementById('sub-edit-name').value = suggestSubReleaseName(parent);
+    document.getElementById('sub-edit-releaseDate').value = '';
+    document.getElementById('sub-edit-released').value = '0';
+    document.getElementById('sub-edit-gallery').value = '';
+    document.getElementById('sub-edit-deckbuilder').value = '';
+    renderCardPicker(parent, null, []);
+    syncSubAutoFields();
+    document.getElementById('modal-sub-edit').classList.remove('hidden');
+  };
+
+  const openEditSubModal = (expansionId, subId) => {
+    const parent = expansions.find(e => e.id === expansionId);
+    if (!parent) return;
+    const sub = (parent.subReleases || []).find(s => s.id === subId);
+    if (!sub) return;
+    document.getElementById('modal-sub-edit-title').textContent = `Edit Sub-Release #${sub.id}`;
+    document.getElementById('modal-sub-edit-error').style.display = 'none';
+    document.getElementById('sub-edit-id').value = sub.id;
+    document.getElementById('sub-edit-expansion-id').value = parent.id;
+    document.getElementById('sub-edit-parent-name').textContent =
+      `${parent.name || 'Set'} (#${parent.id}, cards ${parent.firstCardId}–${parent.lastCardId})`;
+    document.getElementById('sub-edit-name').value = sub.name || '';
+    document.getElementById('sub-edit-releaseDate').value = isoToDisplayDate(sub.releaseDate);
+    document.getElementById('sub-edit-released').value = sub.isReleased ? '1' : '0';
+    document.getElementById('sub-edit-gallery').value =
+      sub.showExpansionInCardGallery ? '1' : '0';
+    document.getElementById('sub-edit-deckbuilder').value =
+      sub.showInDeckBuilder === null ? '' : (sub.showInDeckBuilder ? '1' : '0');
+    renderCardPicker(parent, sub.id, sub.cardIds || []);
+    syncSubAutoFields();
+    document.getElementById('modal-sub-edit').classList.remove('hidden');
+  };
+
+  const closeSubEditModal = () => document.getElementById('modal-sub-edit').classList.add('hidden');
+  document.getElementById('btn-sub-edit-cancel').addEventListener('click', closeSubEditModal);
+
+  document.getElementById('btn-sub-select-all').addEventListener('click', () => {
+    document.querySelectorAll('#sub-edit-card-picker .picker-card[data-id]:not(.disabled)').forEach(item => {
+      pickerSelectedIds.add(Number(item.dataset.id));
+      item.classList.add('selected');
+    });
+    updateCardPickerCount();
+  });
+  document.getElementById('btn-sub-select-none').addEventListener('click', () => {
+    pickerSelectedIds.clear();
+    document.querySelectorAll('#sub-edit-card-picker .picker-card.selected').forEach(item => item.classList.remove('selected'));
+    updateCardPickerCount();
+  });
+
+  document.getElementById('btn-sub-edit-save').addEventListener('click', async () => {
+    const idVal    = document.getElementById('sub-edit-id').value;
+    const isCreate = !idVal;
+    const expansionId = parseInt(document.getElementById('sub-edit-expansion-id').value, 10);
+    const errEl    = document.getElementById('modal-sub-edit-error');
+    errEl.style.display = 'none';
+
+    const cardIds = Array.from(pickerSelectedIds);
+
+    const parsedDate = parseDisplayDate(document.getElementById('sub-edit-releaseDate').value);
+    if (!parsedDate.ok) {
+      errEl.textContent = 'Release Date must be in dd.mm.yyyy format.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    const galVal = document.getElementById('sub-edit-gallery').value;
+    const dbVal  = document.getElementById('sub-edit-deckbuilder').value;
+    const body   = {
+      action:                    isCreate ? 'createSub' : 'updateSub',
+      expansionId,
+      name:                      document.getElementById('sub-edit-name').value.trim() || null,
+      releaseDate:               parsedDate.iso,
+      isReleased:                document.getElementById('sub-edit-released').value === '1',
+      showExpansionInCardGallery: galVal === '' ? false : (galVal === '1'),
+      showInDeckBuilder:         dbVal === '' ? null : (dbVal === '1'),
+      cardIds,
+    };
+    if (!isCreate) body.id = parseInt(idVal, 10);
+
+    const btn = document.getElementById('btn-sub-edit-save');
+    btn.disabled = true;
+    try {
+      const res  = await fetch(EXPANSIONS_URL, { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) { errEl.textContent = data.error || 'Save failed.'; errEl.style.display = 'block'; return; }
+      closeSubEditModal();
+      showToast(isCreate ? 'Sub-release created!' : 'Sub-release updated!', 'ok');
+      await reload();
+    } catch (e) {
+      errEl.textContent = 'Network error: ' + e.message;
+      errEl.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  const deleteSubRelease = async (id) => {
+    if (!id) return;
+    try {
+      const res  = await fetch(EXPANSIONS_URL, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ action: 'deleteSub', id }) });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.error || 'Delete failed.', 'err'); return; }
+      showToast('Sub-release deleted.', 'ok');
+      await reload();
+    } catch (e) {
+      showToast('Network error: ' + e.message, 'err');
+    }
+  };
+
   // ── SQL Export ─────────────────────────────────────────────────────────────
 
   const openSqlModal = () => {
@@ -455,21 +873,53 @@
   const buildSql = () => {
     if (!expansions.length) return '-- No expansions to export.';
     const lines = [
-      '-- Expansions sync: ' + new Date().toISOString(),
-      '-- Run on target server to match these expansions.',
+      '-- Expansions & sub-releases sync: ' + new Date().toISOString(),
+      '-- Run on target server to match these expansions and sub-releases.',
       '',
+      'SET FOREIGN_KEY_CHECKS = 0;',
+      '',
+      'TRUNCATE TABLE isBack_subExpansionCard;',
+      'TRUNCATE TABLE isBack_subRelease;',
       'TRUNCATE TABLE isBack_expansion;',
       '',
     ];
     const vals = expansions.map(e => {
-      const name    = e.name ? `'${e.name.replace(/'/g, "\\'")}'` : 'NULL';
-      const gallery = e.showExpansionInCardGallery ? 1 : 0;
-      const deckBld = e.showInDeckBuilder === null ? 'NULL' : (e.showInDeckBuilder ? 1 : 0);
-      return `(${e.id}, ${name}, ${e.firstCardId}, ${e.lastCardId}, ${e.isReleased ? 1 : 0}, ${gallery}, ${deckBld})`;
+      const name        = e.name ? `'${e.name.replace(/'/g, "\\'")}'` : 'NULL';
+      const releaseDate = e.releaseDate ? `'${e.releaseDate}'` : 'NULL';
+      const gallery     = e.showExpansionInCardGallery ? 1 : 0;
+      const deckBld     = e.showInDeckBuilder === null ? 'NULL' : (e.showInDeckBuilder ? 1 : 0);
+      return `(${e.id}, ${name}, ${e.firstCardId}, ${e.lastCardId}, ${releaseDate}, ${e.isReleased ? 1 : 0}, ${gallery}, ${deckBld})`;
     });
-    lines.push('INSERT INTO isBack_expansion (id, name, firstCardId, lastCardId, isReleased, showExpansionInCardGallery, showInDeckBuilder)');
+    lines.push('INSERT INTO isBack_expansion (id, name, firstCardId, lastCardId, releaseDate, isReleased, showExpansionInCardGallery, showInDeckBuilder)');
     lines.push('VALUES');
     lines.push(vals.join(',\n') + ';');
+    lines.push('');
+
+    const allSubs = expansions.flatMap(e => e.subReleases || []);
+    if (allSubs.length) {
+      const subVals = allSubs.map(s => {
+        const name        = s.name ? `'${s.name.replace(/'/g, "\\'")}'` : 'NULL';
+        const releaseDate = s.releaseDate ? `'${s.releaseDate}'` : 'NULL';
+        const gallery     = s.showExpansionInCardGallery ? 1 : 0;
+        const deckBld     = s.showInDeckBuilder === null ? 'NULL' : (s.showInDeckBuilder ? 1 : 0);
+        return `(${s.id}, ${s.expansionId}, ${name}, ${releaseDate}, ${s.isReleased ? 1 : 0}, ${gallery}, ${deckBld})`;
+      });
+      lines.push('INSERT INTO isBack_subRelease (id, expansionId, name, releaseDate, isReleased, showExpansionInCardGallery, showInDeckBuilder)');
+      lines.push('VALUES');
+      lines.push(subVals.join(',\n') + ';');
+      lines.push('');
+
+      const cardVals = [];
+      allSubs.forEach(s => (s.cardIds || []).forEach(cid => cardVals.push(`(${s.id}, ${cid})`)));
+      if (cardVals.length) {
+        lines.push('INSERT INTO isBack_subExpansionCard (subReleaseId, cardId)');
+        lines.push('VALUES');
+        lines.push(cardVals.join(',\n') + ';');
+        lines.push('');
+      }
+    }
+
+    lines.push('SET FOREIGN_KEY_CHECKS = 1;');
     return lines.join('\n');
   };
 
@@ -501,6 +951,7 @@
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       document.getElementById('modal-edit').classList.add('hidden');
+      document.getElementById('modal-sub-edit').classList.add('hidden');
       document.getElementById('modal-confirm').classList.add('hidden');
       document.getElementById('modal-sql').classList.add('hidden');
     }

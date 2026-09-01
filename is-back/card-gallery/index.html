@@ -93,6 +93,12 @@
         <option value="">Any</option>
       </select>
     </div>
+    <div id="subrelease-filter-wrap" style="display:none;">
+      <label for="f-subrelease">Sub-Release</label>
+      <select id="f-subrelease">
+        <option value="">Any</option>
+      </select>
+    </div>
     <div>
       <label for="f-releaseYear">Release Year</label>
       <select id="f-releaseYear">
@@ -250,6 +256,8 @@
       powerIs:        document.getElementById('f-powerIs'),
       keyword:        document.getElementById('f-keyword'),
       expansion:      document.getElementById('f-expansion'),
+      subrelease:     document.getElementById('f-subrelease'),
+      subreleaseWrap: document.getElementById('subrelease-filter-wrap'),
       releaseYear:    document.getElementById('f-releaseYear'),
       decklist:       document.getElementById('f-decklist'),
       decklistWrap:   document.getElementById('decklist-filter-wrap'),
@@ -322,6 +330,7 @@
       if (el.kwCount.value)                 n++;
       if (el.keyword.value)                 n++;
       if (el.expansion.value)               n++;
+      if (el.subrelease.value)              n++;
       if (el.releaseYear.value)             n++;
       if (el.decklist.value)                n++;
       if (el.orderBy.value !== 'oldest')    n++;
@@ -348,17 +357,54 @@
       document.getElementById('power-is-wrap').style.display = el.power.value !== '' ? '' : 'none';
     };
 
+    // Shows the Sub-Release filter (and populates its options) only when the
+    // currently selected Expansion actually has sub-releases; hidden otherwise.
+    const syncSubReleaseFilter = () => {
+      const expId      = el.expansion.value !== '' ? Number(el.expansion.value) : null;
+      const expansion  = expId !== null ? expansions.find(e => e.id === expId) : null;
+      const subs       = (expansion && Array.isArray(expansion.subReleases)) ? expansion.subReleases : [];
+      if (!subs.length) {
+        el.subreleaseWrap.style.display = 'none';
+        el.subrelease.value = '';
+        return;
+      }
+      const currentVal = el.subrelease.value;
+      el.subrelease.innerHTML = '<option value="">Any</option>' +
+        subs.map(s => `<option value="${s.id}">${escapeHtml(s.name || ('Sub-release #' + s.id))}</option>`).join('');
+      el.subrelease.value = subs.some(s => String(s.id) === currentVal) ? currentVal : '';
+      el.subreleaseWrap.style.display = '';
+    };
+
     // ── Expansion helpers ─────────────────────────────────────────────────
     // 'released' → show normally
     // 'hidden'   → show in filter list but exclude from default (unfiltered) view
     // 'null'     → completely invisible
+    // Sub-releases don't appear as their own category — they just grant a
+    // subset of a master expansion's cards visibility ahead of the full release.
     const getExpansionForCard = (cardId) =>
       expansions.find(e => cardId >= e.firstCardId && cardId <= e.lastCardId) || null;
 
+    const getSubReleaseForCard = (expansion, cardId) =>
+      (expansion && Array.isArray(expansion.subReleases))
+        ? (expansion.subReleases.find(s => Array.isArray(s.cardIds) && s.cardIds.includes(cardId)) || null)
+        : null;
+
+    // Status of an expansion on its own (ignoring any card-specific sub-release boost)
     const getExpansionStatus = (expansion) => {
       if (!expansion) return expansions.length ? 'null' : 'released';
       if (expansion.isReleased) return 'released';
       if (expansion.showExpansionInCardGallery) return 'hidden';
+      if (Array.isArray(expansion.subReleases) && expansion.subReleases.some(s => s.isReleased || s.showExpansionInCardGallery)) return 'hidden';
+      return 'null';
+    };
+
+    // Status of a specific card: master expansion's status, boosted by its sub-release (if any)
+    const getCardStatus = (cardId) => {
+      const expansion = getExpansionForCard(cardId);
+      if (!expansion) return expansions.length ? 'null' : 'released';
+      const sub = getSubReleaseForCard(expansion, cardId);
+      if (expansion.isReleased || (sub && sub.isReleased)) return 'released';
+      if (expansion.showExpansionInCardGallery || (sub && sub.showExpansionInCardGallery)) return 'hidden';
       return 'null';
     };
 
@@ -389,6 +435,7 @@
       el.kwCount.value     = qs.get('kwCount')     || '';
       el.keyword.value     = qs.get('keyword')     || '';
       el.expansion.value   = qs.get('expansion')   || '';
+      el.subrelease.value  = qs.get('subrelease')  || '';
       el.releaseYear.value = qs.get('releaseYear') || '';
       el.orderBy.value     = qs.get('orderBy')     || DEFAULT_ORDER_BY;
       el.direction.value   = qs.get('direction')   || DEFAULT_DIRECTION;
@@ -404,6 +451,7 @@
       setQueryParam('kwCount',     el.kwCount.value);
       setQueryParam('keyword',     el.keyword.value);
       setQueryParam('expansion',   el.expansion.value);
+      setQueryParam('subrelease',  el.subrelease.value);
       setQueryParam('releaseYear', el.releaseYear.value);
       setQueryParam('decklist',    el.decklist.value);
       setQueryParam('orderBy',     el.orderBy.value === DEFAULT_ORDER_BY ? '' : el.orderBy.value);
@@ -636,6 +684,7 @@
       const kwCount     = el.kwCount.value !== '' ? Number(el.kwCount.value) : null;
       const kwSpecific  = el.keyword.value;
       const expansion   = el.expansion.value !== '' ? Number(el.expansion.value) : null;
+      const subrelease  = el.subrelease.value !== '' ? Number(el.subrelease.value) : null;
       const releaseYear = el.releaseYear.value;
       const orderBy     = el.orderBy.value;
       const dir         = el.direction.value;
@@ -678,11 +727,13 @@
           const kwCountOk   = kwCount === null || effectiveKws.length === kwCount;
           const kwSpecificOk = !kwSpecific || (kwSpecific === 'vanilla' ? effectiveKws.length === 0 : effectiveKws.includes(kwSpecific));
           const cardExp      = getExpansionForCard(c.id);
-          const setStatus    = getExpansionStatus(cardExp);
+          const setStatus    = getCardStatus(c.id);
           const expansionOk  = setStatus !== 'null' && (expansion === null ? setStatus === 'released' : (cardExp && cardExp.id === expansion));
+          const cardSub      = getSubReleaseForCard(cardExp, c.id);
+          const subreleaseOk = subrelease === null || (cardSub && cardSub.id === subrelease);
           const yearOk       = !releaseYear || String(c.releaseYear) === releaseYear;
           const decklistOk   = !decklistCardIds || decklistCardIds.has(c.id);
-          return nameOk && kwOk && typeOk && powerOk && kwCountOk && kwSpecificOk && expansionOk && yearOk && decklistOk;
+          return nameOk && kwOk && typeOk && powerOk && kwCountOk && kwSpecificOk && expansionOk && subreleaseOk && yearOk && decklistOk;
         });
         filteredKeywords = allKeywords;
       }
@@ -900,8 +951,14 @@
     [el.name, el.keywords].forEach(ctrl => {
       ctrl.addEventListener('input', () => { controlsToURL(); filterCards(); });
     });
-    [el.type, el.power, el.powerIs, el.kwCount, el.keyword, el.expansion, el.releaseYear, el.orderBy, el.direction].forEach(ctrl => {
+    [el.type, el.power, el.powerIs, el.kwCount, el.keyword, el.subrelease, el.releaseYear, el.orderBy, el.direction].forEach(ctrl => {
       ctrl.addEventListener('change', () => { syncPowerIsVisibility(); controlsToURL(); filterCards(); });
+    });
+    el.expansion.addEventListener('change', () => {
+      syncSubReleaseFilter();
+      syncPowerIsVisibility();
+      controlsToURL();
+      filterCards();
     });
 
     el.clear.addEventListener('click', () => {
@@ -914,6 +971,7 @@
       el.kwCount.value     = '';
       el.keyword.value     = '';
       el.expansion.value   = '';
+      syncSubReleaseFilter();
       el.releaseYear.value = '';
       el.decklist.value    = '';
       decklistCardIds      = null;
@@ -1000,6 +1058,11 @@
             .map((e, i) => `<option value="${e.id}">${escapeHtml(e.name || 'Set ' + (i + 1))}</option>`)
             .join('');
         if (currentExpansion) el.expansion.value = currentExpansion;
+        syncSubReleaseFilter();
+        const currentSubrelease = qs.get('subrelease') ? qs.get('subrelease') : '';
+        if (currentSubrelease && el.subrelease.querySelector(`option[value="${currentSubrelease}"]`)) {
+          el.subrelease.value = currentSubrelease;
+        }
       } catch (err) {
         showToast('Failed to load cards. Please try refreshing.');
         allCards = [];
