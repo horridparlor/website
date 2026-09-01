@@ -949,6 +949,11 @@ function processState(state) {
   // Reset per-phase flags when phase changes
   if (state.phase !== lastPhase) {
     nextRoundScheduled = false;
+    // A fresh 'setup' phase means a new game in the match (best-of-3's game 2, 3, …) —
+    // clear the previous game's RPS pick/result so the overlay isn't stuck showing
+    // "Waiting for opponent…" for a choice that was never submitted this game.
+    myRpsChoice = null;
+    lastRpsResultKey = null;
     if (state.phase !== 'end_of_round') {
       roundResultShown = false;
       revealScheduledSig = null;
