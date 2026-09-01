@@ -18,11 +18,17 @@ body {
   background-position: top left, top right, top left, top left;
 }
 
-/* .db-layout below assumes a 52px-tall topbar */
-rk-topbar {
+/* .db-layout below assumes a 52px-tall topbar.
+   topbar.js adds a `.rk-topbar` class to the <rk-topbar> element in addition to
+   the tag itself, and components/topbar.css (linked after this stylesheet) sets
+   margin-bottom via both `rk-topbar` and `.rk-topbar` selectors — the class form
+   outranks a plain-element override, so both forms are matched here too. */
+body rk-topbar,
+body .rk-topbar {
   height: 52px;
   padding: 0.5rem 1.5rem;
   box-sizing: border-box;
+  margin-bottom: 0;
 }
 
 .user-info { color: #aaa; font-size: 0.85rem; }
