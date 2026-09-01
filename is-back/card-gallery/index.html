@@ -516,20 +516,39 @@
       return `${sign}${Math.abs(pct) < 0.05 ? '0' : (Number.isInteger(pct) ? pct : pct.toFixed(1))}%`;
     };
 
-    const calculateMacros = () => {
-      const rocks    = allCards.filter(c => normalize(c.type) === 'rock');
-      const papers   = allCards.filter(c => normalize(c.type) === 'paper');
-      const scissors = allCards.filter(c => normalize(c.type) === 'scissors');
+    // Cards counted in Macros: released cards, plus (if `extraExpansionId` names an
+    // unreleased/hidden expansion) that expansion's cards too. Unreleased cards from
+    // any other expansion are always excluded.
+    let macrosExpansionId = null; // unreleased expansion id currently baked into `macros`, or null
+
+    const getMacroExpansionId = () => {
+      const expId = el.expansion.value !== '' ? Number(el.expansion.value) : null;
+      if (expId === null) return null;
+      const expansion = expansions.find(e => e.id === expId);
+      return (expansion && getExpansionStatus(expansion) !== 'released') ? expId : null;
+    };
+
+    const calculateMacros = (extraExpansionId = null) => {
+      const cards = allCards.filter(c => {
+        if (getCardStatus(c.id) === 'released') return true;
+        if (extraExpansionId === null) return false;
+        const exp = getExpansionForCard(c.id);
+        return !!(exp && exp.id === extraExpansionId);
+      });
+
+      const rocks    = cards.filter(c => normalize(c.type) === 'rock');
+      const papers   = cards.filter(c => normalize(c.type) === 'paper');
+      const scissors = cards.filter(c => normalize(c.type) === 'scissors');
 
       const buildAMacro = (name, filter) => {
-        const fAll      = allCards.filter(filter);
+        const fAll      = cards.filter(filter);
         const fRocks    = rocks.filter(filter);
         const fPapers   = papers.filter(filter);
         const fScissors = scissors.filter(filter);
         return {
           name,
           total:              fAll.length,
-          totalPercentage:    allCards.length ? toPercentage(fAll.length / allCards.length) : '–',
+          totalPercentage:    cards.length ? toPercentage(fAll.length / cards.length) : '–',
           rock:               fRocks.length,
           rockPercentage:     rocks.length    ? toPercentage(fRocks.length    / rocks.length)    : '–',
           paper:              fPapers.length,
@@ -543,8 +562,8 @@
       const powerValues = [0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 13000];
 
       // Average and median stat rows
-      const totalAvg = mean(allCards.map(c => c.power));
-      const totalMed = median(allCards.map(c => c.power));
+      const totalAvg = mean(cards.map(c => c.power));
+      const totalMed = median(cards.map(c => c.power));
       const rockAvg  = mean(rocks.map(c => c.power));
       const paperAvg = mean(papers.map(c => c.power));
       const scissAvg = mean(scissors.map(c => c.power));
@@ -593,6 +612,16 @@
         sep,
         buildAMacro('All', () => true),
       ];
+    };
+
+    // Only recomputes Macros when the "unreleased expansion" baked into them actually
+    // changes (i.e. an unreleased expansion got selected/deselected/swapped) — not on
+    // every filter change.
+    const refreshMacrosIfNeeded = () => {
+      const nextId = getMacroExpansionId();
+      if (nextId === macrosExpansionId) return;
+      macrosExpansionId = nextId;
+      calculateMacros(macrosExpansionId);
     };
 
     const removeBbcodeTags = (s) => s.replace(/\[[^\]]*\]/g, '');
@@ -957,6 +986,7 @@
     el.expansion.addEventListener('change', () => {
       syncSubReleaseFilter();
       syncPowerIsVisibility();
+      refreshMacrosIfNeeded();
       controlsToURL();
       filterCards();
     });
@@ -972,6 +1002,7 @@
       el.keyword.value     = '';
       el.expansion.value   = '';
       syncSubReleaseFilter();
+      refreshMacrosIfNeeded();
       el.releaseYear.value = '';
       el.decklist.value    = '';
       decklistCardIds      = null;
@@ -1050,7 +1081,6 @@
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
         allCards = Array.isArray(data) ? data : (data.cards || []);
-        calculateMacros();
         const currentExpansion = qs.get('expansion') ? Number(qs.get('expansion')) : '';
         el.expansion.innerHTML = '<option value="">Any</option>' +
           expansions
@@ -1063,6 +1093,8 @@
         if (currentSubrelease && el.subrelease.querySelector(`option[value="${currentSubrelease}"]`)) {
           el.subrelease.value = currentSubrelease;
         }
+        macrosExpansionId = getMacroExpansionId();
+        calculateMacros(macrosExpansionId);
       } catch (err) {
         showToast('Failed to load cards. Please try refreshing.');
         allCards = [];
