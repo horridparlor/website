@@ -624,6 +624,42 @@
       calculateMacros(macrosExpansionId);
     };
 
+    // Keywords tab mirrors Macros: cardsWith/types are counted from released cards,
+    // plus (if an unreleased expansion is selected in the filter) that expansion's cards too.
+    let keywordsExpansionId = null; // unreleased expansion id currently baked into `allKeywords`, or null
+
+    const calculateKeywords = (extraExpansionId = null) => {
+      const cards = allCards.filter(c => {
+        if (getCardStatus(c.id) === 'released') return true;
+        if (extraExpansionId === null) return false;
+        const exp = getExpansionForCard(c.id);
+        return !!(exp && exp.id === extraExpansionId);
+      });
+
+      allKeywords = allKeywords.map(keyword => {
+        const cardsWith = cards.filter(card => card.keywords.includes(keyword.name));
+        const types = cardsWith.reduce((acc, card) => {
+          const t = capitalize(card.type);
+          if (!acc.includes(t)) acc.push(t);
+          return acc;
+        }, []);
+        return {
+          ...keyword,
+          cardsWith: cardsWith.length,
+          types: types.sort((a, b) => getTypeOrder(a) - getTypeOrder(b)).join(', '),
+        };
+      });
+    };
+
+    // Only recomputes Keywords counts when the "unreleased expansion" baked into them
+    // actually changes — not on every filter change.
+    const refreshKeywordsIfNeeded = () => {
+      const nextId = getMacroExpansionId();
+      if (nextId === keywordsExpansionId) return;
+      keywordsExpansionId = nextId;
+      calculateKeywords(keywordsExpansionId);
+    };
+
     const removeBbcodeTags = (s) => s.replace(/\[[^\]]*\]/g, '');
     const cardImgName    = (c) => { const cleaned = removeBbcodeTags(c.name); const n = cleaned.startsWith('The ') ? cleaned.slice(4) : cleaned; return `${c.id} - ${n}`; };
     const cardArtPathV   = (c, av) => { const suffix = (av && av > 1) ? ` (${av})` : ''; return `../card-art/${encodeURIComponent(cardImgName(c) + suffix)}.png`; };
@@ -724,10 +760,11 @@
       if (view === 'keywords') {
         out = allCards;
         filteredKeywords = allKeywords.filter(k => {
-          const nameOk = !name || normalize(k.displayName).includes(name) || normalize(k.name).includes(name);
-          const descOk = !kw   || normalize(k.description).includes(kw);
-          const typeOk = !type || matchKeywords(k.types, type);
-          return nameOk && descOk && typeOk;
+          const nameOk  = !name || normalize(k.displayName).includes(name) || normalize(k.name).includes(name);
+          const descOk  = !kw   || normalize(k.description).includes(kw);
+          const typeOk  = !type || matchKeywords(k.types, type);
+          const countOk = k.cardsWith > 0;
+          return nameOk && descOk && typeOk && countOk;
         });
       } else {
         out = allCards.filter(c => {
@@ -987,6 +1024,7 @@
       syncSubReleaseFilter();
       syncPowerIsVisibility();
       refreshMacrosIfNeeded();
+      refreshKeywordsIfNeeded();
       controlsToURL();
       filterCards();
     });
@@ -1003,6 +1041,7 @@
       el.expansion.value   = '';
       syncSubReleaseFilter();
       refreshMacrosIfNeeded();
+      refreshKeywordsIfNeeded();
       el.releaseYear.value = '';
       el.decklist.value    = '';
       decklistCardIds      = null;
@@ -1104,20 +1143,9 @@
         const res = await fetch(KEYWORDS_URL, { method: 'GET' });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
-        const rawKeywords = Array.isArray(data) ? data : (data.keywords || []);
-        allKeywords = rawKeywords.map(keyword => {
-          const cardsWith = allCards.filter(card => card.keywords.includes(keyword.name));
-          const types = cardsWith.reduce((acc, card) => {
-            const t = capitalize(card.type);
-            if (!acc.includes(t)) acc.push(t);
-            return acc;
-          }, []);
-          return {
-            ...keyword,
-            cardsWith: cardsWith.length,
-            types: types.sort((a, b) => getTypeOrder(a) - getTypeOrder(b)).join(', '),
-          };
-        });
+        allKeywords = Array.isArray(data) ? data : (data.keywords || []);
+        keywordsExpansionId = getMacroExpansionId();
+        calculateKeywords(keywordsExpansionId);
         const sorted = [...allKeywords].sort((a, b) => a.displayName.localeCompare(b.displayName));
         const current = qs.get('keyword') || '';
         const sortedWithVanilla = [...sorted, { name: 'vanilla', displayName: 'Vanilla' }]
