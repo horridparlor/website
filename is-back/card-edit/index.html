@@ -115,13 +115,11 @@
         <h4>Card Art (card-art/)</h4>
         <div class="art-preview" id="art-preview"><span class="no-img">No image</span></div>
         <input type="file" id="art-file" accept="image/png" />
-        <button type="button" class="btn btn-blue btn-block" id="btn-upload-art">Upload Art</button>
       </div>
       <div class="art-pane">
         <h4>Card Image (card-images/)</h4>
         <div class="art-preview" id="image-preview"><span class="no-img">No image</span></div>
         <input type="file" id="image-file" accept="image/png" />
-        <button type="button" class="btn btn-blue btn-block" id="btn-upload-image">Upload Image</button>
       </div>
     </div>
 
@@ -539,6 +537,17 @@
     `<option value="">None</option>` + keywords.map(k => `<option value="${k.id}">${esc(k.displayName)}</option>`).join('');
 
   let editingCard = null;
+  // Object URLs for locally-chosen-but-not-yet-saved files, so the pane shows what
+  // you're about to upload rather than what's currently on disk.
+  let artObjectUrl   = null;
+  let imageObjectUrl = null;
+
+  const clearLocalPreviews = () => {
+    if (artObjectUrl)   { URL.revokeObjectURL(artObjectUrl);   artObjectUrl   = null; }
+    if (imageObjectUrl) { URL.revokeObjectURL(imageObjectUrl); imageObjectUrl = null; }
+    document.getElementById('art-file').value   = '';
+    document.getElementById('image-file').value = '';
+  };
 
   const refreshArtPreviews = () => {
     const av = Number(document.getElementById('edit-art-version').value || 1);
@@ -549,6 +558,12 @@
                               onerror="this.parentElement.innerHTML='<span class=\\'no-img\\'>No image</span>';" />`;
     imageEl.innerHTML = `<img src="${cardImagePath(editingCard.id, editingCard.name, av)}?t=${bust}" alt=""
                               onerror="this.parentElement.innerHTML='<span class=\\'no-img\\'>No image</span>';" />`;
+  };
+
+  const previewLocalFile = (paneId, file) => {
+    const url = URL.createObjectURL(file);
+    document.getElementById(paneId).innerHTML = `<img src="${url}" alt="" />`;
+    return url;
   };
 
   const openEditModal = (id) => {
@@ -576,16 +591,56 @@
       .map(v => `<option value="${v}">${v}</option>`).join('');
     document.getElementById('art-version-field').style.display = maxVersion > 1 ? 'block' : 'none';
 
-    document.getElementById('art-file').value = '';
-    document.getElementById('image-file').value = '';
+    clearLocalPreviews();
 
     refreshArtPreviews();
     document.getElementById('modal-edit').classList.remove('hidden');
   };
 
-  const closeEditModal = () => { document.getElementById('modal-edit').classList.add('hidden'); editingCard = null; };
+  const closeEditModal = () => {
+    document.getElementById('modal-edit').classList.add('hidden');
+    clearLocalPreviews();
+    editingCard = null;
+  };
   document.getElementById('btn-edit-cancel').addEventListener('click', closeEditModal);
-  document.getElementById('edit-art-version').addEventListener('change', () => { if (editingCard) refreshArtPreviews(); });
+  document.getElementById('edit-art-version').addEventListener('change', () => {
+    if (!editingCard) return;
+    // A chosen-but-unsaved file was tagged for the version it was picked under —
+    // switching versions without a matching re-pick would silently upload it to the
+    // wrong slot, so drop it and fall back to what's on disk for the new version.
+    clearLocalPreviews();
+    refreshArtPreviews();
+  });
+  document.getElementById('art-file').addEventListener('change', () => {
+    const file = document.getElementById('art-file').files[0];
+    if (artObjectUrl) URL.revokeObjectURL(artObjectUrl);
+    artObjectUrl = file ? previewLocalFile('art-preview', file) : null;
+  });
+  document.getElementById('image-file').addEventListener('change', () => {
+    const file = document.getElementById('image-file').files[0];
+    if (imageObjectUrl) URL.revokeObjectURL(imageObjectUrl);
+    imageObjectUrl = file ? previewLocalFile('image-preview', file) : null;
+  });
+
+  // Uploads one file for the currently-editing card. Returns an error message string
+  // on failure, or null on success — kept separate from the metadata save (a different
+  // API operation) but always run after it, since the upload writes under the card's
+  // *current* name/id and a name change must have already been applied server-side.
+  const uploadCardImage = async (kind, file) => {
+    const form = new FormData();
+    form.append('kind', kind);
+    form.append('id', editingCard.id);
+    form.append('artVersion', document.getElementById('edit-art-version').value || '1');
+    form.append('file', file);
+    try {
+      const res  = await fetch(CARDS_URL, { method: 'POST', headers: authHeaders(false), body: form });
+      const data = await res.json();
+      if (!res.ok) return data.error || `Failed to upload ${kind}.`;
+      return null;
+    } catch (e) {
+      return `Network error uploading ${kind}: ${e.message}`;
+    }
+  };
 
   document.getElementById('btn-edit-save').addEventListener('click', async () => {
     const errEl = document.getElementById('modal-edit-error');
@@ -607,6 +662,8 @@
       keyword2Id: document.getElementById('edit-keyword2').value || null,
       keyword3Id: document.getElementById('edit-keyword3').value || null,
     };
+    const artFile   = document.getElementById('art-file').files[0]   || null;
+    const imageFile = document.getElementById('image-file').files[0] || null;
 
     const btn = document.getElementById('btn-edit-save');
     btn.disabled = true;
@@ -617,11 +674,18 @@
       const idx = cards.findIndex(c => c.id === id);
       if (idx !== -1) cards[idx] = data.card;
       editingCard = data.card;
+
+      const uploadErrors = [];
+      if (artFile)   { const err = await uploadCardImage('art', artFile);   if (err) uploadErrors.push(err); }
+      if (imageFile) { const err = await uploadCardImage('image', imageFile); if (err) uploadErrors.push(err); }
+
       closeEditModal();
-      // The card itself can save successfully even if renaming its image files on disk failed
-      // (e.g. a file-permission problem) — surface that instead of a plain success toast.
-      if (data.error) {
-        showToast(data.error, 'err');
+      // The card itself can save successfully even if renaming its image files on disk, or
+      // uploading a new one, failed (e.g. a file-permission problem) — surface that instead
+      // of a plain success toast.
+      const messages = [data.error, ...uploadErrors].filter(Boolean);
+      if (messages.length) {
+        showToast(messages.join(' '), 'err');
       } else {
         showToast('Card updated!', 'ok');
       }
@@ -633,39 +697,6 @@
       btn.disabled = false;
     }
   });
-
-  // ── Image uploads ────────────────────────────────────────────────────────
-
-  const uploadImage = async (kind, fileInputId, btnId) => {
-    if (!editingCard) return;
-    const fileInput = document.getElementById(fileInputId);
-    const file = fileInput.files[0];
-    if (!file) { showToast('Choose a PNG file first.', 'err'); return; }
-
-    const form = new FormData();
-    form.append('kind', kind);
-    form.append('id', editingCard.id);
-    form.append('artVersion', document.getElementById('edit-art-version').value || '1');
-    form.append('file', file);
-
-    const btn = document.getElementById(btnId);
-    btn.disabled = true;
-    try {
-      const res  = await fetch(CARDS_URL, { method: 'POST', headers: authHeaders(false), body: form });
-      const data = await res.json();
-      if (!res.ok) { showToast(data.error || 'Upload failed.', 'err'); return; }
-      showToast('Image uploaded!', 'ok');
-      fileInput.value = '';
-      refreshArtPreviews();
-    } catch (e) {
-      showToast('Network error: ' + e.message, 'err');
-    } finally {
-      btn.disabled = false;
-    }
-  };
-
-  document.getElementById('btn-upload-art').addEventListener('click', () => uploadImage('art', 'art-file', 'btn-upload-art'));
-  document.getElementById('btn-upload-image').addEventListener('click', () => uploadImage('image', 'image-file', 'btn-upload-image'));
 
   // ── Keyboard ─────────────────────────────────────────────────────────────
 
