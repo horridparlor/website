@@ -51,7 +51,8 @@ CREATE TABLE isBack_card (
 INSERT INTO isBack_cardType (id, name) VALUES
 (1, 'rock'),
 (2, 'paper'),
-(3, 'scissors')
+(3, 'scissors'),
+(4, 'gun')
 ON DUPLICATE KEY UPDATE name = VALUES(name);
 
 -- Expansions
