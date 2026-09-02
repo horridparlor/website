@@ -676,8 +676,8 @@
 
     const removeBbcodeTags = (s) => s.replace(/\[[^\]]*\]/g, '');
     const cardImgName    = (c) => { const cleaned = removeBbcodeTags(c.name); const n = cleaned.startsWith('The ') ? cleaned.slice(4) : cleaned; return `${c.id} - ${n}`; };
-    const cardArtPathV   = (c, av) => { const suffix = (av && av > 1) ? ` (${av})` : ''; return `../card-art/${encodeURIComponent(cardImgName(c) + suffix)}.png`; };
-    const cardFinalPathV = (c, av) => { const suffix = (av && av > 1) ? ` (${av})` : ''; return `../card-images/${encodeURIComponent(cardImgName(c) + suffix)}.png`; };
+    const cardArtPathV   = (c, av) => { const suffix = (av && av > 1) ? ` (${av})` : ''; return `../card-art/${encodeURIComponent(cardImgName(c) + suffix)}.png` + (c.cardArtUpdatedAt ? `?v=${c.cardArtUpdatedAt}` : ''); };
+    const cardFinalPathV = (c, av) => { const suffix = (av && av > 1) ? ` (${av})` : ''; return `../card-images/${encodeURIComponent(cardImgName(c) + suffix)}.png` + (c.cardImageUpdatedAt ? `?v=${c.cardImageUpdatedAt}` : ''); };
     const cardArtPath   = (c) => cardArtPathV(c, galleryArtVersions[c.id] || 1);
     const cardFinalPath = (c) => cardFinalPathV(c, galleryArtVersions[c.id] || 1);
 

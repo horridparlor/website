@@ -215,8 +215,8 @@
     const n = cleaned.startsWith('The ') ? cleaned.slice(4) : cleaned;
     return `${id} - ${n}`;
   };
-  const cardArtPath   = (id, name, av) => `../card-art/${encodeURIComponent(cardImgName(id, name) + ((av && av > 1) ? ` (${av})` : ''))}.png`;
-  const cardImagePath = (id, name, av) => `../card-images/${encodeURIComponent(cardImgName(id, name) + ((av && av > 1) ? ` (${av})` : ''))}.png`;
+  const cardArtPath   = (id, name, av, updatedAt) => `../card-art/${encodeURIComponent(cardImgName(id, name) + ((av && av > 1) ? ` (${av})` : ''))}.png` + (updatedAt ? `?v=${updatedAt}` : '');
+  const cardImagePath = (id, name, av, updatedAt) => `../card-images/${encodeURIComponent(cardImgName(id, name) + ((av && av > 1) ? ` (${av})` : ''))}.png` + (updatedAt ? `?v=${updatedAt}` : '');
 
   const getExpansionForCard = (cardId) =>
     expansions.find(e => cardId >= e.firstCardId && cardId <= e.lastCardId) || null;
@@ -522,7 +522,7 @@
     grid.innerHTML = list.map(c => `
       <div class="card-tile" data-id="${c.id}">
         <div class="card-tile-img">
-          <img src="${cardImagePath(c.id, c.name, 1)}" alt="" loading="lazy"
+          <img src="${cardImagePath(c.id, c.name, 1, c.cardImageUpdatedAt)}" alt="" loading="lazy"
                onerror="this.closest('.card-tile').classList.add('img-missing'); this.remove();" />
         </div>
         <div class="card-tile-name">#${c.id} ${esc(c.name)}</div>
@@ -554,11 +554,14 @@
   const refreshArtPreviews = () => {
     const av = Number(document.getElementById('edit-art-version').value || 1);
     const bust = Date.now();
+    const bustSep = (path) => path.includes('?') ? '&' : '?';
     const artEl   = document.getElementById('art-preview');
     const imageEl = document.getElementById('image-preview');
-    artEl.innerHTML   = `<img src="${cardArtPath(editingCard.id, editingCard.name, av)}?t=${bust}" alt=""
+    const artPath   = cardArtPath(editingCard.id, editingCard.name, av, editingCard.cardArtUpdatedAt);
+    const imagePath = cardImagePath(editingCard.id, editingCard.name, av, editingCard.cardImageUpdatedAt);
+    artEl.innerHTML   = `<img src="${artPath}${bustSep(artPath)}t=${bust}" alt=""
                               onerror="this.parentElement.innerHTML='<span class=\\'no-img\\'>No image</span>';" />`;
-    imageEl.innerHTML = `<img src="${cardImagePath(editingCard.id, editingCard.name, av)}?t=${bust}" alt=""
+    imageEl.innerHTML = `<img src="${imagePath}${bustSep(imagePath)}t=${bust}" alt=""
                               onerror="this.parentElement.innerHTML='<span class=\\'no-img\\'>No image</span>';" />`;
   };
 

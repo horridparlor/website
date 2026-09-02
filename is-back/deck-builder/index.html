@@ -424,7 +424,7 @@
     const name = cardImgName(c);
     const av = avOverride !== undefined ? avOverride : (localArtVersions[c.id] || 1);
     const suffix = av > 1 ? ` (${av})` : '';
-    return `../card-images/${encodeURIComponent(name + suffix)}.png`;
+    return `../card-images/${encodeURIComponent(name + suffix)}.png` + (c.cardImageUpdatedAt ? `?v=${c.cardImageUpdatedAt}` : '');
   };
   const cycleCardArtVersion = (card) => {
     if (!card || !card.altArts || card.altArts < 1) return;

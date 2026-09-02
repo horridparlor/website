@@ -868,7 +868,7 @@ function cardImg(card, playerIdx) {
     av = gameState.players?.[playerIdx]?.artVersionMap?.[card.id] || 1;
   }
   const suffix = av > 1 ? ` (${av})` : '';
-  return `../card-images/${encodeURIComponent(base + suffix)}.png`;
+  return `../card-images/${encodeURIComponent(base + suffix)}.png` + (card.cardImageUpdatedAt ? `?v=${card.cardImageUpdatedAt}` : '');
 }
 function cardBack() { return '../card-images/0%20-%20Card%20Back.png'; }
 

@@ -668,7 +668,7 @@
     const n = cleaned.startsWith('The ') ? cleaned.slice(4) : cleaned;
     return `${id} - ${n}`;
   };
-  const cardImagePath = (id, name) => `../card-images/${encodeURIComponent(cardImgName(id, name))}.png`;
+  const cardImagePath = (id, name, updatedAt) => `../card-images/${encodeURIComponent(cardImgName(id, name))}.png` + (updatedAt ? `?v=${updatedAt}` : '');
 
   // Selection state for the card picker — the picker re-renders each time the
   // modal opens, so click handling is delegated against this state rather than checkbox DOM nodes.
@@ -700,11 +700,12 @@
       const disabled  = pickerDisabledIds.has(id);
       const isChecked = pickerSelectedIds.has(id);
       const name      = cardNameById(id);
+      const cardRow   = cards.find(c => c.id === id);
       const classes   = ['picker-card', isChecked ? 'selected' : '', disabled ? 'disabled' : ''].filter(Boolean).join(' ');
       return `
         <div class="${classes}" data-id="${id}" ${disabled ? 'title="Already released under another sub-release"' : ''}>
           <div class="picker-card-img">
-            <img src="${cardImagePath(id, name)}" alt="" loading="lazy"
+            <img src="${cardImagePath(id, name, cardRow ? cardRow.cardImageUpdatedAt : null)}" alt="" loading="lazy"
                  onerror="this.closest('.picker-card').classList.add('img-missing'); this.remove();" />
           </div>
           <div class="picker-card-name">#${id} ${esc(name)}</div>

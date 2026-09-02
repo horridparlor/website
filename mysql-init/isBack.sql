@@ -21,6 +21,8 @@ CREATE TABLE isBack_card (
     cardTypeId INT NOT NULL,
     power INT NOT NULL,
     altArts INT NULL DEFAULT NULL,
+    cardArtUpdatedAt DATETIME NULL DEFAULT NULL,
+    cardImageUpdatedAt DATETIME NULL DEFAULT NULL,
 
     keywordId INT NULL,
     keyword2Id INT NULL,

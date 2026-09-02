@@ -8,6 +8,7 @@ include("../../system/Database.php");
 
 const CARD_ROW_COLUMNS =
     "card.id, card.name, cardType.name type, card.cardTypeId, card.power, card.altArts, " .
+    "card.cardArtUpdatedAt, card.cardImageUpdatedAt, " .
     "card.keywordId, card.keyword2Id, card.keyword3Id, " .
     "keyword1.name keyword1, keyword2.name keyword2, keyword3.name keyword3, " .
     "card.reminderVisible, card.reminder2Visible, card.reminder3Visible, " .
@@ -33,6 +34,8 @@ function mapCardRow(array $card): array {
     $card['cardTypeId'] = (int) $card['cardTypeId'];
     $card['power']      = (int) $card['power'];
     $card['altArts']    = isset($card['altArts']) && $card['altArts'] !== null ? (int) $card['altArts'] : null;
+    $card['cardArtUpdatedAt']   = isset($card['cardArtUpdatedAt']) && $card['cardArtUpdatedAt'] !== null ? strtotime($card['cardArtUpdatedAt']) * 1000 : null;
+    $card['cardImageUpdatedAt'] = isset($card['cardImageUpdatedAt']) && $card['cardImageUpdatedAt'] !== null ? strtotime($card['cardImageUpdatedAt']) * 1000 : null;
     $card['keywordId']  = isset($card['keywordId']) && $card['keywordId'] !== null ? (int) $card['keywordId'] : null;
     $card['keyword2Id'] = isset($card['keyword2Id']) && $card['keyword2Id'] !== null ? (int) $card['keyword2Id'] : null;
     $card['keyword3Id'] = isset($card['keyword3Id']) && $card['keyword3Id'] !== null ? (int) $card['keyword3Id'] : null;
@@ -187,6 +190,12 @@ function handleCardImageUpload(Database $database): string {
     if (!move_uploaded_file($tmpPath, $targetPath)) {
         return Database::responseBadRequest('Failed to save uploaded file');
     }
+
+    $timestampColumn = $kind === 'art' ? 'cardArtUpdatedAt' : 'cardImageUpdatedAt';
+    $database->query(
+        "UPDATE isBack_card SET $timestampColumn = NOW() WHERE id = :id",
+        ['id' => Database::getIntReplacement($id)]
+    );
 
     return Database::responseSuccess(['uploaded' => true]);
 }
