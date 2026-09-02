@@ -82,6 +82,18 @@ function cardImgStem(int $id, string $name): string {
 function cardArtDir(): string { return __DIR__ . '/../../is-back/card-art/'; }
 function cardImageDir(): string { return __DIR__ . '/../../is-back/card-images/'; }
 
+// These directories are gitignored, so a fresh checkout won't have them yet. Create on
+// demand rather than failing; the chmod is a fallback for the rare case ownership drifts
+// (normally www-data's uid is aligned with the host user that owns these bind-mounted dirs).
+function ensureWritableDir(string $dir): void {
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0777, true);
+    }
+    if (!is_writable($dir)) {
+        @chmod($dir, 0777);
+    }
+}
+
 function cardFileName(int $id, string $name, int $artVersion): string {
     $suffix = $artVersion > 1 ? " ($artVersion)" : '';
     return cardImgStem($id, $name) . $suffix . '.png';
@@ -122,6 +134,7 @@ function renameCardImages(int $id, string $oldName, string $newName, ?int $altAr
     $maxVersion = ($altArts ?? 0) + 1;
     $failures = [];
     foreach ([cardArtDir(), cardImageDir()] as $dir) {
+        ensureWritableDir($dir);
         for ($v = 1; $v <= $maxVersion; $v++) {
             $oldPath = locateCardFile($dir, $id, $oldName, $v, $maxVersion);
             if (!$oldPath) continue; // missing on disk for this folder/version — leave it, rename whatever does exist
@@ -169,6 +182,7 @@ function handleCardImageUpload(Database $database): string {
     }
 
     $dir        = $kind === 'art' ? cardArtDir() : cardImageDir();
+    ensureWritableDir($dir);
     $targetPath = $dir . cardFileName($id, $name, $artVersion);
     if (!move_uploaded_file($tmpPath, $targetPath)) {
         return Database::responseBadRequest('Failed to save uploaded file');
