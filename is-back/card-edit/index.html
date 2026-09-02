@@ -186,6 +186,7 @@
 
   let cards      = [];
   let keywords   = [];
+  let visibleKeywords = [];
   let expansions = [];
   let canManageCards = false;
   let authToken  = localStorage.getItem('authToken');
@@ -238,6 +239,7 @@
       }
       cards      = cardsData.cards || [];
       keywords   = (await keywordsRes.json()).keywords || [];
+      visibleKeywords = keywords.filter(k => /^[A-Z]/.test(k.displayName || ''));
       expansions = (await expansionsRes.json()).expansions || [];
       renderPage();
     } catch (e) {
@@ -293,7 +295,7 @@
           <label for="f-keyword">Keyword</label>
           <select id="f-keyword">
             <option value="">Any</option>
-            ${keywords.map(k => `<option value="${k.id}">${esc(k.displayName)}</option>`).join('')}
+            ${visibleKeywords.map(k => `<option value="${k.id}">${esc(k.displayName)}</option>`).join('')}
           </select>
         </div>
         <div>
@@ -535,8 +537,15 @@
 
   // ── Edit modal ───────────────────────────────────────────────────────────
 
-  const keywordOptionsHtml = () =>
-    `<option value="">None</option>` + keywords.map(k => `<option value="${k.id}">${esc(k.displayName)}</option>`).join('');
+  // Hidden (lowercase-named) keywords are excluded from selection, but if a card already
+  // has one assigned, it stays listed for that slot so saving doesn't silently clear it.
+  const keywordOptionsHtml = (currentId) => {
+    const current = currentId ? keywords.find(k => k.id === Number(currentId)) : null;
+    const list = (current && !visibleKeywords.some(k => k.id === current.id))
+      ? [...visibleKeywords, current]
+      : visibleKeywords;
+    return `<option value="">None</option>` + list.map(k => `<option value="${k.id}">${esc(k.displayName)}</option>`).join('');
+  };
 
   let editingCard = null;
   // Object URLs for locally-chosen-but-not-yet-saved files, so the pane shows what
@@ -583,9 +592,9 @@
     document.getElementById('edit-power').value = c.power;
     document.getElementById('edit-type').value  = String(c.cardTypeId);
 
-    document.getElementById('edit-keyword1').innerHTML = keywordOptionsHtml();
-    document.getElementById('edit-keyword2').innerHTML = keywordOptionsHtml();
-    document.getElementById('edit-keyword3').innerHTML = keywordOptionsHtml();
+    document.getElementById('edit-keyword1').innerHTML = keywordOptionsHtml(c.keywordId);
+    document.getElementById('edit-keyword2').innerHTML = keywordOptionsHtml(c.keyword2Id);
+    document.getElementById('edit-keyword3').innerHTML = keywordOptionsHtml(c.keyword3Id);
     document.getElementById('edit-keyword1').value = c.keywordId  ? String(c.keywordId)  : '';
     document.getElementById('edit-keyword2').value = c.keyword2Id ? String(c.keyword2Id) : '';
     document.getElementById('edit-keyword3').value = c.keyword3Id ? String(c.keyword3Id) : '';

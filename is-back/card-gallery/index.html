@@ -774,11 +774,12 @@
       if (view === 'keywords') {
         out = allCards;
         filteredKeywords = allKeywords.filter(k => {
-          const nameOk  = !name || normalize(k.displayName).includes(name) || normalize(k.name).includes(name);
-          const descOk  = !kw   || normalize(k.description).includes(kw);
-          const typeOk  = !type || matchKeywords(k.types, type);
-          const countOk = k.cardsWith > 0;
-          return nameOk && descOk && typeOk && countOk;
+          const nameOk    = !name || normalize(k.displayName).includes(name) || normalize(k.name).includes(name);
+          const descOk    = !kw   || normalize(k.description).includes(kw);
+          const typeOk    = !type || matchKeywords(k.types, type);
+          const countOk   = k.cardsWith > 0;
+          const visibleOk = /^[A-Z]/.test(k.displayName || '');
+          return nameOk && descOk && typeOk && countOk && visibleOk;
         });
       } else {
         out = allCards.filter(c => {
@@ -1162,7 +1163,9 @@
         allKeywords = Array.isArray(data) ? data : (data.keywords || []);
         keywordsExpansionId = getMacroExpansionId();
         calculateKeywords(keywordsExpansionId);
-        const sorted = [...allKeywords].sort((a, b) => a.displayName.localeCompare(b.displayName));
+        const sorted = allKeywords
+          .filter(k => /^[A-Z]/.test(k.displayName || ''))
+          .sort((a, b) => a.displayName.localeCompare(b.displayName));
         const current = qs.get('keyword') || '';
         const sortedWithVanilla = [...sorted, { name: 'vanilla', displayName: 'Vanilla' }]
           .sort((a, b) => a.displayName.localeCompare(b.displayName));

@@ -638,7 +638,9 @@
     const raw  = Array.isArray(data) ? data : (data.keywords || []);
     allKeywords = raw;
     // Build keyword select
-    const sorted = [...raw].sort((a,b) => a.displayName.localeCompare(b.displayName));
+    const sorted = raw
+      .filter(k => /^[A-Z]/.test(k.displayName || ''))
+      .sort((a,b) => a.displayName.localeCompare(b.displayName));
     el.fKeyword.innerHTML = '<option value="">Any</option>' +
       sorted.map(k => `<option value="${esc(k.name)}">${esc(k.displayName)}</option>`).join('');
     // Build power selects
