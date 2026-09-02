@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" href="../../favicon.svg" type="image/svg+xml" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rakuel Is Back – Card Edit</title>
+  <link rel="stylesheet" href="../../styles.css" />
+  <link rel="stylesheet" href="/components/topbar.css">
+  <script src="/components/topbar.js" defer></script>
+  <link rel="stylesheet" href="/components/footer.css">
+  <script src="/components/footer.js" defer></script>
+  <style>
+    body { background:#0d1117; color:#e6edf3; min-height:100vh; display:flex; flex-direction:column; font-family:inherit; }
+
+    .page { flex:1; padding:0 20px 32px; max-width:1200px; margin:0 auto; width:100%; box-sizing:border-box; }
+
+    /* Access denied */
+    .access-denied { display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; gap:16px; color:#8b949e; padding:60px 20px; }
+    .access-denied h2 { color:#f85149; margin:0; }
+
+    /* Filters */
+    .filters-wrap {
+      display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:12px;
+      margin-bottom:20px; padding:16px; background:#161b22; border:1px solid #30363d; border-radius:10px;
+    }
+    .filters-wrap label { font-size:.8rem; color:#8b949e; display:block; margin-bottom:5px; }
+    .filters-wrap input, .filters-wrap select {
+      width:100%; background:#0d1117; border:1px solid #30363d; border-radius:6px; padding:8px 10px;
+      color:#e6edf3; font-size:14px; box-sizing:border-box;
+    }
+    .filters-wrap input:focus, .filters-wrap select:focus { outline:none; border-color:#58a6ff; }
+    .filter-count { display:block; font-size:.8rem; color:#8b949e; margin-bottom:5px; }
+
+    .btn { border-radius:6px; padding:8px 16px; font-size:14px; font-weight:600; cursor:pointer; border:1px solid; transition:background .15s; }
+    .btn-green  { background:#238636; color:#fff; border-color:#2ea043; }
+    .btn-green:hover { background:#2ea043; }
+    .btn-blue   { background:#1f6feb; color:#fff; border-color:#388bfd; }
+    .btn-blue:hover { background:#388bfd; }
+    .btn-ghost  { background:transparent; color:#8b949e; border-color:#30363d; }
+    .btn-ghost:hover { background:#21262d; color:#e6edf3; }
+    .btn:disabled { opacity:.45; cursor:not-allowed; }
+    .btn-block { width:100%; box-sizing:border-box; }
+
+    /* Card grid */
+    .card-count { color:#8b949e; font-size:13px; margin:0 0 12px; }
+    .card-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(120px,1fr)); gap:14px; }
+    .card-tile { cursor:pointer; display:flex; flex-direction:column; gap:6px; user-select:none; }
+    .card-tile-img { position:relative; aspect-ratio:1086/1512; border-radius:8px; overflow:hidden; background:#161b22; border:1px solid #30363d; transition:transform .15s ease, border-color .15s ease; }
+    .card-tile-img img { width:100%; height:100%; object-fit:cover; display:block; }
+    .card-tile:hover .card-tile-img { transform:scale(1.03); border-color:#58a6ff; }
+    .card-tile-name { font-size:12px; color:#c9d1d9; text-align:center; line-height:1.3; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+    .card-tile.img-missing .card-tile-img { display:none; }
+    .card-tile.img-missing .card-tile-name {
+      aspect-ratio:1086/1512; display:flex; align-items:center; justify-content:center;
+      background:#161b22; border:1px solid #30363d; border-radius:8px; padding:8px; -webkit-line-clamp:8;
+    }
+    .empty-msg { color:#8b949e; padding:40px 0; text-align:center; font-size:15px; }
+    .loading-msg { color:#8b949e; padding:40px 0; text-align:center; }
+
+    /* Modal */
+    .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.7); display:flex; align-items:center; justify-content:center; z-index:100; padding:20px; box-sizing:border-box; }
+    .modal-backdrop.hidden { display:none; }
+    .modal-box { background:#161b22; border:1px solid #30363d; border-radius:12px; padding:28px 32px; width:100%; max-width:640px; max-height:90vh; overflow-y:auto; }
+    .modal-box h3 { margin:0 0 20px; color:#f0f6fc; font-size:18px; }
+    .field { margin-bottom:16px; }
+    .field label { display:block; font-size:13px; color:#8b949e; margin-bottom:5px; }
+    .field input, .field select { width:100%; background:#0d1117; border:1px solid #30363d; border-radius:6px; padding:9px 12px; color:#e6edf3; font-size:14px; box-sizing:border-box; transition:border-color .15s; }
+    .field input:focus, .field select:focus { outline:none; border-color:#58a6ff; }
+    .field-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .field-row-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+    .modal-error { background:#2d1b1b; border:1px solid #f85149; color:#f85149; border-radius:6px; padding:8px 12px; font-size:13px; margin-bottom:14px; display:none; }
+    .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; flex-wrap:wrap; }
+
+    /* Image upload panes */
+    .art-section { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+    .art-pane { background:#0d1117; border:1px solid #30363d; border-radius:8px; padding:12px; }
+    .art-pane h4 { margin:0 0 10px; font-size:13px; color:#8b949e; font-weight:600; }
+    .art-preview { aspect-ratio:1086/1512; border-radius:6px; overflow:hidden; background:#161b22; border:1px solid #30363d; margin-bottom:10px; display:flex; align-items:center; justify-content:center; }
+    .art-preview img { width:100%; height:100%; object-fit:cover; display:block; }
+    .art-preview .no-img { color:#555; font-size:12px; }
+    .art-pane input[type="file"] { width:100%; font-size:12px; color:#8b949e; margin-bottom:8px; }
+
+    /* Toast */
+    .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#21262d; border:1px solid #30363d; color:#e6edf3; border-radius:8px; padding:10px 20px; font-size:14px; z-index:200; display:none; max-width:min(90vw,560px); word-wrap:break-word; }
+    .toast.ok  { border-color:#2ea043; color:#3fb950; }
+    .toast.err { border-color:#f85149; color:#f85149; }
+
+    @media (max-width: 560px) {
+      .art-section { grid-template-columns:1fr; }
+      .field-row, .field-row-3 { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<rk-topbar title="Rakuel Is Back – Card Edit">
+  <a href="../card-gallery/">Card Gallery</a>
+  <a href="../expansions/">Expansions</a>
+</rk-topbar>
+
+<div class="page" id="page-root">
+  <div class="loading-msg" id="loading-msg">Loading…</div>
+</div>
+
+<!-- Edit modal -->
+<div class="modal-backdrop hidden" id="modal-edit">
+  <div class="modal-box">
+    <h3 id="modal-edit-title">Edit Card</h3>
+    <div class="modal-error" id="modal-edit-error"></div>
+    <input type="hidden" id="edit-id" />
+
+    <div class="art-section">
+      <div class="art-pane">
+        <h4>Card Art (card-art/)</h4>
+        <div class="art-preview" id="art-preview"><span class="no-img">No image</span></div>
+        <input type="file" id="art-file" accept="image/png" />
+        <button type="button" class="btn btn-blue btn-block" id="btn-upload-art">Upload Art</button>
+      </div>
+      <div class="art-pane">
+        <h4>Card Image (card-images/)</h4>
+        <div class="art-preview" id="image-preview"><span class="no-img">No image</span></div>
+        <input type="file" id="image-file" accept="image/png" />
+        <button type="button" class="btn btn-blue btn-block" id="btn-upload-image">Upload Image</button>
+      </div>
+    </div>
+
+    <div class="field" id="art-version-field" style="display:none;">
+      <label for="edit-art-version">Art Version</label>
+      <select id="edit-art-version"></select>
+    </div>
+
+    <div class="field">
+      <label for="edit-name">Name</label>
+      <input type="text" id="edit-name" placeholder="e.g. Rakuel" maxlength="255" />
+      <div class="field-hint" style="font-size:12px;color:#8b949e;margin-top:4px;">Renaming also renames this card's files in card-art/ and card-images/ to match.</div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="edit-power">Power</label>
+        <input type="number" id="edit-power" min="0" step="1000" />
+      </div>
+      <div class="field">
+        <label for="edit-type">Type</label>
+        <select id="edit-type">
+          <option value="1">Rock</option>
+          <option value="2">Paper</option>
+          <option value="3">Scissors</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field-row-3">
+      <div class="field">
+        <label for="edit-keyword1">Keyword 1</label>
+        <select id="edit-keyword1"></select>
+      </div>
+      <div class="field">
+        <label for="edit-keyword2">Keyword 2</label>
+        <select id="edit-keyword2"></select>
+      </div>
+      <div class="field">
+        <label for="edit-keyword3">Keyword 3</label>
+        <select id="edit-keyword3"></select>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btn-edit-cancel">Cancel</button>
+      <button class="btn btn-green" id="btn-edit-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  const API_BASE       = '../../api/is-back';
+  const CARDS_URL      = API_BASE + '/cards';
+  const KEYWORDS_URL   = API_BASE + '/keywords';
+  const EXPANSIONS_URL = API_BASE + '/expansions';
+  const qs = new URLSearchParams(location.search);
+  const DEFAULT_ORDER_BY  = 'oldest';
+  const DEFAULT_DIRECTION = 'asc';
+
+  let cards      = [];
+  let keywords   = [];
+  let expansions = [];
+  let canManageCards = false;
+  let authToken  = localStorage.getItem('authToken');
+  let toastTimer = null;
+
+  const root = document.getElementById('page-root');
+  const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  const showToast = (msg, type = '') => {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast ' + type;
+    t.style.display = 'block';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.style.display = 'none'; }, type === 'err' ? 8000 : 3500);
+  };
+
+  const authHeaders = (json = true) => ({
+    ...(json ? { 'Content-Type': 'application/json' } : {}),
+    ...(authToken ? { 'Authorization': 'Bearer ' + authToken } : {}),
+  });
+
+  // ── Card image naming — same convention as card-gallery/expansions ─────────
+  const removeBB = (s) => (s || '').replace(/\[[^\]]*\]/g, '');
+  const cardImgName = (id, name) => {
+    const cleaned = removeBB(name);
+    const n = cleaned.startsWith('The ') ? cleaned.slice(4) : cleaned;
+    return `${id} - ${n}`;
+  };
+  const cardArtPath   = (id, name, av) => `../card-art/${encodeURIComponent(cardImgName(id, name) + ((av && av > 1) ? ` (${av})` : ''))}.png`;
+  const cardImagePath = (id, name, av) => `../card-images/${encodeURIComponent(cardImgName(id, name) + ((av && av > 1) ? ` (${av})` : ''))}.png`;
+
+  const getExpansionForCard = (cardId) =>
+    expansions.find(e => cardId >= e.firstCardId && cardId <= e.lastCardId) || null;
+
+  // ── Fetch & init ─────────────────────────────────────────────────────────
+
+  const load = async () => {
+    try {
+      const [cardsRes, keywordsRes, expansionsRes] = await Promise.all([
+        fetch(CARDS_URL, { headers: authHeaders() }),
+        fetch(KEYWORDS_URL),
+        fetch(EXPANSIONS_URL, { headers: authHeaders() }),
+      ]);
+      const cardsData = await cardsRes.json();
+      canManageCards = !!cardsData.canManageCards;
+      if (!canManageCards) {
+        renderAccessDenied();
+        return;
+      }
+      cards      = cardsData.cards || [];
+      keywords   = (await keywordsRes.json()).keywords || [];
+      expansions = (await expansionsRes.json()).expansions || [];
+      renderPage();
+    } catch (e) {
+      document.getElementById('loading-msg').textContent = 'Failed to load. ' + e.message;
+    }
+  };
+
+  const renderAccessDenied = () => {
+    root.innerHTML = `
+      <div class="access-denied">
+        <h2>Access Denied</h2>
+        <p>You need admin rights to view this page.</p>
+        <a href="/is-back/card-gallery/" class="btn btn-ghost" style="text-decoration:none;">← Card Gallery</a>
+      </div>`;
+  };
+
+  const renderPage = () => {
+    root.innerHTML = `
+      <div class="filters-wrap" id="filters">
+        <div>
+          <label for="f-name">Name</label>
+          <input id="f-name" type="text" placeholder="Search name" />
+        </div>
+        <div>
+          <label for="f-type">Type</label>
+          <select id="f-type">
+            <option value="">Any</option>
+            <option value="1">Rock</option>
+            <option value="2">Paper</option>
+            <option value="3">Scissors</option>
+          </select>
+        </div>
+        <div>
+          <label for="f-power">Power</label>
+          <select id="f-power">
+            <option value="">Any</option>
+            ${[0,1000,2000,3000,4000,5000,6000,7000,8000,9000,10000,11000,12000,13000]
+              .map(p => `<option value="${p}">${(p/1000).toString().padStart(2,'0')} 000</option>`).join('')}
+          </select>
+        </div>
+        <div id="power-is-wrap" style="display:none;">
+          <label for="f-powerIs">Power Is</label>
+          <select id="f-powerIs">
+            <option value="eq">Equals</option>
+            <option value="gte">More Or Equal</option>
+            <option value="lte">Less Or Equal</option>
+            <option value="gt">More Than</option>
+            <option value="lt">Less Than</option>
+          </select>
+        </div>
+        <div>
+          <label for="f-keyword">Keyword</label>
+          <select id="f-keyword">
+            <option value="">Any</option>
+            ${keywords.map(k => `<option value="${k.id}">${esc(k.displayName)}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label for="f-expansion">Expansion</label>
+          <select id="f-expansion">
+            <option value="">Any</option>
+            ${expansions.map(e => `<option value="${e.id}">${esc(e.name || ('#' + e.id))} (${e.firstCardId}–${e.lastCardId})</option>`).join('')}
+          </select>
+        </div>
+        <div id="subrelease-filter-wrap" style="display:none;">
+          <label for="f-subrelease">Sub-Release</label>
+          <select id="f-subrelease">
+            <option value="">Any</option>
+          </select>
+        </div>
+        <div>
+          <label for="f-releaseYear">Release Year</label>
+          <select id="f-releaseYear">
+            <option value="">Any</option>
+            ${[...new Set(cards.map(c => c.releaseYear).filter(Boolean))].sort()
+              .map(y => `<option value="${y}">${y}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label for="f-orderBy">Order By</label>
+          <select id="f-orderBy">
+            <option value="oldest">Oldest</option>
+            <option value="newest">Newest</option>
+            <option value="name">Name</option>
+            <option value="type">Type</option>
+            <option value="power">Power</option>
+          </select>
+        </div>
+        <div>
+          <label for="f-direction">Direction</label>
+          <select id="f-direction">
+            <option value="asc">Ascending</option>
+            <option value="desc">Descending</option>
+          </select>
+        </div>
+        <div>
+          <label class="filter-count" id="filter-count">&nbsp;</label>
+          <button id="clear-filters" class="btn btn-ghost btn-block" type="button">Clear</button>
+        </div>
+      </div>
+      <p class="card-count" id="card-count"></p>
+      <div class="card-grid" id="card-grid"></div>
+      <div class="empty-msg" id="empty-msg" style="display:none;">No cards match these filters.</div>
+    `;
+
+    const g = id => document.getElementById(id);
+
+    g('f-name').addEventListener('input', () => { controlsToURL(); filterCards(); });
+    ['f-type','f-power','f-powerIs','f-keyword','f-subrelease','f-releaseYear','f-orderBy','f-direction'].forEach(id => {
+      g(id).addEventListener('change', () => { syncPowerIsVisibility(); controlsToURL(); filterCards(); });
+    });
+    g('f-expansion').addEventListener('change', () => {
+      syncSubReleaseFilter();
+      syncPowerIsVisibility();
+      controlsToURL();
+      filterCards();
+    });
+
+    g('clear-filters').addEventListener('click', () => {
+      g('f-name').value        = '';
+      g('f-type').value        = '';
+      g('f-power').value       = '';
+      g('f-powerIs').value     = 'eq';
+      syncPowerIsVisibility();
+      g('f-keyword').value     = '';
+      g('f-expansion').value   = '';
+      syncSubReleaseFilter();
+      g('f-releaseYear').value = '';
+      g('f-orderBy').value     = DEFAULT_ORDER_BY;
+      g('f-direction').value   = DEFAULT_DIRECTION;
+      controlsToURL();
+      filterCards();
+    });
+
+    applyURLToControls();
+    filterCards();
+  };
+
+  // ── URL persistence — same convention as card-gallery ───────────────────────
+
+  const setQueryParam = (key, value) => {
+    const url = new URL(location.href);
+    if (value === undefined || value === null || value === '') {
+      url.searchParams.delete(key);
+    } else {
+      url.searchParams.set(key, value);
+    }
+    history.replaceState({}, '', url);
+  };
+
+  const applyURLToControls = () => {
+    const g = id => document.getElementById(id);
+    g('f-name').value        = qs.get('name')        || '';
+    g('f-type').value        = qs.get('type')        || '';
+    g('f-power').value       = qs.get('power')       || '';
+    syncPowerIsVisibility();
+    g('f-powerIs').value     = qs.get('powerIs')     || 'eq';
+    g('f-keyword').value     = qs.get('keyword')     || '';
+    g('f-expansion').value   = qs.get('expansion')   || '';
+    syncSubReleaseFilter();
+    g('f-subrelease').value  = qs.get('subrelease')  || '';
+    g('f-releaseYear').value = qs.get('releaseYear') || '';
+    g('f-orderBy').value     = qs.get('orderBy')     || DEFAULT_ORDER_BY;
+    g('f-direction').value   = qs.get('direction')   || DEFAULT_DIRECTION;
+  };
+
+  const controlsToURL = () => {
+    const g = id => document.getElementById(id);
+    setQueryParam('name',        g('f-name').value.trim());
+    setQueryParam('type',        g('f-type').value);
+    setQueryParam('power',       g('f-power').value);
+    setQueryParam('powerIs',     g('f-power').value ? g('f-powerIs').value : '');
+    setQueryParam('keyword',     g('f-keyword').value);
+    setQueryParam('expansion',   g('f-expansion').value);
+    setQueryParam('subrelease',  g('f-subrelease').value);
+    setQueryParam('releaseYear', g('f-releaseYear').value);
+    setQueryParam('orderBy',     g('f-orderBy').value === DEFAULT_ORDER_BY ? '' : g('f-orderBy').value);
+    setQueryParam('direction',   g('f-direction').value === DEFAULT_DIRECTION ? '' : g('f-direction').value);
+  };
+
+  const TYPE_ORDER = { rock: 1, paper: 2, scissors: 3 };
+
+  // Shown only while a Power value is selected — otherwise there's nothing to compare against.
+  const syncPowerIsVisibility = () => {
+    document.getElementById('power-is-wrap').style.display = document.getElementById('f-power').value !== '' ? '' : 'none';
+  };
+
+  const getSubReleaseForCard = (expansion, cardId) =>
+    (expansion && Array.isArray(expansion.subReleases))
+      ? (expansion.subReleases.find(s => Array.isArray(s.cardIds) && s.cardIds.includes(cardId)) || null)
+      : null;
+
+  // Shows the Sub-Release filter (and populates its options) only when the
+  // currently selected Expansion actually has sub-releases; hidden otherwise.
+  const syncSubReleaseFilter = () => {
+    const expEl  = document.getElementById('f-expansion');
+    const subEl  = document.getElementById('f-subrelease');
+    const wrap   = document.getElementById('subrelease-filter-wrap');
+    const expId  = expEl.value !== '' ? Number(expEl.value) : null;
+    const expansion = expId !== null ? expansions.find(e => e.id === expId) : null;
+    const subs   = (expansion && Array.isArray(expansion.subReleases)) ? expansion.subReleases : [];
+    if (!subs.length) {
+      wrap.style.display = 'none';
+      subEl.value = '';
+      return;
+    }
+    const currentVal = subEl.value;
+    subEl.innerHTML = '<option value="">Any</option>' +
+      subs.map(s => `<option value="${s.id}">${esc(s.name || ('Sub-release #' + s.id))}</option>`).join('');
+    subEl.value = subs.some(s => String(s.id) === currentVal) ? currentVal : '';
+    wrap.style.display = '';
+  };
+
+  const filterCards = () => {
+    const name        = document.getElementById('f-name').value.trim().toLowerCase();
+    const type        = document.getElementById('f-type').value;
+    const power       = document.getElementById('f-power').value !== '' ? Number(document.getElementById('f-power').value) : null;
+    const powerIs     = document.getElementById('f-powerIs').value || 'eq';
+    const keyword     = document.getElementById('f-keyword').value;
+    const expansionId = document.getElementById('f-expansion').value;
+    const subreleaseId = document.getElementById('f-subrelease').value !== '' ? Number(document.getElementById('f-subrelease').value) : null;
+    const releaseYear = document.getElementById('f-releaseYear').value;
+    const orderBy     = document.getElementById('f-orderBy').value;
+    const direction    = document.getElementById('f-direction').value;
+
+    let filtered = cards.filter(c => {
+      if (name && !removeBB(c.name).toLowerCase().includes(name)) return false;
+      if (type && c.cardTypeId !== Number(type)) return false;
+      if (power !== null) {
+        const ok = powerIs === 'gt'  ? c.power >  power :
+                   powerIs === 'lt'  ? c.power <  power :
+                   powerIs === 'gte' ? c.power >= power :
+                   powerIs === 'lte' ? c.power <= power :
+                                       c.power === power;
+        if (!ok) return false;
+      }
+      if (keyword && c.keywordId !== Number(keyword) && c.keyword2Id !== Number(keyword) && c.keyword3Id !== Number(keyword)) return false;
+      const exp = getExpansionForCard(c.id);
+      if (expansionId) {
+        if (!exp || exp.id !== Number(expansionId)) return false;
+      }
+      if (subreleaseId !== null) {
+        const sub = getSubReleaseForCard(exp, c.id);
+        if (!sub || sub.id !== subreleaseId) return false;
+      }
+      if (releaseYear && String(c.releaseYear) !== releaseYear) return false;
+      return true;
+    });
+
+    switch (orderBy) {
+      case 'newest': filtered.sort((a, b) => b.id - a.id); break;
+      case 'name':
+        filtered.sort((a, b) => a.name.localeCompare(b.name));
+        if (direction === 'desc') filtered.reverse();
+        break;
+      case 'type':
+        filtered.sort((a, b) => TYPE_ORDER[a.type] - TYPE_ORDER[b.type]);
+        if (direction === 'desc') filtered.reverse();
+        break;
+      case 'power':
+        filtered.sort((a, b) => direction === 'desc' ? b.power - a.power : a.power - b.power);
+        break;
+      case 'oldest':
+      default:
+        filtered.sort((a, b) => a.id - b.id);
+    }
+
+    renderGrid(filtered);
+  };
+
+  const renderGrid = (list) => {
+    document.getElementById('card-count').textContent = `${list.length} card${list.length === 1 ? '' : 's'}`;
+    const grid = document.getElementById('card-grid');
+    const empty = document.getElementById('empty-msg');
+    if (!list.length) {
+      grid.innerHTML = '';
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+    grid.innerHTML = list.map(c => `
+      <div class="card-tile" data-id="${c.id}">
+        <div class="card-tile-img">
+          <img src="${cardImagePath(c.id, c.name, 1)}" alt="" loading="lazy"
+               onerror="this.closest('.card-tile').classList.add('img-missing'); this.remove();" />
+        </div>
+        <div class="card-tile-name">#${c.id} ${esc(c.name)}</div>
+      </div>
+    `).join('');
+    grid.querySelectorAll('.card-tile').forEach(tile =>
+      tile.addEventListener('click', () => openEditModal(Number(tile.dataset.id)))
+    );
+  };
+
+  // ── Edit modal ───────────────────────────────────────────────────────────
+
+  const keywordOptionsHtml = () =>
+    `<option value="">None</option>` + keywords.map(k => `<option value="${k.id}">${esc(k.displayName)}</option>`).join('');
+
+  let editingCard = null;
+
+  const refreshArtPreviews = () => {
+    const av = Number(document.getElementById('edit-art-version').value || 1);
+    const bust = Date.now();
+    const artEl   = document.getElementById('art-preview');
+    const imageEl = document.getElementById('image-preview');
+    artEl.innerHTML   = `<img src="${cardArtPath(editingCard.id, editingCard.name, av)}?t=${bust}" alt=""
+                              onerror="this.parentElement.innerHTML='<span class=\\'no-img\\'>No image</span>';" />`;
+    imageEl.innerHTML = `<img src="${cardImagePath(editingCard.id, editingCard.name, av)}?t=${bust}" alt=""
+                              onerror="this.parentElement.innerHTML='<span class=\\'no-img\\'>No image</span>';" />`;
+  };
+
+  const openEditModal = (id) => {
+    const c = cards.find(x => x.id === id);
+    if (!c) return;
+    editingCard = c;
+
+    document.getElementById('modal-edit-title').textContent = `Edit Card #${c.id}`;
+    document.getElementById('modal-edit-error').style.display = 'none';
+    document.getElementById('edit-id').value    = c.id;
+    document.getElementById('edit-name').value  = c.name;
+    document.getElementById('edit-power').value = c.power;
+    document.getElementById('edit-type').value  = String(c.cardTypeId);
+
+    document.getElementById('edit-keyword1').innerHTML = keywordOptionsHtml();
+    document.getElementById('edit-keyword2').innerHTML = keywordOptionsHtml();
+    document.getElementById('edit-keyword3').innerHTML = keywordOptionsHtml();
+    document.getElementById('edit-keyword1').value = c.keywordId  ? String(c.keywordId)  : '';
+    document.getElementById('edit-keyword2').value = c.keyword2Id ? String(c.keyword2Id) : '';
+    document.getElementById('edit-keyword3').value = c.keyword3Id ? String(c.keyword3Id) : '';
+
+    const maxVersion = (c.altArts || 0) + 1;
+    const versionSelect = document.getElementById('edit-art-version');
+    versionSelect.innerHTML = Array.from({ length: maxVersion }, (_, i) => i + 1)
+      .map(v => `<option value="${v}">${v}</option>`).join('');
+    document.getElementById('art-version-field').style.display = maxVersion > 1 ? 'block' : 'none';
+
+    document.getElementById('art-file').value = '';
+    document.getElementById('image-file').value = '';
+
+    refreshArtPreviews();
+    document.getElementById('modal-edit').classList.remove('hidden');
+  };
+
+  const closeEditModal = () => { document.getElementById('modal-edit').classList.add('hidden'); editingCard = null; };
+  document.getElementById('btn-edit-cancel').addEventListener('click', closeEditModal);
+  document.getElementById('edit-art-version').addEventListener('change', () => { if (editingCard) refreshArtPreviews(); });
+
+  document.getElementById('btn-edit-save').addEventListener('click', async () => {
+    const errEl = document.getElementById('modal-edit-error');
+    errEl.style.display = 'none';
+
+    const id    = parseInt(document.getElementById('edit-id').value, 10);
+    const name  = document.getElementById('edit-name').value.trim();
+    const power = parseInt(document.getElementById('edit-power').value, 10);
+    if (!name) { errEl.textContent = 'Name is required.'; errEl.style.display = 'block'; return; }
+    if (isNaN(power) || power < 0) { errEl.textContent = 'Power is required.'; errEl.style.display = 'block'; return; }
+
+    const body = {
+      action:     'update',
+      id,
+      name,
+      power,
+      cardTypeId: parseInt(document.getElementById('edit-type').value, 10),
+      keywordId:  document.getElementById('edit-keyword1').value || null,
+      keyword2Id: document.getElementById('edit-keyword2').value || null,
+      keyword3Id: document.getElementById('edit-keyword3').value || null,
+    };
+
+    const btn = document.getElementById('btn-edit-save');
+    btn.disabled = true;
+    try {
+      const res  = await fetch(CARDS_URL, { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) { errEl.textContent = data.error || 'Save failed.'; errEl.style.display = 'block'; return; }
+      const idx = cards.findIndex(c => c.id === id);
+      if (idx !== -1) cards[idx] = data.card;
+      editingCard = data.card;
+      closeEditModal();
+      // The card itself can save successfully even if renaming its image files on disk failed
+      // (e.g. a file-permission problem) — surface that instead of a plain success toast.
+      if (data.error) {
+        showToast(data.error, 'err');
+      } else {
+        showToast('Card updated!', 'ok');
+      }
+      filterCards();
+    } catch (e) {
+      errEl.textContent = 'Network error: ' + e.message;
+      errEl.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // ── Image uploads ────────────────────────────────────────────────────────
+
+  const uploadImage = async (kind, fileInputId, btnId) => {
+    if (!editingCard) return;
+    const fileInput = document.getElementById(fileInputId);
+    const file = fileInput.files[0];
+    if (!file) { showToast('Choose a PNG file first.', 'err'); return; }
+
+    const form = new FormData();
+    form.append('kind', kind);
+    form.append('id', editingCard.id);
+    form.append('artVersion', document.getElementById('edit-art-version').value || '1');
+    form.append('file', file);
+
+    const btn = document.getElementById(btnId);
+    btn.disabled = true;
+    try {
+      const res  = await fetch(CARDS_URL, { method: 'POST', headers: authHeaders(false), body: form });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.error || 'Upload failed.', 'err'); return; }
+      showToast('Image uploaded!', 'ok');
+      fileInput.value = '';
+      refreshArtPreviews();
+    } catch (e) {
+      showToast('Network error: ' + e.message, 'err');
+    } finally {
+      btn.disabled = false;
+    }
+  };
+
+  document.getElementById('btn-upload-art').addEventListener('click', () => uploadImage('art', 'art-file', 'btn-upload-art'));
+  document.getElementById('btn-upload-image').addEventListener('click', () => uploadImage('image', 'image-file', 'btn-upload-image'));
+
+  // ── Keyboard ─────────────────────────────────────────────────────────────
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeEditModal();
+  });
+
+  // ── Init ─────────────────────────────────────────────────────────────────
+
+  load();
+})();
+</script>
+
+<rk-footer></rk-footer>
+</body>
+</html>
