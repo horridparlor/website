@@ -39,6 +39,7 @@
         <option>Rock</option>
         <option>Paper</option>
         <option>Scissors</option>
+        <option>Gun</option>
       </select>
     </div>
     <div>
@@ -224,6 +225,8 @@
         <th>Paper</th>
         <th>(%)</th>
         <th>Scissors</th>
+        <th>(%)</th>
+        <th>Gun</th>
         <th>(%)</th>
         <th><button id="macros-export-btn" class="export-btn">Export Macros</button></th>
       </tr>
@@ -493,7 +496,7 @@
       return tokens.every(t => hay.includes(normalize(t)));
     };
 
-    const getTypeOrder = (type) => ({ Rock: 1, Paper: 2, Scissors: 3 }[type] || 0);
+    const getTypeOrder = (type) => ({ Rock: 1, Paper: 2, Scissors: 3, Gun: 4 }[type] || 0);
 
     const toPercentage = (float) => {
       const value = float * 100;
@@ -539,12 +542,14 @@
       const rocks    = cards.filter(c => normalize(c.type) === 'rock');
       const papers   = cards.filter(c => normalize(c.type) === 'paper');
       const scissors = cards.filter(c => normalize(c.type) === 'scissors');
+      const guns     = cards.filter(c => normalize(c.type) === 'gun');
 
       const buildAMacro = (name, filter) => {
         const fAll      = cards.filter(filter);
         const fRocks    = rocks.filter(filter);
         const fPapers   = papers.filter(filter);
         const fScissors = scissors.filter(filter);
+        const fGuns     = guns.filter(filter);
         return {
           name,
           total:              fAll.length,
@@ -555,6 +560,8 @@
           paperPercentage:    papers.length   ? toPercentage(fPapers.length   / papers.length)   : '–',
           scissors:           fScissors.length,
           scissorsPercentage: scissors.length ? toPercentage(fScissors.length / scissors.length) : '–',
+          gun:                fGuns.length,
+          gunPercentage:      guns.length     ? toPercentage(fGuns.length     / guns.length)     : '–',
         };
       };
 
@@ -567,9 +574,11 @@
       const rockAvg  = mean(rocks.map(c => c.power));
       const paperAvg = mean(papers.map(c => c.power));
       const scissAvg = mean(scissors.map(c => c.power));
+      const gunAvg   = mean(guns.map(c => c.power));
       const rockMed  = median(rocks.map(c => c.power));
       const paperMed = median(papers.map(c => c.power));
       const scissMed = median(scissors.map(c => c.power));
+      const gunMed   = median(guns.map(c => c.power));
       const fmt = (v) => v !== null ? formatPower(Math.round(v)) : '--';
 
       const avgRow = {
@@ -582,6 +591,8 @@
         paperPercentage:    toDiff(paperAvg, totalAvg),
         scissors:           fmt(scissAvg),
         scissorsPercentage: toDiff(scissAvg, totalAvg),
+        gun:                fmt(gunAvg),
+        gunPercentage:      toDiff(gunAvg, totalAvg),
       };
       const medRow = {
         name: 'Median Power',
@@ -593,12 +604,15 @@
         paperPercentage:    toDiff(paperMed, totalMed),
         scissors:           fmt(scissMed),
         scissorsPercentage: toDiff(scissMed, totalMed),
+        gun:                fmt(gunMed),
+        gunPercentage:      toDiff(gunMed, totalMed),
       };
 
       macros = [
         buildAMacro('Rock',     c => normalize(c.type) === 'rock'),
         buildAMacro('Paper',    c => normalize(c.type) === 'paper'),
         buildAMacro('Scissors', c => normalize(c.type) === 'scissors'),
+        buildAMacro('Gun',      c => normalize(c.type) === 'gun'),
         sep,
         ...powerValues.map(p => buildAMacro(formatPower(p), c => c.power === p)),
         sep,
@@ -942,7 +956,7 @@
       } else if (view === 'macros') {
         el.macrosBody.innerHTML = macros.map(m => {
           if (!m.name) {
-            return `<tr><td colspan="9"><hr></td></tr>`;
+            return `<tr><td colspan="11"><hr></td></tr>`;
           }
           return `
           <tr>
@@ -955,6 +969,8 @@
             <td>${m.paperPercentage}</td>
             <td>${m.scissors}</td>
             <td>${m.scissorsPercentage}</td>
+            <td>${m.gun}</td>
+            <td>${m.gunPercentage}</td>
           </tr>
         `;
         }).join('');

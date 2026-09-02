@@ -39,6 +39,7 @@
               <option value="rock">Rock</option>
               <option value="paper">Paper</option>
               <option value="scissors">Scissors</option>
+              <option value="gun">Gun</option>
             </select>
           </div>
           <div>
@@ -150,6 +151,7 @@
           <span class="stat-item"><span class="stat-rock">Rock</span>: <span id="stat-rock">0</span></span>
           <span class="stat-item"><span class="stat-paper">Paper</span>: <span id="stat-paper">0</span></span>
           <span class="stat-item"><span class="stat-scissors">Scissors</span>: <span id="stat-scissors">0</span></span>
+          <span class="stat-item"><span class="stat-gun">Gun</span>: <span id="stat-gun">0</span></span>
         </div>
         <div class="deck-stats-row">
           <span>Vanilla: <span id="stat-vanilla">0</span></span>
@@ -332,6 +334,7 @@
     statRock:      document.getElementById('stat-rock'),
     statPaper:     document.getElementById('stat-paper'),
     statScissors:  document.getElementById('stat-scissors'),
+    statGun:       document.getElementById('stat-gun'),
     statVanilla:   document.getElementById('stat-vanilla'),
     statKw:        document.getElementById('stat-kw'),
     progressBar:   document.getElementById('progress-bar'),
@@ -902,7 +905,7 @@
       return;
     }
 
-    const groups = { rock: [], paper: [], scissors: [] };
+    const groups = { rock: [], paper: [], scissors: [], gun: [] };
     currentDeck.cards.forEach(dc => {
       const card = allCards.find(c => c.id === dc.cardId);
       if (!card) return;
@@ -910,7 +913,7 @@
       if (groups[t]) groups[t].push({ ...dc, card });
     });
 
-    const typeOrder = ['rock', 'paper', 'scissors'];
+    const typeOrder = ['rock', 'paper', 'scissors', 'gun'];
 
     let html = '';
     typeOrder.forEach(t => {
@@ -978,6 +981,7 @@
     const rocks    = currentDeck.cards.filter(dc => { const c=allCards.find(x=>x.id===dc.cardId); return c&&norm(c.type)==='rock'; }).reduce((s,dc)=>s+dc.quantity,0);
     const papers   = currentDeck.cards.filter(dc => { const c=allCards.find(x=>x.id===dc.cardId); return c&&norm(c.type)==='paper'; }).reduce((s,dc)=>s+dc.quantity,0);
     const scissors = currentDeck.cards.filter(dc => { const c=allCards.find(x=>x.id===dc.cardId); return c&&norm(c.type)==='scissors'; }).reduce((s,dc)=>s+dc.quantity,0);
+    const guns     = currentDeck.cards.filter(dc => { const c=allCards.find(x=>x.id===dc.cardId); return c&&norm(c.type)==='gun'; }).reduce((s,dc)=>s+dc.quantity,0);
     const vanilla  = currentDeck.cards.filter(dc => { const c=allCards.find(x=>x.id===dc.cardId); return c&&(!c.keywords||c.keywords.filter(Boolean).length===0); }).reduce((s,dc)=>s+dc.quantity,0);
     const withKw   = total - vanilla;
 
@@ -985,6 +989,7 @@
     el.statRock.textContent     = rocks;
     el.statPaper.textContent    = papers;
     el.statScissors.textContent = scissors;
+    el.statGun.textContent      = guns;
     el.statVanilla.textContent  = vanilla;
     el.statKw.textContent       = withKw;
 

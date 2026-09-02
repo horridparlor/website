@@ -19,7 +19,7 @@ Browser-based card viewer for the Rakuel Is Back card game. Fetches card and key
 |---|---|
 | Name | Substring match on card name |
 | Keywords | Space/comma-separated tokens; card must contain all of them |
-| Type | Rock / Paper / Scissors |
+| Type | Rock / Paper / Scissors / Gun |
 | Power | Exact power value (or threshold when combined with Power Is) |
 | Power Is | Comparison operator for Power — only shown when Power is set |
 | Keyword Count | Vanilla (0), 1, 2, or 3 keywords |

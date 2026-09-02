@@ -145,6 +145,7 @@
           <option value="1">Rock</option>
           <option value="2">Paper</option>
           <option value="3">Scissors</option>
+          <option value="4">Gun</option>
         </select>
       </div>
     </div>
@@ -267,6 +268,7 @@
             <option value="1">Rock</option>
             <option value="2">Paper</option>
             <option value="3">Scissors</option>
+            <option value="4">Gun</option>
           </select>
         </div>
         <div>
@@ -417,7 +419,7 @@
     setQueryParam('direction',   g('f-direction').value === DEFAULT_DIRECTION ? '' : g('f-direction').value);
   };
 
-  const TYPE_ORDER = { rock: 1, paper: 2, scissors: 3 };
+  const TYPE_ORDER = { rock: 1, paper: 2, scissors: 3, gun: 4 };
 
   // Shown only while a Power value is selected — otherwise there's nothing to compare against.
   const syncPowerIsVisibility = () => {

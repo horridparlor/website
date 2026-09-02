@@ -4,12 +4,17 @@
 const GameEngine = (() => {
   // ─── Type system ─────────────────────────────────────────────────────────────
   // Rock beats Scissors, Scissors beats Paper, Paper beats Rock
+  // (used by weakTypeFor/typeBeatenBy — keyword mechanics like Monarchy/Facism
+  // are unaffected by Gun and stay on the classic 3-way cycle)
   const TYPE_BEATS = { rock: 'scissors', scissors: 'paper', paper: 'rock' };
+
+  // Combat resolution only: Gun beats Rock, Paper, and Scissors; nothing beats Gun.
+  const COMBAT_BEATS = { rock: ['scissors'], paper: ['rock'], scissors: ['paper'], gun: ['rock', 'paper', 'scissors'] };
 
   function compareTypes(t1, t2) {
     const a = t1.toLowerCase(), b = t2.toLowerCase();
     if (a === b) return 0;          // same type
-    if (TYPE_BEATS[a] === b) return 1;   // t1 beats t2
+    if ((COMBAT_BEATS[a] || []).includes(b)) return 1;   // t1 beats t2
     return -1;                      // t2 beats t1
   }
 

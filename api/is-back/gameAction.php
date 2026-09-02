@@ -9,10 +9,14 @@ include(__DIR__ . "/gameHelper.php");
 
 // Card type that beats another: beater => loser
 // Rock beats Scissors, Paper beats Rock, Scissors beats Paper
+// (used by keyword mechanics like Infernoid — unaffected by Gun, stays on the classic 3-way cycle)
 const BEATS = ['rock' => 'scissors', 'paper' => 'rock', 'scissors' => 'paper'];
 // Weak type of each card: the type that BEATS it (what each card is weak against)
 // Rock is weak to Paper, Paper is weak to Scissors, Scissors is weak to Rock
+// (used by keyword mechanics like Monarchy, Facism, Teleportation — unaffected by Gun)
 const WEAK_TYPE = ['rock' => 'paper', 'paper' => 'scissors', 'scissors' => 'rock'];
+// Combat resolution only: Gun beats Rock, Paper, and Scissors; nothing beats Gun.
+const COMBAT_BEATS = ['rock' => ['scissors'], 'paper' => ['rock'], 'scissors' => ['paper'], 'gun' => ['rock', 'paper', 'scissors']];
 
 class GameEngine
 {
@@ -226,8 +230,8 @@ class GameEngine
             }
         }
 
-        if (BEATS[$oppType] === $passerType) return $oppIdx;
-        if (BEATS[$passerType] === $oppType) return $passerId;
+        if (in_array($passerType, COMBAT_BEATS[$oppType] ?? [])) return $oppIdx;
+        if (in_array($oppType, COMBAT_BEATS[$passerType] ?? [])) return $passerId;
 
         // Same type
         if ($passerPower < $oppPower) return $oppIdx;
@@ -1063,7 +1067,7 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
             if (!$pending || $pending['type'] !== 'exam_guess') return 'No Exam guess pending';
             if ((int)($pending['playerIndex'] ?? -1) !== $playerIndex) return 'Not your response';
             $guess = strtolower((string)($params['guess'] ?? ''));
-            if (!in_array($guess, ['rock', 'paper', 'scissors'])) return 'Invalid guess';
+            if (!in_array($guess, ['rock', 'paper', 'scissors', 'gun'])) return 'Invalid guess';
             $examPlayerIndex = (int)($pending['sourcePlayerIndex'] ?? -1);
             $examCardId = (int)($pending['cardId'] ?? 0);
             $state['log'][] = $state['players'][$playerIndex]['username'] . ' guessed ' . ucfirst($guess) . ' (Exam).';

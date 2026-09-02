@@ -6,7 +6,7 @@ const RULES_SECTIONS = [
   {
     id: 'win-condition',
     title: 'Win Condition',
-    content: `<p>Every card is either Rock, Paper, or Scissors. Rock beats Scissors, Scissors beats Paper, Paper beats Rock. If both cards share the same type, the card with higher power wins the round. If both cards share the same type <em>and</em> the same power, the passing player loses. A round can never end in a tie.</p>
+    content: `<p>Every card is Rock, Paper, Scissors, or Gun. Rock beats Scissors, Scissors beats Paper, Paper beats Rock, and Gun beats Rock, Paper, and Scissors — nothing beats Gun. If both cards share the same type, the card with higher power wins the round. If both cards share the same type <em>and</em> the same power, the passing player loses. A round can never end in a tie.</p>
 <p>At the start of the game, each player receives 5 prize cards placed face-down. Every time you win a round, you draw one of your prize cards. If you win a round while you have no prize cards remaining, you win the game.</p>`,
     subtitles: [
       {
@@ -177,11 +177,11 @@ const RULES_SECTIONS = [
       {
         id: 'identifying-card-types',
         title: '6.1 Identifying Card Types',
-        content: `<p>Every card is Rock, Paper, or Scissors. There are three ways to tell them apart, so even colour-blind players can distinguish them:</p>
+        content: `<p>Every card is Rock, Paper, Scissors, or Gun. There are three ways to tell them apart, so even colour-blind players can distinguish them:</p>
 <ul>
-  <li><strong>Background colour</strong> — Rocks are green, Papers are blue, Scissors are orange.</li>
+  <li><strong>Background colour</strong> — Rocks are green, Papers are blue, Scissors are orange, and Guns are yellow.</li>
   <li><strong>Printed text and icon</strong> — a small type label and matching icon appear on the bottom centre of the card.</li>
-  <li><strong>Power box border</strong> — Rocks have an octagonal border, Papers a rounded border, and Scissors a sharp-edged border.</li>
+  <li><strong>Power box border</strong> — Rocks have an octagonal border, Papers a rounded border, Scissors a sharp-edged border, and Guns a jagged border.</li>
 </ul>`,
       },
       {
@@ -381,7 +381,7 @@ const RULES_SECTIONS = [
   <dd>To activate a keyword effect, resolving its description.</dd>
 
   <dt>Type</dt>
-  <dd>The type a card belongs to — Rock, Paper, or Scissors.</dd>
+  <dd>The type a card belongs to — Rock, Paper, Scissors, or Gun.</dd>
 </dl>`,
     subtitles: [],
   },

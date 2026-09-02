@@ -13,7 +13,7 @@
       --bg: #0d1117; --bg2: #161b22; --border: #30363d; --text: #e6edf3; --muted: #8b949e;
       --green: #238636; --green2: #2ea043; --blue: #1f6feb; --blue2: #388bfd;
       --orange: #d29922; --red: #da3633; --gold: #f0c040;
-      --rock: #2a4a2a; --rock-b: #3fb950; --paper: #1a2d4a; --paper-b: #58a6ff; --scissors: #4a2d0a; --scissors-b: #f0883e;
+      --rock: #2a4a2a; --rock-b: #3fb950; --paper: #1a2d4a; --paper-b: #58a6ff; --scissors: #4a2d0a; --scissors-b: #f0883e; --gun: #4a3f0a; --gun-b: #e3b341;
     }
     html, body {
       height: 100%;
@@ -107,6 +107,7 @@
     .type-rock    { background: var(--rock-b); }
     .type-paper   { background: var(--paper-b); }
     .type-scissors { background: var(--scissors-b); }
+    .type-gun     { background: var(--gun-b); }
 
     .primary-label { font-size: 12px; color: var(--muted); text-align: center; margin-top: 8px; }
 
@@ -350,7 +351,8 @@
     .modal-box .m-guess-rock     { background: #398f5b; color: #fff; border-color: #398f5b; }
     .modal-box .m-guess-paper    { background: #2499c8; color: #fff; border-color: #2499c8; }
     .modal-box .m-guess-scissors { background: #f7793e; color: #fff; border-color: #f7793e; }
-    .modal-box .m-guess-rock:hover, .modal-box .m-guess-paper:hover, .modal-box .m-guess-scissors:hover { opacity:.85; }
+    .modal-box .m-guess-gun      { background: #c9a227; color: #fff; border-color: #c9a227; }
+    .modal-box .m-guess-rock:hover, .modal-box .m-guess-paper:hover, .modal-box .m-guess-scissors:hover, .modal-box .m-guess-gun:hover { opacity:.85; }
     .modal-box .m-disabled { background: transparent; color: #555; border-color: #333; cursor: not-allowed; opacity: 0.5; }
     .modal-box .m-disabled:hover { background: transparent; }
     .modal-card-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
@@ -631,7 +633,7 @@
     <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
       <div class="hand-ctrl-sep"></div>
       <button class="btn-hand-ctrl" onclick="shuffleHand()" title="Shuffle your hand randomly">Shuffle Hand</button>
-      <button class="btn-hand-ctrl" onclick="orderHand()" title="Order by type (Rock→Paper→Scissors) then power">Order Hand</button>
+      <button class="btn-hand-ctrl" onclick="orderHand()" title="Order by type (Rock→Paper→Scissors→Gun) then power">Order Hand</button>
     </div>
   </div>
 </div>
@@ -1427,7 +1429,7 @@ function openWatchQuickModal(effect, state) {
 function openExamGuessModal(effect, state) {
   const examIdx = Number(effect.sourcePlayerIndex);
   const examName = examIdx === myIndex ? 'You' : (state.players?.[examIdx]?.username || 'Opponent');
-  const buttons = ['rock', 'paper', 'scissors'].map(type => ({
+  const buttons = ['rock', 'paper', 'scissors', 'gun'].map(type => ({
     label: `${RPS_EMOJI[type]} ${type.charAt(0).toUpperCase() + type.slice(1)}`,
     className: `m-guess-${type}`,
     onClick: () => resolvePendingKeyword({ keyword: 'exam_guess_respond', guess: type }),
@@ -3256,7 +3258,7 @@ async function confirmGameSurrender() {
 }
 
 // ── RPS ───────────────────────────────────────────────────────────────────────
-const RPS_EMOJI = { rock: '🪨', paper: '📄', scissors: '✂️' };
+const RPS_EMOJI = { rock: '🪨', paper: '📄', scissors: '✂️', gun: '🔫' };
 
 function updateRpsOverlay(state) {
   const overlay = document.getElementById('rps-overlay');
@@ -4729,7 +4731,7 @@ function orderHand() {
   if (!gameState || myIndex === -1) return;
   const me = gameState.players[myIndex];
   if (!me || !me.handIds || me.handIds.length < 2) return;
-  const TYPE_ORDER = { rock: 0, paper: 1, scissors: 2 };
+  const TYPE_ORDER = { rock: 0, paper: 1, scissors: 2, gun: 3 };
   const sorted = [...me.handIds].sort((a, b) => {
     const ca = allCards[a], cb = allCards[b];
     if (!ca || !cb) return 0;
