@@ -876,12 +876,7 @@
     const lines = [
       '-- Expansions & sub-releases sync: ' + new Date().toISOString(),
       '-- Run on target server to match these expansions and sub-releases.',
-      '',
-      'SET FOREIGN_KEY_CHECKS = 0;',
-      '',
-      'TRUNCATE TABLE isBack_subExpansionCard;',
-      'TRUNCATE TABLE isBack_subRelease;',
-      'TRUNCATE TABLE isBack_expansion;',
+      '-- Safe to re-run: existing rows (matched by id / unique key) are updated in place.',
       '',
     ];
     const vals = expansions.map(e => {
@@ -893,7 +888,11 @@
     });
     lines.push('INSERT INTO isBack_expansion (id, name, firstCardId, lastCardId, releaseDate, isReleased, showExpansionInCardGallery, showInDeckBuilder)');
     lines.push('VALUES');
-    lines.push(vals.join(',\n') + ';');
+    lines.push(vals.join(',\n') + '');
+    lines.push('ON DUPLICATE KEY UPDATE');
+    lines.push('  name = VALUES(name), firstCardId = VALUES(firstCardId), lastCardId = VALUES(lastCardId),');
+    lines.push('  releaseDate = VALUES(releaseDate), isReleased = VALUES(isReleased),');
+    lines.push('  showExpansionInCardGallery = VALUES(showExpansionInCardGallery), showInDeckBuilder = VALUES(showInDeckBuilder);');
     lines.push('');
 
     const allSubs = expansions.flatMap(e => e.subReleases || []);
@@ -907,7 +906,11 @@
       });
       lines.push('INSERT INTO isBack_subRelease (id, expansionId, name, releaseDate, isReleased, showExpansionInCardGallery, showInDeckBuilder)');
       lines.push('VALUES');
-      lines.push(subVals.join(',\n') + ';');
+      lines.push(subVals.join(',\n') + '');
+      lines.push('ON DUPLICATE KEY UPDATE');
+      lines.push('  expansionId = VALUES(expansionId), name = VALUES(name), releaseDate = VALUES(releaseDate),');
+      lines.push('  isReleased = VALUES(isReleased), showExpansionInCardGallery = VALUES(showExpansionInCardGallery),');
+      lines.push('  showInDeckBuilder = VALUES(showInDeckBuilder);');
       lines.push('');
 
       const cardVals = [];
@@ -915,12 +918,12 @@
       if (cardVals.length) {
         lines.push('INSERT INTO isBack_subExpansionCard (subReleaseId, cardId)');
         lines.push('VALUES');
-        lines.push(cardVals.join(',\n') + ';');
+        lines.push(cardVals.join(',\n') + '');
+        lines.push('ON DUPLICATE KEY UPDATE cardId = VALUES(cardId);');
         lines.push('');
       }
     }
 
-    lines.push('SET FOREIGN_KEY_CHECKS = 1;');
     return lines.join('\n');
   };
 
