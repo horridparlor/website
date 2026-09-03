@@ -690,8 +690,19 @@
       editingCard = data.card;
 
       const uploadErrors = [];
-      if (artFile)   { const err = await uploadCardImage('art', artFile);   if (err) uploadErrors.push(err); }
-      if (imageFile) { const err = await uploadCardImage('image', imageFile); if (err) uploadErrors.push(err); }
+      // The upload endpoint only returns {uploaded:true}, not the updated card, so bump
+      // the *Updated At timestamps locally on success — otherwise the grid thumbnail's
+      // ?v= cache-buster stays stale and the browser keeps showing the old cached image.
+      if (artFile) {
+        const err = await uploadCardImage('art', artFile);
+        if (err) uploadErrors.push(err);
+        else if (idx !== -1) cards[idx].cardArtUpdatedAt = Date.now();
+      }
+      if (imageFile) {
+        const err = await uploadCardImage('image', imageFile);
+        if (err) uploadErrors.push(err);
+        else if (idx !== -1) cards[idx].cardImageUpdatedAt = Date.now();
+      }
 
       closeEditModal();
       // The card itself can save successfully even if renaming its image files on disk, or

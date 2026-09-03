@@ -99,6 +99,7 @@
           <a href="/hardest/card-gallery" class="nav-link">Hardest – Card Gallery</a>
           <a href="/noise-generator" class="nav-link">Noise Generator</a>
           <a href="/calendar" class="nav-link">Calendar</a>
+          <a href="/is-back/profile/?redirect=/" class="nav-link" id="nav-auth-link">Sign In / Register</a>
         </div>
       </div>
 
@@ -107,8 +108,8 @@
           Admin <span class="nav-cat-arrow">▾</span>
         </button>
         <div class="nav-cat-links">
-          <a href="/is-back/expansions" class="nav-link nav-link--admin" id="btn-expansions">Expansions</a>
           <a href="/is-back/card-edit" class="nav-link nav-link--admin" id="btn-card-edit">Card Edit</a>
+          <a href="/is-back/expansions" class="nav-link nav-link--admin" id="btn-expansions">Expansions</a>
           <a href="/message-center" class="nav-link nav-link--admin" id="btn-message-center">Message Center</a>
         </div>
       </div>
@@ -179,6 +180,27 @@ function toggleMobileNav() {
   nav.classList.toggle('mobile-open');
   icon.textContent = nav.classList.contains('mobile-open') ? 'close' : 'menu';
 }
+
+// ── Auth nav link ──────────────────────────────────────────────────────────
+(async () => {
+  const authLink = document.getElementById('nav-auth-link');
+  const token = localStorage.getItem('authToken');
+  if (!token) return;
+  try {
+    const res = await fetch('/api/user/profile', { headers: { Authorization: 'Bearer ' + token } });
+    if (!res.ok) return;
+  } catch { return; }
+  authLink.textContent = 'Logout';
+  authLink.href = '#';
+  authLink.addEventListener('click', e => {
+    e.preventDefault();
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('username');
+    localStorage.removeItem('firstname');
+    location.reload();
+  });
+})();
 
 // ── Admin visibility ──────────────────────────────────────────────────────────
 (async () => {
@@ -349,6 +371,7 @@ function toggleMobileNav() {
       dragStartP = pos;
       dragActive = false;
       targetPos = null;
+      vp.setPointerCapture(e.pointerId);
     });
     vp.addEventListener('pointermove', e => {
       if (dragStartX === null) return;
@@ -357,10 +380,13 @@ function toggleMobileNav() {
       if (dragActive) targetPos = null;
       if (dragActive) pos = dragStartP - dx;
     });
-    vp.addEventListener('pointerup', () => {
+    const endDrag = e => {
       dragStartX = null;
+      try { vp.releasePointerCapture(e.pointerId); } catch {}
       setTimeout(() => { dragActive = false; }, 50);
-    });
+    };
+    vp.addEventListener('pointerup', endDrag);
+    vp.addEventListener('pointercancel', endDrag);
   }
 
   function tick() {
