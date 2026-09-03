@@ -889,10 +889,11 @@
     lines.push('INSERT INTO isBack_expansion (id, name, firstCardId, lastCardId, releaseDate, isReleased, showExpansionInCardGallery, showInDeckBuilder)');
     lines.push('VALUES');
     lines.push(vals.join(',\n') + '');
+    lines.push('AS new_expansion');
     lines.push('ON DUPLICATE KEY UPDATE');
-    lines.push('  name = VALUES(name), firstCardId = VALUES(firstCardId), lastCardId = VALUES(lastCardId),');
-    lines.push('  releaseDate = VALUES(releaseDate), isReleased = VALUES(isReleased),');
-    lines.push('  showExpansionInCardGallery = VALUES(showExpansionInCardGallery), showInDeckBuilder = VALUES(showInDeckBuilder);');
+    lines.push('  name = new_expansion.name, firstCardId = new_expansion.firstCardId, lastCardId = new_expansion.lastCardId,');
+    lines.push('  releaseDate = new_expansion.releaseDate, isReleased = new_expansion.isReleased,');
+    lines.push('  showExpansionInCardGallery = new_expansion.showExpansionInCardGallery, showInDeckBuilder = new_expansion.showInDeckBuilder;');
     lines.push('');
 
     const allSubs = expansions.flatMap(e => e.subReleases || []);
@@ -907,10 +908,11 @@
       lines.push('INSERT INTO isBack_subRelease (id, expansionId, name, releaseDate, isReleased, showExpansionInCardGallery, showInDeckBuilder)');
       lines.push('VALUES');
       lines.push(subVals.join(',\n') + '');
+      lines.push('AS new_subRelease');
       lines.push('ON DUPLICATE KEY UPDATE');
-      lines.push('  expansionId = VALUES(expansionId), name = VALUES(name), releaseDate = VALUES(releaseDate),');
-      lines.push('  isReleased = VALUES(isReleased), showExpansionInCardGallery = VALUES(showExpansionInCardGallery),');
-      lines.push('  showInDeckBuilder = VALUES(showInDeckBuilder);');
+      lines.push('  expansionId = new_subRelease.expansionId, name = new_subRelease.name, releaseDate = new_subRelease.releaseDate,');
+      lines.push('  isReleased = new_subRelease.isReleased, showExpansionInCardGallery = new_subRelease.showExpansionInCardGallery,');
+      lines.push('  showInDeckBuilder = new_subRelease.showInDeckBuilder;');
       lines.push('');
 
       const cardVals = [];
@@ -919,7 +921,8 @@
         lines.push('INSERT INTO isBack_subExpansionCard (subReleaseId, cardId)');
         lines.push('VALUES');
         lines.push(cardVals.join(',\n') + '');
-        lines.push('ON DUPLICATE KEY UPDATE cardId = VALUES(cardId);');
+        lines.push('AS new_card');
+        lines.push('ON DUPLICATE KEY UPDATE cardId = new_card.cardId;');
         lines.push('');
       }
     }
