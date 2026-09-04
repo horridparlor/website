@@ -10,6 +10,8 @@
   <script src="/components/topbar.js" defer></script>
   <link rel="stylesheet" href="/components/footer.css">
   <script src="/components/footer.js" defer></script>
+  <link rel="stylesheet" href="/components/card-edit-modal.css">
+  <script src="/components/card-edit-modal.js" defer></script>
   <style>
     body { background:#0d1117; color:#e6edf3; min-height:100vh; display:flex; flex-direction:column; font-family:inherit; }
 
@@ -58,38 +60,6 @@
     .empty-msg { color:#8b949e; padding:40px 0; text-align:center; font-size:15px; }
     .loading-msg { color:#8b949e; padding:40px 0; text-align:center; }
 
-    /* Modal */
-    .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.7); display:flex; align-items:center; justify-content:center; z-index:100; padding:20px; box-sizing:border-box; }
-    .modal-backdrop.hidden { display:none; }
-    .modal-box { background:#161b22; border:1px solid #30363d; border-radius:12px; padding:28px 32px; width:100%; max-width:640px; max-height:90vh; overflow-y:auto; }
-    .modal-box h3 { margin:0 0 20px; color:#f0f6fc; font-size:18px; }
-    .field { margin-bottom:16px; }
-    .field label { display:block; font-size:13px; color:#8b949e; margin-bottom:5px; }
-    .field input, .field select { width:100%; background:#0d1117; border:1px solid #30363d; border-radius:6px; padding:9px 12px; color:#e6edf3; font-size:14px; box-sizing:border-box; transition:border-color .15s; }
-    .field input:focus, .field select:focus { outline:none; border-color:#58a6ff; }
-    .field-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-    .field-row-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
-    .modal-error { background:#2d1b1b; border:1px solid #f85149; color:#f85149; border-radius:6px; padding:8px 12px; font-size:13px; margin-bottom:14px; display:none; }
-    .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; flex-wrap:wrap; }
-
-    /* Image upload panes */
-    .art-section { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
-    .art-pane { background:#0d1117; border:1px solid #30363d; border-radius:8px; padding:12px; }
-    .art-pane h4 { margin:0 0 10px; font-size:13px; color:#8b949e; font-weight:600; }
-    .art-preview { aspect-ratio:1086/1512; border-radius:6px; overflow:hidden; background:#161b22; border:1px solid #30363d; margin-bottom:10px; display:flex; align-items:center; justify-content:center; }
-    .art-preview img { width:100%; height:100%; object-fit:cover; display:block; }
-    .art-preview .no-img { color:#555; font-size:12px; }
-    .art-pane input[type="file"] { width:100%; font-size:12px; color:#8b949e; margin-bottom:8px; }
-
-    /* Toast */
-    .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#21262d; border:1px solid #30363d; color:#e6edf3; border-radius:8px; padding:10px 20px; font-size:14px; z-index:200; display:none; max-width:min(90vw,560px); word-wrap:break-word; }
-    .toast.ok  { border-color:#2ea043; color:#3fb950; }
-    .toast.err { border-color:#f85149; color:#f85149; }
-
-    @media (max-width: 560px) {
-      .art-section { grid-template-columns:1fr; }
-      .field-row, .field-row-3 { grid-template-columns:1fr; }
-    }
   </style>
 </head>
 <body>
@@ -103,76 +73,7 @@
   <div class="loading-msg" id="loading-msg">Loading…</div>
 </div>
 
-<!-- Edit modal -->
-<div class="modal-backdrop hidden" id="modal-edit">
-  <div class="modal-box">
-    <h3 id="modal-edit-title">Edit Card</h3>
-    <div class="modal-error" id="modal-edit-error"></div>
-    <input type="hidden" id="edit-id" />
-
-    <div class="art-section">
-      <div class="art-pane">
-        <h4>Card Art (card-art/)</h4>
-        <div class="art-preview" id="art-preview"><span class="no-img">No image</span></div>
-        <input type="file" id="art-file" accept="image/png" />
-      </div>
-      <div class="art-pane">
-        <h4>Card Image (card-images/)</h4>
-        <div class="art-preview" id="image-preview"><span class="no-img">No image</span></div>
-        <input type="file" id="image-file" accept="image/png" />
-      </div>
-    </div>
-
-    <div class="field" id="art-version-field" style="display:none;">
-      <label for="edit-art-version">Art Version</label>
-      <select id="edit-art-version"></select>
-    </div>
-
-    <div class="field">
-      <label for="edit-name">Name</label>
-      <input type="text" id="edit-name" placeholder="e.g. Rakuel" maxlength="255" />
-      <div class="field-hint" style="font-size:12px;color:#8b949e;margin-top:4px;">Renaming also renames this card's files in card-art/ and card-images/ to match.</div>
-    </div>
-
-    <div class="field-row">
-      <div class="field">
-        <label for="edit-power">Power</label>
-        <input type="number" id="edit-power" min="0" step="1000" />
-      </div>
-      <div class="field">
-        <label for="edit-type">Type</label>
-        <select id="edit-type">
-          <option value="1">Rock</option>
-          <option value="2">Paper</option>
-          <option value="3">Scissors</option>
-          <option value="4">Gun</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="field-row-3">
-      <div class="field">
-        <label for="edit-keyword1">Keyword 1</label>
-        <select id="edit-keyword1"></select>
-      </div>
-      <div class="field">
-        <label for="edit-keyword2">Keyword 2</label>
-        <select id="edit-keyword2"></select>
-      </div>
-      <div class="field">
-        <label for="edit-keyword3">Keyword 3</label>
-        <select id="edit-keyword3"></select>
-      </div>
-    </div>
-
-    <div class="modal-actions">
-      <button class="btn btn-ghost" id="btn-edit-cancel">Cancel</button>
-      <button class="btn btn-green" id="btn-edit-save">Save</button>
-    </div>
-  </div>
-</div>
-
-<div class="toast" id="toast"></div>
+<rk-card-edit-modal id="card-edit-modal"></rk-card-edit-modal>
 
 <script>
 (() => {
@@ -190,19 +91,10 @@
   let expansions = [];
   let canManageCards = false;
   let authToken  = localStorage.getItem('authToken');
-  let toastTimer = null;
 
   const root = document.getElementById('page-root');
+  const cardEditModal = document.getElementById('card-edit-modal');
   const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-
-  const showToast = (msg, type = '') => {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.className = 'toast ' + type;
-    t.style.display = 'block';
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { t.style.display = 'none'; }, type === 'err' ? 8000 : 3500);
-  };
 
   const authHeaders = (json = true) => ({
     ...(json ? { 'Content-Type': 'application/json' } : {}),
@@ -531,202 +423,22 @@
       </div>
     `).join('');
     grid.querySelectorAll('.card-tile').forEach(tile =>
-      tile.addEventListener('click', () => openEditModal(Number(tile.dataset.id)))
+      tile.addEventListener('click', () => {
+        const c = cards.find(x => x.id === Number(tile.dataset.id));
+        if (c) cardEditModal.open(c);
+      })
     );
   };
 
   // ── Edit modal ───────────────────────────────────────────────────────────
-
-  // Hidden (lowercase-named) keywords are excluded from selection, but if a card already
-  // has one assigned, it stays listed for that slot so saving doesn't silently clear it.
-  const keywordOptionsHtml = (currentId) => {
-    const current = currentId ? keywords.find(k => k.id === Number(currentId)) : null;
-    const list = (current && !visibleKeywords.some(k => k.id === current.id))
-      ? [...visibleKeywords, current]
-      : visibleKeywords;
-    return `<option value="">None</option>` + list.map(k => `<option value="${k.id}">${esc(k.displayName)}</option>`).join('');
-  };
-
-  let editingCard = null;
-  // Object URLs for locally-chosen-but-not-yet-saved files, so the pane shows what
-  // you're about to upload rather than what's currently on disk.
-  let artObjectUrl   = null;
-  let imageObjectUrl = null;
-
-  const clearLocalPreviews = () => {
-    if (artObjectUrl)   { URL.revokeObjectURL(artObjectUrl);   artObjectUrl   = null; }
-    if (imageObjectUrl) { URL.revokeObjectURL(imageObjectUrl); imageObjectUrl = null; }
-    document.getElementById('art-file').value   = '';
-    document.getElementById('image-file').value = '';
-  };
-
-  const refreshArtPreviews = () => {
-    const av = Number(document.getElementById('edit-art-version').value || 1);
-    const bust = Date.now();
-    const bustSep = (path) => path.includes('?') ? '&' : '?';
-    const artEl   = document.getElementById('art-preview');
-    const imageEl = document.getElementById('image-preview');
-    const artPath   = cardArtPath(editingCard.id, editingCard.name, av, editingCard.cardArtUpdatedAt);
-    const imagePath = cardImagePath(editingCard.id, editingCard.name, av, editingCard.cardImageUpdatedAt);
-    artEl.innerHTML   = `<img src="${artPath}${bustSep(artPath)}t=${bust}" alt=""
-                              onerror="this.parentElement.innerHTML='<span class=\\'no-img\\'>No image</span>';" />`;
-    imageEl.innerHTML = `<img src="${imagePath}${bustSep(imagePath)}t=${bust}" alt=""
-                              onerror="this.parentElement.innerHTML='<span class=\\'no-img\\'>No image</span>';" />`;
-  };
-
-  const previewLocalFile = (paneId, file) => {
-    const url = URL.createObjectURL(file);
-    document.getElementById(paneId).innerHTML = `<img src="${url}" alt="" />`;
-    return url;
-  };
-
-  const openEditModal = (id) => {
-    const c = cards.find(x => x.id === id);
-    if (!c) return;
-    editingCard = c;
-
-    document.getElementById('modal-edit-title').textContent = `Edit Card #${c.id}`;
-    document.getElementById('modal-edit-error').style.display = 'none';
-    document.getElementById('edit-id').value    = c.id;
-    document.getElementById('edit-name').value  = c.name;
-    document.getElementById('edit-power').value = c.power;
-    document.getElementById('edit-type').value  = String(c.cardTypeId);
-
-    document.getElementById('edit-keyword1').innerHTML = keywordOptionsHtml(c.keywordId);
-    document.getElementById('edit-keyword2').innerHTML = keywordOptionsHtml(c.keyword2Id);
-    document.getElementById('edit-keyword3').innerHTML = keywordOptionsHtml(c.keyword3Id);
-    document.getElementById('edit-keyword1').value = c.keywordId  ? String(c.keywordId)  : '';
-    document.getElementById('edit-keyword2').value = c.keyword2Id ? String(c.keyword2Id) : '';
-    document.getElementById('edit-keyword3').value = c.keyword3Id ? String(c.keyword3Id) : '';
-
-    const maxVersion = (c.altArts || 0) + 1;
-    const versionSelect = document.getElementById('edit-art-version');
-    versionSelect.innerHTML = Array.from({ length: maxVersion }, (_, i) => i + 1)
-      .map(v => `<option value="${v}">${v}</option>`).join('');
-    document.getElementById('art-version-field').style.display = maxVersion > 1 ? 'block' : 'none';
-
-    clearLocalPreviews();
-
-    refreshArtPreviews();
-    document.getElementById('modal-edit').classList.remove('hidden');
-  };
-
-  const closeEditModal = () => {
-    document.getElementById('modal-edit').classList.add('hidden');
-    clearLocalPreviews();
-    editingCard = null;
-  };
-  document.getElementById('btn-edit-cancel').addEventListener('click', closeEditModal);
-  document.getElementById('edit-art-version').addEventListener('change', () => {
-    if (!editingCard) return;
-    // A chosen-but-unsaved file was tagged for the version it was picked under —
-    // switching versions without a matching re-pick would silently upload it to the
-    // wrong slot, so drop it and fall back to what's on disk for the new version.
-    clearLocalPreviews();
-    refreshArtPreviews();
-  });
-  document.getElementById('art-file').addEventListener('change', () => {
-    const file = document.getElementById('art-file').files[0];
-    if (artObjectUrl) URL.revokeObjectURL(artObjectUrl);
-    artObjectUrl = file ? previewLocalFile('art-preview', file) : null;
-  });
-  document.getElementById('image-file').addEventListener('change', () => {
-    const file = document.getElementById('image-file').files[0];
-    if (imageObjectUrl) URL.revokeObjectURL(imageObjectUrl);
-    imageObjectUrl = file ? previewLocalFile('image-preview', file) : null;
-  });
-
-  // Uploads one file for the currently-editing card. Returns an error message string
-  // on failure, or null on success — kept separate from the metadata save (a different
-  // API operation) but always run after it, since the upload writes under the card's
-  // *current* name/id and a name change must have already been applied server-side.
-  const uploadCardImage = async (kind, file) => {
-    const form = new FormData();
-    form.append('kind', kind);
-    form.append('id', editingCard.id);
-    form.append('artVersion', document.getElementById('edit-art-version').value || '1');
-    form.append('file', file);
-    try {
-      const res  = await fetch(CARDS_URL, { method: 'POST', headers: authHeaders(false), body: form });
-      const data = await res.json();
-      if (!res.ok) return data.error || `Failed to upload ${kind}.`;
-      return null;
-    } catch (e) {
-      return `Network error uploading ${kind}: ${e.message}`;
-    }
-  };
-
-  document.getElementById('btn-edit-save').addEventListener('click', async () => {
-    const errEl = document.getElementById('modal-edit-error');
-    errEl.style.display = 'none';
-
-    const id    = parseInt(document.getElementById('edit-id').value, 10);
-    const name  = document.getElementById('edit-name').value.trim();
-    const power = parseInt(document.getElementById('edit-power').value, 10);
-    if (!name) { errEl.textContent = 'Name is required.'; errEl.style.display = 'block'; return; }
-    if (isNaN(power) || power < 0) { errEl.textContent = 'Power is required.'; errEl.style.display = 'block'; return; }
-
-    const body = {
-      action:     'update',
-      id,
-      name,
-      power,
-      cardTypeId: parseInt(document.getElementById('edit-type').value, 10),
-      keywordId:  document.getElementById('edit-keyword1').value || null,
-      keyword2Id: document.getElementById('edit-keyword2').value || null,
-      keyword3Id: document.getElementById('edit-keyword3').value || null,
-    };
-    const artFile   = document.getElementById('art-file').files[0]   || null;
-    const imageFile = document.getElementById('image-file').files[0] || null;
-
-    const btn = document.getElementById('btn-edit-save');
-    btn.disabled = true;
-    try {
-      const res  = await fetch(CARDS_URL, { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) });
-      const data = await res.json();
-      if (!res.ok) { errEl.textContent = data.error || 'Save failed.'; errEl.style.display = 'block'; return; }
-      const idx = cards.findIndex(c => c.id === id);
-      if (idx !== -1) cards[idx] = data.card;
-      editingCard = data.card;
-
-      const uploadErrors = [];
-      // The upload endpoint only returns {uploaded:true}, not the updated card, so bump
-      // the *Updated At timestamps locally on success — otherwise the grid thumbnail's
-      // ?v= cache-buster stays stale and the browser keeps showing the old cached image.
-      if (artFile) {
-        const err = await uploadCardImage('art', artFile);
-        if (err) uploadErrors.push(err);
-        else if (idx !== -1) cards[idx].cardArtUpdatedAt = Date.now();
-      }
-      if (imageFile) {
-        const err = await uploadCardImage('image', imageFile);
-        if (err) uploadErrors.push(err);
-        else if (idx !== -1) cards[idx].cardImageUpdatedAt = Date.now();
-      }
-
-      closeEditModal();
-      // The card itself can save successfully even if renaming its image files on disk, or
-      // uploading a new one, failed (e.g. a file-permission problem) — surface that instead
-      // of a plain success toast.
-      const messages = [data.error, ...uploadErrors].filter(Boolean);
-      if (messages.length) {
-        showToast(messages.join(' '), 'err');
-      } else {
-        showToast('Card updated!', 'ok');
-      }
-      filterCards();
-    } catch (e) {
-      errEl.textContent = 'Network error: ' + e.message;
-      errEl.style.display = 'block';
-    } finally {
-      btn.disabled = false;
-    }
-  });
-
-  // ── Keyboard ─────────────────────────────────────────────────────────────
-
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeEditModal();
+  // Refreshes just this card's data in place — the grid thumbnail's cardImagePath
+  // already cache-busts off cardImageUpdatedAt, so a plain re-render picks up a
+  // newly-uploaded image automatically.
+  cardEditModal.addEventListener('rk-card-saved', (e) => {
+    const { card } = e.detail;
+    const idx = cards.findIndex(c => c.id === card.id);
+    if (idx !== -1) cards[idx] = { ...cards[idx], ...card };
+    filterCards();
   });
 
   // ── Init ─────────────────────────────────────────────────────────────────

@@ -11,6 +11,10 @@
   <script src="/components/topbar.js" defer></script>
   <link rel="stylesheet" href="/components/footer.css">
   <script src="/components/footer.js" defer></script>
+  <link rel="stylesheet" href="/components/card-edit-modal.css">
+  <script src="/components/card-edit-modal.js" defer></script>
+  <link rel="stylesheet" href="/components/login-modal.css">
+  <script src="/components/login-modal.js" defer></script>
 </head>
 <body>
 <rk-topbar title="Rakuel Is Back – Card Gallery">
@@ -240,6 +244,9 @@
 
 <div id="toast" class="toast">Failed to load cards. Please try refreshing.</div>
 
+<rk-card-edit-modal id="card-edit-modal"></rk-card-edit-modal>
+<rk-login-modal id="login-modal"></rk-login-modal>
+
 <script src="rules.js"></script>
 <script>
   (() => {
@@ -248,6 +255,7 @@
     const KEYWORDS_URL   = API_URL + 'keywords';
     const EXPANSIONS_URL = API_URL + 'expansions';
     const DECKS_URL      = API_URL + 'decks';
+    const PROFILE_URL    = '../../api/user/profile';
     const qs = new URLSearchParams(location.search);
 
     const el = {
@@ -293,6 +301,8 @@
       filtersSection: document.getElementById('filters-section'),
       filterToggleBtn: document.getElementById('filter-toggle-btn'),
       filterBadge:    document.getElementById('filter-badge'),
+      cardEditModal:  document.getElementById('card-edit-modal'),
+      loginModal:     document.getElementById('login-modal'),
     };
 
     const CARDS_ORDER_OPTIONS = [
@@ -319,6 +329,7 @@
     let macros      = [];
     let expansions  = []; // [{id, name, firstCardId, lastCardId, isReleased, showExpansionInCardGallery, showInDeckBuilder}]
     let view        = qs.get('view') || DEFAULT_VIEW;
+    let canManageCards = false;
     const checkedIds  = new Set();
     let visibleCardIds = [];
     let decklistCardIds = null; // null = no filter; Set of card IDs when a deck is selected
@@ -1029,6 +1040,75 @@
       filterCards();
     });
 
+    // ── Quick edit (Ctrl+E) ─────────────────────────────────────────────
+    // Opens the shared card-edit modal for the single currently-selected card —
+    // lets an admin fix a card without leaving the gallery to find it on card-edit.
+    // If not logged in yet, prompts login first and resumes straight into the edit
+    // modal on success, rather than dropping the action like deck-builder's Save does.
+
+    const isEditableTarget = (t) =>
+      !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
+
+    // Re-checks admin rights against the server — used right after a fresh login,
+    // since `canManageCards` was only known as of the initial page load.
+    const refreshCanManageCards = async () => {
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) { canManageCards = false; return; }
+      try {
+        const res = await fetch(CARDS_URL, { headers: { 'Authorization': 'Bearer ' + authToken } });
+        canManageCards = res.ok && !!(await res.json()).canManageCards;
+      } catch (_) { canManageCards = false; }
+    };
+
+    // GET /cards never 401s (it just computes canManageCards:false for anyone it
+    // can't identify), so a stale-but-present token looks identical to "logged in,
+    // not an admin" from that endpoint alone. /profile *does* enforce auth, so it's
+    // the one place we can tell "token rejected" apart from "valid, just not admin".
+    const isAuthTokenValid = async (authToken) => {
+      try {
+        const res = await fetch(PROFILE_URL, { headers: { 'Authorization': 'Bearer ' + authToken } });
+        return res.ok;
+      } catch (_) { return false; }
+    };
+
+    document.addEventListener('keydown', async (e) => {
+      if (view !== 'gallery' && view !== 'cards') return;
+      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+      if (e.key.toLowerCase() !== 'e') return;
+      if (isEditableTarget(e.target)) return;
+      if (checkedIds.size !== 1) return;
+      const id = checkedIds.values().next().value;
+      const card = allCards.find(c => c.id === id);
+      if (!card) return;
+      e.preventDefault();
+
+      if (!canManageCards) {
+        const authToken = localStorage.getItem('authToken');
+        if (authToken && await isAuthTokenValid(authToken)) return; // logged in but not an admin — nothing to do
+        // No token, or a stale/expired one — clear it and prompt login immediately
+        // rather than silently doing nothing (the deck-builder bug this mirrors).
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('userId');
+        localStorage.removeItem('username');
+        const loggedIn = await el.loginModal.open({ message: 'Log in with admin rights to edit this card.' });
+        if (!loggedIn) return;
+        await refreshCanManageCards();
+        if (!canManageCards) return;
+      }
+
+      el.cardEditModal.open(card);
+    });
+
+    // Refreshes just this card's data in place — the grid's cardArtPathV/cardFinalPathV
+    // already cache-bust off cardArtUpdatedAt/cardImageUpdatedAt independently, so a plain
+    // re-render picks up whichever image(s) actually changed (art, image, or both).
+    el.cardEditModal.addEventListener('rk-card-saved', (e) => {
+      const { card } = e.detail;
+      const idx = allCards.findIndex(c => c.id === card.id);
+      if (idx !== -1) allCards[idx] = { ...allCards[idx], ...card };
+      filterCards();
+    });
+
     // ── Filter controls ───────────────────────────────────────────────────
 
     [el.name, el.keywords].forEach(ctrl => {
@@ -1133,10 +1213,15 @@
         }
       } catch (_) { /* API unavailable → expansions stays [] → all cards treated as released */ }
       try {
-        const res = await fetch(CARDS_URL, { method: 'GET' });
+        const authToken = localStorage.getItem('authToken');
+        const res = await fetch(CARDS_URL, {
+          method: 'GET',
+          headers: authToken ? { 'Authorization': 'Bearer ' + authToken } : {},
+        });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
         allCards = Array.isArray(data) ? data : (data.cards || []);
+        canManageCards = !!data.canManageCards;
         const currentExpansion = qs.get('expansion') ? Number(qs.get('expansion')) : '';
         el.expansion.innerHTML = '<option value="">Any</option>' +
           expansions

@@ -568,7 +568,10 @@
       updateStats();
     }
   });
-  el.btnLogout.addEventListener('click', () => {
+  // Also used when a stored token turns out to be stale/rejected by the server
+  // (see loadDecks) — that case should prompt login immediately, same as a
+  // manual logout, rather than silently leaving the page half-loaded.
+  const logout = () => {
     authToken = null; userId = null; username = null;
     localStorage.removeItem('authToken');
     localStorage.removeItem('userId');
@@ -577,7 +580,8 @@
     updateUserUI();
     el.modalLogin.classList.remove('hidden');
     renderDeckSelector();
-  });
+  };
+  el.btnLogout.addEventListener('click', logout);
 
   /* ── Expansion visibility ───────────────────────────────────────── */
   // Sub-releases don't appear as their own category — they just grant a
@@ -654,7 +658,7 @@
     if (!authToken) return;
     try {
       const res  = await fetch(DECKS_URL, { headers: authHeaders() });
-      if (!res.ok) { authToken=null; localStorage.removeItem('authToken'); return; }
+      if (!res.ok) { logout(); return; }
       const data = await res.json();
       savedDecks = Array.isArray(data) ? data : (data.decks || []);
       renderDeckSelector();
@@ -1478,6 +1482,13 @@
       // Already logged in — load data and decks immediately
       await initData();
       await loadDecks();
+
+      if (!authToken) {
+        // loadDecks() found the stored token was stale/rejected and already logged
+        // us out (shows the login modal) — nothing left to restore.
+        setLoading(null);
+        return;
+      }
 
       // Restore draft or auto-select most-recently-updated deck
       const draft = loadDraft();

@@ -1,0 +1,41 @@
+/* Styles for <rk-login-modal> — a shared login prompt any is-back/* page can use.
+   All rules are scoped under the element and use an "rk-lm-" prefix so the component
+   is safe to drop onto any page regardless of that page's own class names. */
+
+rk-login-modal .rk-lm-backdrop {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, .7);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 150; padding: 20px; box-sizing: border-box;
+}
+rk-login-modal .rk-lm-backdrop.hidden { display: none; }
+rk-login-modal .rk-lm-box {
+  background: #161b22; border: 1px solid #30363d; border-radius: 12px;
+  padding: 28px 32px; width: 100%; max-width: 380px; box-sizing: border-box;
+  font-family: inherit;
+}
+rk-login-modal .rk-lm-title { margin: 0 0 8px; color: #f0f6fc; font-size: 18px; }
+rk-login-modal .rk-lm-message { margin: 0 0 18px; color: #8b949e; font-size: 13px; }
+
+rk-login-modal .rk-lm-field { margin-bottom: 12px; }
+rk-login-modal .rk-lm-field input {
+  width: 100%; background: #0d1117; border: 1px solid #30363d; border-radius: 6px;
+  padding: 9px 12px; color: #e6edf3; font-size: 14px; box-sizing: border-box;
+  transition: border-color .15s;
+}
+rk-login-modal .rk-lm-field input:focus { outline: none; border-color: #58a6ff; }
+
+rk-login-modal .rk-lm-error {
+  background: #2d1b1b; border: 1px solid #f85149; color: #f85149; border-radius: 6px;
+  padding: 8px 12px; font-size: 13px; margin-bottom: 14px; display: none;
+}
+rk-login-modal .rk-lm-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 6px; flex-wrap: wrap; }
+
+rk-login-modal .rk-lm-btn {
+  border-radius: 6px; padding: 8px 16px; font-size: 14px; font-weight: 600;
+  cursor: pointer; border: 1px solid; transition: background .15s; font-family: inherit;
+}
+rk-login-modal .rk-lm-btn-green { background: #238636; color: #fff; border-color: #2ea043; }
+rk-login-modal .rk-lm-btn-green:hover { background: #2ea043; }
+rk-login-modal .rk-lm-btn-ghost { background: transparent; color: #8b949e; border-color: #30363d; }
+rk-login-modal .rk-lm-btn-ghost:hover { background: #21262d; color: #e6edf3; }
+rk-login-modal .rk-lm-btn:disabled { opacity: .45; cursor: not-allowed; }
