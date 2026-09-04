@@ -1109,6 +1109,16 @@
       filterCards();
     });
 
+    // Closing the modal (however it closed) clears the card's selection too, so the
+    // gallery doesn't stay showing it as "focused" once you're done editing it.
+    el.cardEditModal.addEventListener('rk-modal-closed', (e) => {
+      const { card } = e.detail;
+      if (!checkedIds.has(card.id)) return;
+      checkedIds.delete(card.id);
+      updateBulkBar();
+      filterCards();
+    });
+
     // ── Filter controls ───────────────────────────────────────────────────
 
     [el.name, el.keywords].forEach(ctrl => {

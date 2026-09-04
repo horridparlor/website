@@ -11,6 +11,8 @@
    locally bumped for whichever of artUpdated/imageUpdated is true (the upload
    endpoint doesn't return the updated row). `error` covers a partial failure
    (e.g. a rename or upload problem) even though the save itself succeeded.
+   Fires 'rk-modal-closed' (bubbles) on the element whenever the modal closes for
+   any reason (Save, Cancel, or Escape): detail: { card } — the card that was open.
    Assumes it's embedded on a page at /is-back/<name>/ — image and API paths are
    relative two levels up, matching every other is-back/* page. */
 
@@ -250,9 +252,13 @@
     }
 
     close() {
+      const card = this._card;
       this._backdrop.classList.add('hidden');
       this._clearLocalPreviews();
       this._card = null;
+      // Lets a host page clear whatever selection/focus state led here (e.g. card-gallery's
+      // single-card selection) whether the modal was saved, cancelled, or Escaped out of.
+      if (card) this.dispatchEvent(new CustomEvent('rk-modal-closed', { bubbles: true, detail: { card } }));
     }
 
     _showToast(msg, type) {
