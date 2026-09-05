@@ -275,6 +275,7 @@ function toggleMobileNav() {
   let dragStartX = null;
   let dragStartP = 0;
   let targetPos  = null;
+  let downCard   = null;
 
   for (let c = 0; c < COPIES; c++) {
     albums.forEach((a, idx) => {
@@ -371,6 +372,7 @@ function toggleMobileNav() {
       dragStartP = pos;
       dragActive = false;
       targetPos = null;
+      downCard = e.target.closest('.album-card');
       vp.setPointerCapture(e.pointerId);
     });
     vp.addEventListener('pointermove', e => {
@@ -383,6 +385,17 @@ function toggleMobileNav() {
     const endDrag = e => {
       dragStartX = null;
       try { vp.releasePointerCapture(e.pointerId); } catch {}
+      // setPointerCapture retargets the resulting click event away from the
+      // card, so select on pointerup here instead of relying on the card's
+      // own click listener (which only fires reliably on touch devices).
+      if (!dragActive && downCard) {
+        const idx = Number(downCard.dataset.idx);
+        if (idx !== activeIdx) {
+          selectAlbum(idx);
+          centerAlbum(idx, true);
+        }
+      }
+      downCard = null;
       setTimeout(() => { dragActive = false; }, 50);
     };
     vp.addEventListener('pointerup', endDrag);
