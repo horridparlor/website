@@ -727,27 +727,53 @@ h1 {
 }
 
 .gig-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 220px) 1fr;
+  display: flex;
+  align-items: stretch;
   gap: 1.75rem;
-  align-items: start;
+}
+
+.gig-photo-frame {
+  position: relative;
+  flex: 0 0 240px;
+  width: 240px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 0 30px rgba(0,255,204,0.18);
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.gig-photo-frame:hover {
+  border-color: rgba(0, 255, 204, 0.6);
+  box-shadow: 0 0 22px rgba(0, 255, 204, 0.3);
+}
+
+.gig-photo-frame:focus-visible {
+  outline: none;
+  border-color: #00ffcc;
+  box-shadow: 0 0 0 3px rgba(0,255,204,0.28);
+}
+
+.gig-photo-frame--secondary {
+  display: none;
 }
 
 .gig-photo {
   width: 100%;
-  aspect-ratio: 3 / 4;
+  height: 100%;
   object-fit: cover;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.08);
-  box-shadow: 0 0 30px rgba(0,255,204,0.18);
+  object-position: right center;
+  transform: scale(1.14);
   display: block;
 }
 
 .gig-content {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  min-width: 0;
+  gap: 0.65rem;
+  flex: 1 1 260px;
+  min-width: 260px;
 }
 
 .gig-header {
@@ -790,9 +816,9 @@ h1 {
 .gig-date .material-icons { font-size: 1rem; }
 
 .gig-blurb {
-  font-size: 1.02rem;
+  font-size: 0.92rem;
   color: #e8e8e8;
-  line-height: 1.8;
+  line-height: 1.55;
   font-weight: 300;
   letter-spacing: 0.02em;
   margin: 0;
@@ -800,8 +826,9 @@ h1 {
 
 .gig-videos {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  flex-wrap: nowrap;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
 }
 
 .gig-video-main,
@@ -813,7 +840,7 @@ h1 {
   background: #141414;
   border: 1px solid rgba(255,255,255,0.06);
   transition: border-color 0.2s, box-shadow 0.2s;
-  flex: 0 0 auto;
+  min-width: 0;
 }
 
 .gig-video-main:hover,
@@ -830,7 +857,7 @@ h1 {
 }
 
 .gig-video-main {
-  width: 200px;
+  flex: 2.1 1 0;
   aspect-ratio: 16 / 9;
 }
 
@@ -898,7 +925,7 @@ h1 {
 }
 
 .gig-short {
-  width: 100px;
+  flex: 1 1 0;
   aspect-ratio: 9 / 16;
 }
 
@@ -910,8 +937,116 @@ h1 {
 .gig-short .gig-play-btn .material-icons { font-size: 1.3rem; }
 
 @media (max-width: 900px) {
-  .gig-layout { grid-template-columns: 1fr; }
-  .gig-photo { max-width: 220px; aspect-ratio: 4 / 3; }
+  .gig-layout {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    align-items: start;
+    gap: 0.9rem 0.75rem;
+  }
+
+  /* Flatten the wrapper boxes so their children become direct grid items,
+     which lets us re-order photo/videos independently of the markup. */
+  .gig-content,
+  .gig-videos {
+    display: contents;
+  }
+
+  .gig-header { order: 1; grid-column: 1 / -1; }
+  .gig-blurb  { order: 2; grid-column: 1 / -1; }
+
+  /* Row: the two photos, side by side */
+  .gig-photo-frame {
+    order: 3;
+    grid-column: span 3;
+    width: 100%;
+    max-width: none;
+    aspect-ratio: 3 / 4;
+    margin: 0;
+  }
+  .gig-photo-frame--secondary {
+    display: block;
+    order: 4;
+  }
+
+  /* Row: long video on its own */
+  .gig-video-main { order: 5; grid-column: 1 / -1; }
+
+  /* Row: three shorts, in order Minä Sydän S.A.O. / Kysspyssy / Sulata Mun Kyyneleet */
+  .gig-short[data-yt="uDnNI-aQYa0"] { order: 6; grid-column: span 2; }
+  .gig-short[data-yt="4Zc2JYnuLMk"] { order: 7; grid-column: span 2; }
+  .gig-short[data-yt="3Fd7v6QwXW8"] { order: 8; grid-column: span 2; }
+}
+
+/* ── Gig photo lightbox ───────────────────────────────────────────────────── */
+.gig-lightbox {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  box-sizing: border-box;
+  background:
+    radial-gradient(circle at center, rgba(20,20,20,0.55) 0%, rgba(0,0,0,0.94) 78%);
+  backdrop-filter: blur(2px);
+  cursor: zoom-out;
+}
+
+.gig-lightbox.is-open {
+  display: flex;
+}
+
+.gig-lightbox-figure {
+  margin: 0;
+  max-width: min(90vw, 720px);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: default;
+}
+
+.gig-lightbox-figure img {
+  max-width: 100%;
+  max-height: 80vh;
+  width: auto;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 40px rgba(0,255,204,0.15);
+  display: block;
+}
+
+.gig-lightbox-figure figcaption {
+  font-family: 'Anton', sans-serif;
+  font-size: 1.05rem;
+  color: #fff;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+.gig-lightbox-close {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.25rem;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(20,20,20,0.75);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.gig-lightbox-close:hover,
+.gig-lightbox-close:focus-visible {
+  background: rgba(0,255,204,0.16);
+  border-color: rgba(0,255,204,0.5);
+  outline: none;
 }
 
 @media (max-width: 700px) {
