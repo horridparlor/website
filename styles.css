@@ -712,3 +712,209 @@ h1 {
   font-weight: 300;
   letter-spacing: 0.02em;
 }
+
+/* ── First gig ────────────────────────────────────────────────────────────── */
+.gig-section {
+  background:
+    radial-gradient(620px circle at 85% -18%, rgba(0,255,204,0.10), transparent 56%),
+    radial-gradient(520px circle at 10% 110%, rgba(56,139,253,0.10), transparent 52%),
+    linear-gradient(to bottom, rgba(17,17,17,0.86), rgba(12,12,12,0.9));
+  border: 1px solid #2a3340;
+  border-radius: 16px;
+  box-shadow: 0 14px 40px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.03);
+  padding: 2rem 2.5rem 2.5rem;
+  margin: 2rem 1.5rem 2rem;
+}
+
+.gig-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 220px) 1fr;
+  gap: 1.75rem;
+  align-items: start;
+}
+
+.gig-photo {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 0 30px rgba(0,255,204,0.18);
+  display: block;
+}
+
+.gig-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.gig-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1rem;
+}
+
+.gig-eyebrow {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #00ffcc;
+  width: 100%;
+}
+
+.gig-title {
+  font-family: 'Anton', sans-serif;
+  font-size: 2rem;
+  color: #fff;
+  margin: 0;
+  line-height: 1.1;
+}
+
+.gig-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #071015;
+  background: #00ffcc;
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  line-height: 1;
+}
+
+.gig-date .material-icons { font-size: 1rem; }
+
+.gig-blurb {
+  font-size: 1.02rem;
+  color: #e8e8e8;
+  line-height: 1.8;
+  font-weight: 300;
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+
+.gig-videos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.gig-video-main,
+.gig-short {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  background: #141414;
+  border: 1px solid rgba(255,255,255,0.06);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  flex: 0 0 auto;
+}
+
+.gig-video-main:hover,
+.gig-short:hover {
+  border-color: rgba(0, 255, 204, 0.6);
+  box-shadow: 0 0 22px rgba(0, 255, 204, 0.3);
+}
+
+.gig-video-main:focus-visible,
+.gig-short:focus-visible {
+  outline: none;
+  border-color: #00ffcc;
+  box-shadow: 0 0 0 3px rgba(0,255,204,0.28);
+}
+
+.gig-video-main {
+  width: 200px;
+  aspect-ratio: 16 / 9;
+}
+
+.gig-video-main iframe,
+.gig-short iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+.gig-video-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.gig-play-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  background: rgba(0,255,204,0.92);
+  color: #071015;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4), 0 0 22px rgba(0,255,204,0.35);
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+
+.gig-play-btn .material-icons { font-size: 1.4rem; }
+
+.gig-video-main:hover .gig-play-btn,
+.gig-short:hover .gig-play-btn {
+  transform: translate(-50%, -50%) scale(1.08);
+  background: #00ffcc;
+}
+
+.gig-video-caption {
+  position: absolute;
+  left: 0.55rem;
+  right: 0.55rem;
+  bottom: 0.4rem;
+  font-family: 'Anton', sans-serif;
+  font-size: 0.7rem;
+  line-height: 1.2;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+}
+
+.gig-video-caption--short {
+  font-size: 0.62rem;
+}
+
+.gig-video-main.is-playing .gig-play-btn,
+.gig-video-main.is-playing .gig-video-caption,
+.gig-short.is-playing .gig-play-btn,
+.gig-short.is-playing .gig-video-caption {
+  display: none;
+}
+
+.gig-short {
+  width: 100px;
+  aspect-ratio: 9 / 16;
+}
+
+.gig-short .gig-play-btn {
+  width: 2.2rem;
+  height: 2.2rem;
+}
+
+.gig-short .gig-play-btn .material-icons { font-size: 1.3rem; }
+
+@media (max-width: 900px) {
+  .gig-layout { grid-template-columns: 1fr; }
+  .gig-photo { max-width: 220px; aspect-ratio: 4 / 3; }
+}
+
+@media (max-width: 700px) {
+  .gig-section { padding: 1.5rem 1.2rem; margin: 1.5rem 0.75rem 1.5rem; }
+  .gig-title { font-size: 1.6rem; }
+}

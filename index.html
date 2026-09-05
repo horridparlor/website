@@ -135,6 +135,52 @@
       <p class="hero-body" style="margin-top:1rem;">Eniten itseä juuri inspiroi se, että karaokelistoilla suurin osa biiseistä keskittyy rakkauteen ja pehmeisiin lyhytaikaisiin tunteisiin. Itse tykkään juuri semmosista Kaksi Puuta -tyylisistä lyriikoista, jotka pohjautuu hitaaseen enemmän arkiseen onneen eikä päiviä kestävien parisuhdedraamojen fetisoimiseen. Etenkään ystävyydestä ei nykyään tunneta paljon laulavan. Rakuel biisejä löytyy varmaan edelleen Feelmentin ja Muvikan karaokelistoilta. Niin kannatttaa laulaa nopeet, jos käy karaokessa! <a href="https://open.spotify.com/track/5mptLoO72HdvkI9FvIIUdb?si=b1ec679b04804843" target="_blank" rel="noopener noreferrer" style="font-style:normal;text-decoration:underline;text-underline-offset:3px;font-weight:bold;margin:0 0.2rem;color:inherit;">Ystävyys On Huume</a> oli aina oma lemppari.</p>
     </div>
 
+    <!-- First Gig -->
+    <section class="gig-section" id="first-gig">
+      <div class="gig-layout">
+        <img src="/images/IMG-20260823-WA0007.jpg" alt="Rakuel ensimmäisellä keikallaan Kaukajärven Kivitaskussa" class="gig-photo" loading="lazy" />
+
+        <div class="gig-content">
+          <div class="gig-header">
+            <span class="gig-eyebrow">Ensimmäinen keikka</span>
+            <h2 class="gig-title">Kaukajärven Kivitasku</h2>
+            <span class="gig-date"><span class="material-icons">event</span>22.8.2026</span>
+          </div>
+
+          <p class="gig-blurb">Lauantaina 22.8.2026 pidin ensimmäisen <em>(45 min)</em> keikkani Kaukajärven Kivitaskussa Tampereella. Vuosia karaokessa harjoiteltu meno pääsi vihdoin livenä yleisön eteen! <strong>Kiitos Kivitaskulle mahdollisuudesta</strong> päästä esiintymään. Alla pätkiä illasta:</p>
+
+          <div class="gig-videos">
+            <div class="gig-video-main" id="gigMainVideo" data-yt="JwqcalIsOsk" role="button" tabindex="0" aria-label="Toista video: Ystävyys On Huume">
+              <img class="gig-video-thumb" src="https://img.youtube.com/vi/JwqcalIsOsk/hqdefault.jpg" alt="Ystävyys On Huume -videon esikatselukuva" loading="lazy" />
+              <span class="gig-play-btn"><span class="material-icons">play_arrow</span></span>
+              <span class="gig-video-caption">Ystävyys On Huume</span>
+            </div>
+
+            <div class="gig-short" data-yt="4Zc2JYnuLMk" role="button" tabindex="0" aria-label="Toista Short-video: Kysspyssy">
+              <img class="gig-video-thumb" src="https://img.youtube.com/vi/4Zc2JYnuLMk/hqdefault.jpg" alt="Keikan Short-video – Kysspyssy" loading="lazy" />
+              <span class="gig-play-btn"><span class="material-icons">play_arrow</span></span>
+              <span class="gig-video-caption gig-video-caption--short">Kysspyssy</span>
+            </div>
+            <div class="gig-short" data-yt="uDnNI-aQYa0" role="button" tabindex="0" aria-label="Toista Short-video: Minä Sydän S.A.O.">
+              <img class="gig-video-thumb" src="https://img.youtube.com/vi/uDnNI-aQYa0/hqdefault.jpg" alt="Keikan Short-video – Minä Sydän S.A.O." loading="lazy" />
+              <span class="gig-play-btn"><span class="material-icons">play_arrow</span></span>
+              <span class="gig-video-caption gig-video-caption--short">Minä Sydän S.A.O.</span>
+            </div>
+            <div class="gig-short" data-yt="3Fd7v6QwXW8" role="button" tabindex="0" aria-label="Toista Short-video: Sulata Mun Kyyneleet">
+              <img class="gig-video-thumb" src="https://img.youtube.com/vi/3Fd7v6QwXW8/hqdefault.jpg" alt="Keikan Short-video – Sulata Mun Kyyneleet" loading="lazy" />
+              <span class="gig-play-btn"><span class="material-icons">play_arrow</span></span>
+              <span class="gig-video-caption gig-video-caption--short">Sulata Mun Kyyneleet</span>
+            </div>
+            <div class="gig-short" data-yt="BuAmxxTzDTw" role="button" tabindex="0" aria-label="Toista Short-video: Minä Sydän S.A.O.">
+              <img class="gig-video-thumb" src="https://img.youtube.com/vi/BuAmxxTzDTw/hqdefault.jpg" alt="Keikan Short-video – Minä Sydän S.A.O." loading="lazy" />
+              <span class="gig-play-btn"><span class="material-icons">play_arrow</span></span>
+              <span class="gig-video-caption gig-video-caption--short">Minä Sydän S.A.O.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Contact -->
     <section class="contact-section" id="contact">
       <h2>Keikkatarjoukset</h2>
@@ -430,6 +476,26 @@ function toggleMobileNav() {
     requestAnimationFrame(tick);
   }
 })();
+
+// ── First gig videos ──────────────────────────────────────────────────────────
+function playGigVideo(el) {
+  const id = el.dataset.yt;
+  if (!id) return;
+  el.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1"
+    title="YouTube video" frameBorder="0"
+    allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture"
+    allowfullscreen></iframe>`;
+  el.classList.add('is-playing');
+}
+document.querySelectorAll('.gig-video-main, .gig-short').forEach(el => {
+  el.addEventListener('click', () => playGigVideo(el), { once: true });
+  el.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      playGigVideo(el);
+    }
+  });
+});
 
 // ── Contact form ──────────────────────────────────────────────────────────────
 function updateContactModalLayout() {
