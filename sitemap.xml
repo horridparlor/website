@@ -4,7 +4,13 @@
     <loc>https://rakuel.com/</loc>
   </url>
   <url>
+    <loc>https://rakuel.com/anime-gacha</loc>
+  </url>
+  <url>
     <loc>https://rakuel.com/calendar</loc>
+  </url>
+  <url>
+    <loc>https://rakuel.com/code-reviews</loc>
   </url>
   <url>
     <loc>https://rakuel.com/configuration-variables-mapper</loc>
@@ -28,25 +34,31 @@
     <loc>https://rakuel.com/hardest/card-gallery</loc>
   </url>
   <url>
+    <loc>https://rakuel.com/is-back/card-edit</loc>
+  </url>
+  <url>
     <loc>https://rakuel.com/is-back/card-gallery</loc>
   </url>
   <url>
     <loc>https://rakuel.com/is-back/deck-builder</loc>
   </url>
   <url>
-    <loc>https://rakuel.com/is-back/match-queue</loc>
+    <loc>https://rakuel.com/is-back/expansions</loc>
   </url>
   <url>
-    <loc>https://rakuel.com/is-back/register</loc>
+    <loc>https://rakuel.com/is-back/match-queue</loc>
   </url>
   <url>
     <loc>https://rakuel.com/is-back/profile</loc>
   </url>
   <url>
+    <loc>https://rakuel.com/is-back/profile/?redirect=/</loc>
+  </url>
+  <url>
     <loc>https://rakuel.com/json-formatter</loc>
   </url>
   <url>
-    <loc>https://rakuel.com/sql-formatter</loc>
+    <loc>https://rakuel.com/message-center</loc>
   </url>
   <url>
     <loc>https://rakuel.com/noise-generator</loc>
@@ -55,9 +67,24 @@
     <loc>https://rakuel.com/pdf-generator</loc>
   </url>
   <url>
+    <loc>https://rakuel.com/poems</loc>
+  </url>
+  <url>
+    <loc>https://rakuel.com/poems-center</loc>
+  </url>
+  <url>
+    <loc>https://rakuel.com/report-validator</loc>
+  </url>
+  <url>
+    <loc>https://rakuel.com/sql-formatter</loc>
+  </url>
+  <url>
     <loc>https://rakuel.com/translation-merger</loc>
   </url>
   <url>
     <loc>https://rakuel.com/translation-synchronizer</loc>
+  </url>
+  <url>
+    <loc>https://rakuel.com/is-back/card-gallery</loc>
   </url>
 </urlset>
