@@ -1111,7 +1111,7 @@
         if (!canManageCards) return;
       }
 
-      el.cardEditModal.open(card);
+      el.cardEditModal.open(card, galleryArtVersions[id] || 1);
     });
 
     // Refreshes just this card's data in place — the grid's cardArtPathV/cardFinalPathV

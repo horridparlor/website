@@ -2,9 +2,12 @@
    Card Art / Card Image upload panes, with the same `?v=<updatedAt>` cache-busting
    convention used for grid thumbnails across is-back/*.
    Usage: <rk-card-edit-modal></rk-card-edit-modal>  (place once per page)
-     el.open(card) → opens the modal populated from `card`, which must carry:
+     el.open(card, initialVersion) → opens the modal populated from `card`, which must carry:
        id, name, power, cardTypeId, keywordId, keyword2Id, keyword3Id, altArts,
        cardArtUpdatedAt, cardImageUpdatedAt (i.e. a row from GET /api/is-back/cards)
+       `initialVersion` (optional, 1-based, default 1) preselects the Art Version
+       dropdown — e.g. a gallery's currently middle-click-cycled version — so the
+       previews shown, and any image uploaded, target that version instead of the base art.
    Fires 'rk-card-saved' (bubbles) on the element after a successful metadata save:
      detail: { card, artUpdated, imageUpdated, error }
    `card` is the fresh row from the server, with cardArtUpdatedAt/cardImageUpdatedAt
@@ -223,7 +226,7 @@
       return url;
     }
 
-    async open(card) {
+    async open(card, initialVersion) {
       if (!card) return;
       this._card = card;
       await this._ensureKeywords();
@@ -245,6 +248,9 @@
       this._versionSel.innerHTML = Array.from({ length: maxVersion }, (_, i) => i + 1)
         .map(v => `<option value="${v}">${v}</option>`).join('');
       this._versionField.style.display = maxVersion > 1 ? 'block' : 'none';
+      // Opens on whichever art version the host page had on screen (e.g. the gallery's
+      // middle-click-cycled version) rather than always defaulting back to the base art.
+      this._versionSel.value = String(Math.min(Math.max(initialVersion || 1, 1), maxVersion));
 
       this._clearLocalPreviews();
       this._refreshPreviews();
