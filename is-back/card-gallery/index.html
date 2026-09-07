@@ -548,8 +548,9 @@
 
     const calculateMacros = (extraExpansionId = null) => {
       const cards = allCards.filter(c => {
-        if (getCardStatus(c.id) === 'released') return true;
-        if (extraExpansionId === null) return false;
+        const status = getCardStatus(c.id);
+        if (status === 'released') return true;
+        if (status !== 'hidden' || extraExpansionId === null) return false;
         const exp = getExpansionForCard(c.id);
         return !!(exp && exp.id === extraExpansionId);
       });
@@ -659,8 +660,9 @@
 
     const calculateKeywords = (extraExpansionId = null) => {
       const cards = allCards.filter(c => {
-        if (getCardStatus(c.id) === 'released') return true;
-        if (extraExpansionId === null) return false;
+        const status = getCardStatus(c.id);
+        if (status === 'released') return true;
+        if (status !== 'hidden' || extraExpansionId === null) return false;
         const exp = getExpansionForCard(c.id);
         return !!(exp && exp.id === extraExpansionId);
       });
