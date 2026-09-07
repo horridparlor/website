@@ -105,7 +105,7 @@
   const removeBB = (s) => (s || '').replace(/\[[^\]]*\]/g, '');
   const cardImgName = (id, name) => {
     const cleaned = removeBB(name);
-    const n = cleaned.startsWith('The ') ? cleaned.slice(4) : cleaned;
+    const n = cleaned.startsWith('The ') ? cleaned.slice(4) : cleaned.startsWith('The_') ? cleaned.slice(3) : cleaned;
     return `${id} - ${n}`;
   };
   const cardArtPath   = (id, name, av, updatedAt) => `../card-art/${encodeURIComponent(cardImgName(id, name) + ((av && av > 1) ? ` (${av})` : ''))}.png` + (updatedAt ? `?v=${updatedAt}` : '');

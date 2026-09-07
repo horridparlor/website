@@ -482,7 +482,8 @@
         .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
     const resolveTypeTokens = (desc, cardType, cardPower) => {
-      if (!desc || !cardType) return desc || '';
+      desc = (desc || '').replace(/\[\/?[bi]\]/g, '');
+      if (!desc || !cardType) return desc;
       const info = {
         rock:     { weak: 'paper',   same: 'rock',    strong: 'scissor'  },
         paper:    { weak: 'scissor', same: 'paper',   strong: 'rock'     },
@@ -498,7 +499,9 @@
         .replace(/%WEAK_TYPE/g,    article(info.weak))
         .replace(/%SAME_TYPE/g,    article(info.same))
         .replace(/%STRONG_TYPE/g,  article(info.strong))
-        .replace(/%THIS_POWER/g,   cardPower != null ? String(cardPower) : '');
+        .replace(/%THIS_POWER/g,   cardPower != null ? String(cardPower) : '')
+        .replace(/%MORE_POWER/g,   cardPower != null ? formatPower(Math.min(cardPower + 1000, 13000)) : '')
+        .replace(/%LESS_POWER/g,   cardPower != null ? formatPower(Math.max(cardPower - 1000, 0)) : '');
     };
 
     const matchKeywords = (cardKeywords, input) => {
@@ -687,7 +690,7 @@
     };
 
     const removeBbcodeTags = (s) => s.replace(/\[[^\]]*\]/g, '');
-    const cardImgName    = (c) => { const cleaned = removeBbcodeTags(c.name); const n = cleaned.startsWith('The ') ? cleaned.slice(4) : cleaned; return `${c.id} - ${n}`; };
+    const cardImgName    = (c) => { const cleaned = removeBbcodeTags(c.name); const n = cleaned.startsWith('The ') ? cleaned.slice(4) : cleaned.startsWith('The_') ? cleaned.slice(3) : cleaned; return `${c.id} - ${n}`; };
     const cardArtPathV   = (c, av) => { const suffix = (av && av > 1) ? ` (${av})` : ''; return `../card-art/${encodeURIComponent(cardImgName(c) + suffix)}.png` + (c.cardArtUpdatedAt ? `?v=${c.cardArtUpdatedAt}` : ''); };
     const cardFinalPathV = (c, av) => { const suffix = (av && av > 1) ? ` (${av})` : ''; return `../card-images/${encodeURIComponent(cardImgName(c) + suffix)}.png` + (c.cardImageUpdatedAt ? `?v=${c.cardImageUpdatedAt}` : ''); };
     const cardArtPath   = (c) => cardArtPathV(c, galleryArtVersions[c.id] || 1);

@@ -841,7 +841,8 @@ function acknowledgeNotification(kind, stamp) {
   sendAction('acknowledgeNotification', { kind, stamp });
 }
 function resolveTypeTokens(desc, cardType, cardPower) {
-  if (!desc || !cardType) return desc || '';
+  desc = (desc || '').replace(/\[\/?[bi]\]/g, '');
+  if (!desc || !cardType) return desc;
   const info = {
     rock:     { weak: 'paper',   same: 'rock',    strong: 'scissor'  },
     paper:    { weak: 'scissor', same: 'paper',   strong: 'rock'     },
@@ -857,12 +858,14 @@ function resolveTypeTokens(desc, cardType, cardPower) {
     .replace(/%WEAK_TYPE/g,    article(info.weak))
     .replace(/%SAME_TYPE/g,    article(info.same))
     .replace(/%STRONG_TYPE/g,  article(info.strong))
-    .replace(/%THIS_POWER/g,   cardPower != null ? String(cardPower) : '');
+    .replace(/%THIS_POWER/g,   cardPower != null ? String(cardPower) : '')
+    .replace(/%MORE_POWER/g,   cardPower != null ? fmt(Math.min(cardPower + 1000, 13000)) : '')
+    .replace(/%LESS_POWER/g,   cardPower != null ? fmt(Math.max(cardPower - 1000, 0)) : '');
 }
 function cardImg(card, playerIdx) {
   if (!card) return '';
   const nm = stripBB(card.name);
-  const n  = nm.startsWith('The ') ? nm.slice(4) : nm;
+  const n  = nm.startsWith('The ') ? nm.slice(4) : nm.startsWith('The_') ? nm.slice(3) : nm;
   const base = `${card.id} - ${n}`;
   let av = 1;
   if (playerIdx !== undefined && gameState) {

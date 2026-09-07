@@ -66,7 +66,7 @@ function nullableIntReplacement(mixed $value): array {
 }
 
 // ── Card image file naming — mirrors the JS convention in card-gallery/expansions ──
-// (id) - (name, minus BBCode tags and a leading "The "), optionally " (N)" for alt art.
+// (id) - (name, minus BBCode tags and a leading "The " or "The_"), optionally " (N)" for alt art.
 
 function removeBbcodeTags(string $s): string {
     return preg_replace('/\[[^\]]*\]/', '', $s);
@@ -76,6 +76,8 @@ function cardImgStem(int $id, string $name): string {
     $cleaned = removeBbcodeTags($name);
     if (str_starts_with($cleaned, 'The ')) {
         $cleaned = substr($cleaned, 4);
+    } elseif (str_starts_with($cleaned, 'The_')) {
+        $cleaned = substr($cleaned, 3);
     }
     // Defensive: names are admin-entered but still shouldn't be able to escape the target directory.
     $cleaned = str_replace(['/', '\\', "\0"], '', $cleaned);
