@@ -168,7 +168,7 @@
 <!-- Bulk download bar (visible when cards checked in gallery view) -->
 <div id="bulk-bar" class="bulk-bar" style="display:none;">
   <span id="checked-count"></span>
-  <button id="bulk-download-btn" type="button" class="button bulk-dl-btn">
+  <button id="bulk-download-btn" type="button" class="button bulk-dl-btn" title="Shortcut: Ctrl+D (Cmd+D on Mac)">
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="1" x2="7" y2="9.5"/><polyline points="4,7 7,10 10,7"/><line x1="2" y1="13" x2="12" y2="13"/></svg>
     Download Selected
   </button>
@@ -1078,8 +1078,19 @@
     document.addEventListener('keydown', async (e) => {
       if (view !== 'gallery' && view !== 'cards') return;
       if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
-      if (e.key.toLowerCase() !== 'e') return;
       if (isEditableTarget(e.target)) return;
+
+      const key = e.key.toLowerCase();
+
+      // Ctrl/Cmd+D downloads the selected cards instead of bookmarking the page.
+      if (key === 'd') {
+        if (checkedIds.size === 0) return;
+        e.preventDefault();
+        el.bulkDownload.click();
+        return;
+      }
+
+      if (key !== 'e') return;
       if (checkedIds.size !== 1) return;
       const id = checkedIds.values().next().value;
       const card = allCards.find(c => c.id === id);
