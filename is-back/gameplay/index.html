@@ -840,7 +840,7 @@ function acknowledgeNotification(kind, stamp) {
   if (!stamp) return;
   sendAction('acknowledgeNotification', { kind, stamp });
 }
-function resolveTypeTokens(desc, cardType) {
+function resolveTypeTokens(desc, cardType, cardPower) {
   if (!desc || !cardType) return desc || '';
   const info = {
     rock:     { weak: 'paper',   same: 'rock',    strong: 'scissor'  },
@@ -856,7 +856,8 @@ function resolveTypeTokens(desc, cardType) {
     .replace(/%STRONG_TYPES/g, plural(info.strong))
     .replace(/%WEAK_TYPE/g,    article(info.weak))
     .replace(/%SAME_TYPE/g,    article(info.same))
-    .replace(/%STRONG_TYPE/g,  article(info.strong));
+    .replace(/%STRONG_TYPE/g,  article(info.strong))
+    .replace(/%THIS_POWER/g,   cardPower != null ? String(cardPower) : '');
 }
 function cardImg(card, playerIdx) {
   if (!card) return '';
@@ -3110,7 +3111,7 @@ function showTooltip(e, cardId, fromHandHover = false, playerIdx = undefined) {
   document.getElementById('ct-power').textContent = powerText;
   document.getElementById('ct-kw').innerHTML = kws.map(k => {
     const kd = allKeywords.find(x => x.name === k);
-    const desc = kd?.description ? resolveTypeTokens(kd.description, card.type) : '';
+    const desc = kd?.description ? resolveTypeTokens(kd.description, card.type, card.power) : '';
     return `<div><strong>${kd?.displayName||k}:</strong> ${desc}</div>`;
   }).join('');
   setTooltipFireFx(shouldShowPrimaryComebackFire(cardId, fromHandHover));
