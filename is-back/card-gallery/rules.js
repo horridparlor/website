@@ -320,6 +320,16 @@ const RULES_SECTIONS = [
 </ol>
 <p>Example: Just OK is in your graveyard. Your deck is empty and you draw for the turn. Your graveyard, Just OK included, is reshuffled into your deck, and you draw your card for the turn as normal. Only after that draw resolves does Just OK trigger, having you draw a card and then discard a card.</p>`,
       },
+      {
+        id: 'tutor-revealing-and-failing',
+        title: '8.9 Tutor — Revealing the Searched Card and Choosing to Fail',
+        content: `<p>Tutor is a keyword that lets you <strong>Search</strong> your deck (see the Glossary) for a card matching a specific condition, such as a type or a title keyword.</p>
+<p>Because Tutor's effect is conditional on the type of card being searched for, two things follow:</p>
+<ul>
+  <li><strong>You must reveal the card:</strong> since your opponent needs to be able to verify that the card you take actually matches the stated condition, you must reveal the searched card to them before adding it to your hand.</li>
+  <li><strong>You may fail on purpose:</strong> your deck itself is hidden information — your opponent cannot see its contents. Even if a valid card is present, you are permitted to search through your deck and declare that no matching card was found, shuffling without taking anything. Your opponent has no way to verify this.</li>
+</ul>`,
+      },
     ],
   },
   {
@@ -400,6 +410,9 @@ const RULES_SECTIONS = [
 
   <dt>Round</dt>
   <dd>One full cycle of play, from Start of Round through End of Round.</dd>
+
+  <dt>Search</dt>
+  <dd>To look through your deck and take a card from it, adding it to your hand. Afterwards, shuffle your deck.</dd>
 
   <dt>Stack</dt>
   <dd>A pile of cards formed by evolving. The top card is the active one. If the top card is removed, the card beneath it becomes active again.</dd>
