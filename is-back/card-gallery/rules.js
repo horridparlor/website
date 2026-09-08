@@ -293,8 +293,8 @@ const RULES_SECTIONS = [
       {
         id: 'mikontalo-bottom-card',
         title: '8.6 Mikontalo — Removing Your Own Primary Stack During the Passing Phase',
-        content: `<p>If the non-passing player uses an <strong>[Opponent passes]</strong> effect that removes their own entire primary stack, the re-evaluation sees them with no primary card while the passing player still has one. The passing player wins the round.</p>
-<p>Example: Mikontalo reads <em>[Opponent passes] You may return this card from the field to hand. If you do, discard a card.</em> If Mikontalo is your only primary card and you return it to hand, you are left with no primary card. The re-evaluation finds the passing player still has a card — they win the round.</p>`,
+        content: `<p>If the non-passing player uses an <strong>[Opponent passes]</strong> effect that removes their own entire primary stack, the re-evaluation sees them with no primary card at all. This does not end the round — it is treated exactly like the passer passing into an opponent who never had a primary card to begin with. No one wins the round; the now-cardless player simply takes their start of round (or main phase) turn as normal.</p>
+<p>Example: Mikontalo reads <em>[Opponent passes] You may return this card from the field to hand. If you do, discard a card.</em> If Mikontalo is your only primary card and you return it to hand, you are left with no primary card. The round does not end — you just get your turn to play a new primary card, the same as if you had never had one on the field when the opponent passed.</p>`,
       },
       {
         id: 'trump-card-lingering',

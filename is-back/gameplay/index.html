@@ -865,6 +865,7 @@ let lastSinfulMillTs = 0;
 let lastTrumpCardTs = 0;
 let lastFarmGrowTs = 0;
 let lastTutorRevealTs = 0;
+let lastTutorFailTs = 0;
 let phaseToastTimeout = null;
 let activePendingModalSig = null;
 let pendingActionInFlight = false;
@@ -1307,6 +1308,17 @@ function processState(state) {
       lastTutorRevealTs = tutorRevealEvt.ts;
       showTutorRevealModal(tutorRevealEvt);
       acknowledgeNotification('tutor_reveal', tutorRevealEvt.ts);
+    }
+  }
+
+  const tutorFailEvt = state.lastTutorFail;
+  if (tutorFailEvt && tutorFailEvt.ts) {
+    const tutorFailAck = state.lastTutorFailAcks?.[myIndex] ?? 0;
+    if (tutorFailEvt.ts !== lastTutorFailTs && tutorFailEvt.ts !== tutorFailAck) {
+      lastTutorFailTs = tutorFailEvt.ts;
+      const tutorFailLabel = tutorFailEvt.playerIndex === myIndex ? 'You' : 'Opponent';
+      showPhaseToast(`${tutorFailLabel} failed to find a card with Tutor`, '#d29922');
+      acknowledgeNotification('tutor_fail', tutorFailEvt.ts);
     }
   }
 

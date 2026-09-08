@@ -1414,6 +1414,8 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
             } else {
                 shuffle($p['deckIds']);
                 $state['log'][] = $p['username'] . ' failed to find a card with Tutor.';
+                $state['lastTutorFail'] = ['ts' => nextEventStamp(), 'playerIndex' => $playerIndex];
+                $state['lastTutorFailAcks'] = [0, 0];
             }
             return null;
         }
@@ -2329,6 +2331,15 @@ function handleAcknowledgeNotification(array &$state, int $playerIndex, array $p
         return null;
     }
 
+    if ($kind === 'tutor_fail') {
+        $current = (int)($state['lastTutorFail']['ts'] ?? 0);
+        if ($current && $stamp === $current) {
+            if (!isset($state['lastTutorFailAcks']) || !is_array($state['lastTutorFailAcks'])) $state['lastTutorFailAcks'] = [0, 0];
+            $state['lastTutorFailAcks'][$playerIndex] = $stamp;
+        }
+        return null;
+    }
+
     if ($kind === 'farm_grow') {
         $current = (int)($state['lastFarmGrow']['ts'] ?? 0);
         if ($current && $stamp === $current) {
@@ -2620,6 +2631,22 @@ function resolvePassingPhase(array &$state, GameEngine $engine): void
     if (hasFaceDownInPrimary($state, $passerId)) {
         clearRoundScopedFlags($state);
         $state['phase'] = 'end_of_round';
+        return;
+    }
+
+    // Opponent's primary was emptied by their own [Opponent passes] effect (e.g. Mikontalo
+    // returning itself to hand). Treat this exactly like passing into an opponent who never had
+    // a primary card to begin with — no one wins the round, opponent just takes their turn.
+    if (!$oppTop) {
+        if (!$state['players'][$oppIdx]['startOfRoundUsed']) {
+            $state['phase'] = 'start_of_round';
+            $state['turn']  = $oppIdx;
+            $state['log'][] = $state['players'][$oppIdx]['username'] . "'s start of round begins.";
+        } else {
+            $state['phase'] = 'main_phase';
+            $state['turn']  = $oppIdx;
+            $state['log'][] = $state['players'][$oppIdx]['username'] . ' has no card — their main phase continues.';
+        }
         return;
     }
 
