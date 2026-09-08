@@ -308,6 +308,18 @@ const RULES_SECTIONS = [
 <p>Hiding a prize card this way only cancels the Communism benefit for as long as that specific card sits there. If it is later replaced by a new bottom prize card — including a fresh Communism play — the new card is unaffected by the earlier negation.</p>
 <p>Trump Card has no effect on anything that is not currently a lingering effect or a face-up prize card. If neither condition applies, there is nothing for it to do.</p>`,
       },
+      {
+        id: 'just-ok-reshuffle-draw',
+        title: '8.8 Just OK — Reshuffling While Drawing',
+        content: `<p>Just OK's keyword reads: <em>[When reshuffled] Draw a card, discard a card.</em></p>
+<p>The most common way a reshuffle happens is automatically, mid-draw, when a deck is empty and a card needs to be drawn from it (see <strong>Reshuffle</strong> in the Glossary) — the graveyard is shuffled into the deck before the draw continues. Just OK's effect does not resolve the instant that reshuffle happens; it is delayed until the draw it interrupted is finished:</p>
+<ol>
+  <li>The graveyard, with Just OK in it, is reshuffled into the deck.</li>
+  <li>The draw that triggered the reshuffle is completed first — you draw the card(s) you were originally owed.</li>
+  <li>Only then does Just OK's <strong>[When reshuffled]</strong> effect trigger: draw a card, discard a card.</li>
+</ol>
+<p>Example: Just OK is in your graveyard. Your deck is empty and you draw for the turn. Your graveyard, Just OK included, is reshuffled into your deck, and you draw your card for the turn as normal. Only after that draw resolves does Just OK trigger, having you draw a card and then discard a card.</p>`,
+      },
     ],
   },
   {
