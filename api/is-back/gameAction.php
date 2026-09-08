@@ -1795,6 +1795,7 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
 
             $engine->discardFromHand($state, $playerIndex, $discardId);
             pushDiscardAnim($state, $discardId, $playerIndex, 'mikontalo');
+            checkAndApplyEqualExchange($state, $playerIndex, $discardId, $engine);
             $state['log'][] = $state['players'][$playerIndex]['username'] . ' discarded a card (Mikontalo).';
             $passerId = (int)($pending['passerId'] ?? (1 - $playerIndex));
             consumePendingEffect($state);
