@@ -655,16 +655,54 @@ function checkAndApplyEqualExchange(array &$state, int $discardingPlayer, int $c
     if (!$engine->hasKeyword($cardId, 'equal-exchange')) return;
     $oppIdx = 1 - $discardingPlayer;
     if (empty($state['players'][$oppIdx]['handIds'])) return;
-    if (count($state['players'][$oppIdx]['handIds']) === 1) {
+
+    // Merge with an already-queued Equal Exchange obligation for the same opponent so several
+    // Equal Exchange cards discarded together (Mega-Greed, Farming, Sinful, etc.) build up to
+    // one combined prompt for the total count instead of prompting once per card.
+    ensurePendingEffects($state);
+    $mergeIdx = null;
+    foreach ($state['pendingEffects'] as $idx => $eff) {
+        if (($eff['type'] ?? null) === 'equal_exchange' && (int)($eff['playerIndex'] ?? -1) === $oppIdx) {
+            $mergeIdx = $idx;
+            break;
+        }
+    }
+
+    $handCount = count($state['players'][$oppIdx]['handIds']);
+
+    if ($mergeIdx !== null) {
+        $count = (int)($state['pendingEffects'][$mergeIdx]['count'] ?? 1) + 1;
+        if ($count >= $handCount) {
+            // No real choice left — discard the whole hand immediately, no extra prompt needed.
+            array_splice($state['pendingEffects'], $mergeIdx, 1);
+            $state['pendingEffect'] = $state['pendingEffects'][0] ?? null;
+            $toDiscard = $state['players'][$oppIdx]['handIds'];
+            foreach ($toDiscard as $did) {
+                $engine->discardFromHand($state, $oppIdx, $did);
+                pushDiscardAnim($state, $did, $oppIdx, 'equal_exchange');
+            }
+            $state['log'][] = $state['players'][$oppIdx]['username'] . ' discarded ' . count($toDiscard) . ' card(s) (Equal Exchange).';
+            foreach ($toDiscard as $did) {
+                checkAndApplyEqualExchange($state, $oppIdx, $did, $engine);
+            }
+        } else {
+            $state['pendingEffects'][$mergeIdx]['count'] = $count;
+            $state['log'][] = $state['players'][$oppIdx]['username'] . ' must discard ' . $count . ' cards (Equal Exchange).';
+        }
+        return;
+    }
+
+    if ($handCount === 1) {
         $toDiscard = $state['players'][$oppIdx]['handIds'][0];
         $engine->discardFromHand($state, $oppIdx, $toDiscard);
         pushDiscardAnim($state, $toDiscard, $oppIdx, 'equal_exchange');
         $state['log'][] = $state['players'][$oppIdx]['username'] . ' discarded a card (Equal Exchange).';
+        checkAndApplyEqualExchange($state, $oppIdx, $toDiscard, $engine);
     } else {
         enqueuePendingEffects($state, [[
             'type' => 'equal_exchange',
             'playerIndex' => $oppIdx,
-            'sourceCardId' => $cardId,
+            'count' => 1,
         ]]);
         $state['log'][] = $state['players'][$oppIdx]['username'] . ' must discard a card (Equal Exchange).';
     }
@@ -1724,7 +1762,8 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
             if ($handCount <= $discardCount) {
                 $discardIds = $p['handIds'];
             } else {
-                $discardIds = array_values(array_unique(array_map('intval', $params['discardIds'] ?? [])));
+                // Duplicate card IDs are valid (discarding 2 copies of the same card).
+                $discardIds = array_values(array_map('intval', $params['discardIds'] ?? []));
                 if (count($discardIds) !== $discardCount) return 'Choose exactly ' . $discardCount . ' cards to discard';
             }
 
@@ -1732,6 +1771,7 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
             foreach ($discardIds as $dId) {
                 if ($engine->discardFromHand($state, $playerIndex, (int)$dId)) {
                     pushDiscardAnim($state, (int)$dId, $playerIndex, 'sinful');
+                    checkAndApplyEqualExchange($state, $playerIndex, (int)$dId, $engine);
                     $discarded++;
                 }
             }
@@ -1918,14 +1958,34 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
             $pending = getCurrentPendingEffect($state);
             if (!$pending || $pending['type'] !== 'equal_exchange') return 'No Equal Exchange pending';
             if ((int)($pending['playerIndex'] ?? -1) !== $playerIndex) return 'Not your response';
-            $discardId = (int)($params['discardId'] ?? 0);
-            $handIds = $state['players'][$playerIndex]['handIds'];
-            if (!$discardId && count($handIds) === 1) $discardId = (int)$handIds[0];
-            if (!$discardId || !in_array($discardId, $handIds)) return 'Must discard a card from hand';
-            $engine->discardFromHand($state, $playerIndex, $discardId);
-            pushDiscardAnim($state, $discardId, $playerIndex, 'equal_exchange');
-            checkAndApplyEqualExchange($state, $playerIndex, $discardId, $engine);
-            $state['log'][] = $state['players'][$playerIndex]['username'] . ' discarded a card (Equal Exchange).';
+
+            $handIds  = $state['players'][$playerIndex]['handIds'];
+            $required = min(max(1, (int)($pending['count'] ?? 1)), count($handIds));
+
+            $discardIds = array_values(array_map('intval', $params['discardIds'] ?? []));
+            if (empty($discardIds) && !empty($params['discardId'])) {
+                $discardIds = [(int)$params['discardId']];
+            }
+            // No real choice — discarding the whole hand either way.
+            if ($required >= count($handIds)) {
+                $discardIds = $handIds;
+            }
+            if (count($discardIds) !== $required) return "Must discard $required card(s) from hand";
+
+            // Validate the selection against a working copy of the hand (duplicate IDs allowed).
+            $workingHand = $handIds;
+            foreach ($discardIds as $did) {
+                $idx = array_search($did, $workingHand);
+                if ($idx === false) return 'Must discard cards from hand';
+                array_splice($workingHand, $idx, 1);
+            }
+
+            foreach ($discardIds as $did) {
+                $engine->discardFromHand($state, $playerIndex, $did);
+                pushDiscardAnim($state, $did, $playerIndex, 'equal_exchange');
+                checkAndApplyEqualExchange($state, $playerIndex, $did, $engine);
+            }
+            $state['log'][] = $state['players'][$playerIndex]['username'] . ' discarded ' . count($discardIds) . ' card(s) (Equal Exchange).';
             consumePendingEffect($state);
             return null;
         }

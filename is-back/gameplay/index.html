@@ -1703,18 +1703,69 @@ function openInfernoidPurgeModal(effect, state) {
 
 function openEqualExchangeModal(effect, state) {
   const me = state.players[myIndex];
-  const handCards = (me.handIds || []).map(id => allCards[id]).filter(Boolean);
-  if (handCards.length === 1) {
-    resolvePendingKeyword({ keyword: 'equal_exchange_respond', discardId: handCards[0].id });
+  const hand = me.handIds || [];
+  const required = Math.min(Math.max(1, Number(effect.count) || 1), hand.length);
+
+  // No real choice — discard the whole hand automatically, same as before.
+  if (required >= hand.length) {
+    resolvePendingKeyword({ keyword: 'equal_exchange_respond', discardIds: [...hand] });
     return;
   }
-  openKwModalCustom(
-    'Equal Exchange',
-    'Opponent used Equal Exchange. Discard one card from your hand.',
-    handCards,
-    [],
-    (cardId) => resolvePendingKeyword({ keyword: 'equal_exchange_respond', discardId: cardId })
-  );
+
+  // Build entries keyed by hand index (like Cultism/Farming) so duplicate card IDs stay
+  // independently selectable.
+  const entries = hand.map((id, handIdx) => ({ handIdx, cardId: id, card: allCards[id] })).filter(e => e.card);
+  const selectedIndices = new Set();
+
+  function desc() {
+    return `Opponent used Equal Exchange. Discard ${required} card${required === 1 ? '' : 's'} from your hand (${selectedIndices.size}/${required}).`;
+  }
+
+  function updateModal() {
+    document.getElementById('kw-modal-desc').textContent = desc();
+    const okBtn = document.getElementById('equal-exchange-ok');
+    if (okBtn) okBtn.disabled = selectedIndices.size !== required;
+    document.querySelectorAll('#kw-modal-cards .modal-card-item').forEach(el => {
+      el.classList.toggle('selected', selectedIndices.has(Number(el.dataset.handIdx)));
+    });
+  }
+
+  document.getElementById('kw-modal-title').textContent = 'Equal Exchange';
+  document.getElementById('kw-modal-desc').textContent = desc();
+  const list = document.getElementById('kw-modal-cards');
+  list.innerHTML = entries.map(({ handIdx, card }) => `
+    <div class="modal-card-item" data-hand-idx="${handIdx}">
+      <img src="${cardImg(card)}" alt="${stripBB(card.name)}" onerror="this.src=''" />
+      <div class="mci-name">${stripBB(card.name)}</div>
+    </div>`).join('');
+
+  const btns = document.getElementById('kw-modal-btns');
+  btns.innerHTML = '';
+  window._kwModalCallback = null;
+  document.getElementById('kw-modal').classList.add('open');
+
+  list.querySelectorAll('.modal-card-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const handIdx = Number(el.dataset.handIdx);
+      if (selectedIndices.has(handIdx)) {
+        selectedIndices.delete(handIdx);
+      } else if (selectedIndices.size < required) {
+        selectedIndices.add(handIdx);
+      }
+      updateModal();
+    });
+  });
+
+  const okBtn = document.createElement('button');
+  okBtn.id = 'equal-exchange-ok';
+  okBtn.className = 'm-confirm';
+  okBtn.textContent = 'Discard';
+  okBtn.disabled = true;
+  okBtn.addEventListener('click', () => {
+    const discardIds = entries.filter(e => selectedIndices.has(e.handIdx)).map(e => e.cardId);
+    resolvePendingKeyword({ keyword: 'equal_exchange_respond', discardIds });
+  });
+  btns.appendChild(okBtn);
 }
 
 function openMicPassModal(effect, state) {
