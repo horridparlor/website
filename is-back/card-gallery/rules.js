@@ -339,6 +339,16 @@ const RULES_SECTIONS = [
   <li><strong>Not a lasting reveal:</strong> showing Sus this way does not flip it face-up or otherwise mark it as permanently revealed. It goes right back to being a normal, hidden card in your hand. Revealing it only tells your opponent that you hold a copy of Sus at that moment — it does not identify which of your face-down cards it was substituting for, and it does not stop you from using it again later.</li>
 </ul>`,
       },
+      {
+        id: 'suck-this-destroy-field',
+        title: '8.11 Suck This! — Destroying the Field',
+        content: `<p>Suck This!'s keyword reads: <em>[From hand] If opponent has full field, you may discard this. If you do, destroy field.</em></p>
+<ul>
+  <li><strong>Scope:</strong> "destroy field" means every card on the field is destroyed — both players' primary and supporting stacks, in their entirety, not just the opponent's.</li>
+  <li><strong>Simultaneous:</strong> all of these cards are destroyed at the same time, as a single event, rather than one at a time or one player's field before the other's.</li>
+  <li><strong>Trigger order:</strong> if this simultaneous destruction causes other keyword effects to trigger (such as a <strong>[When destroyed]</strong>-style effect), the turn player's triggered effects resolve first, followed by the opponent's, in normal turn order.</li>
+</ul>`,
+      },
     ],
   },
   {
