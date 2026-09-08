@@ -1321,29 +1321,35 @@
 
   const exportTxt = () => {
     if (!currentDeck.cards.length) { showToast('Deck is empty', 'warn'); return; }
-    const lines = currentDeck.cards.map(dc => {
+    const lines = [`# Deck: ${removeBB(currentDeck.name)}`, ''];
+    currentDeck.cards.forEach(dc => {
       const card = allCards.find(c => c.id === dc.cardId);
-      if (!card) return null;
+      if (!card) return;
       const av = dc.artVersion || localArtVersions[dc.cardId] || 1;
       const artSuffix = av > 1 ? ` (Art ${av})` : '';
-      return `${dc.quantity}x ${removeBB(card.name)}${artSuffix}`;
-    }).filter(Boolean);
+      lines.push(`${dc.quantity}x ${removeBB(card.name)}${artSuffix}`);
+    });
     triggerDownloadBlob(
       new Blob([lines.join('\n')], { type: 'text/plain' }),
       `${removeBB(currentDeck.name) || 'deck'}.txt`
     );
   };
 
-  const importTxt = (text) => {
+  const importTxt = (text, fallbackName) => {
     const nameMap = {};
     allCards.forEach(c => { nameMap[removeBB(c.name).toLowerCase().trim()] = c; });
 
     const newCards = [];
     const notFound = [];
+    let deckName = null;
 
     text.split('\n').forEach(raw => {
       const line = raw.trim();
-      if (!line || line.startsWith('#') || line.startsWith('//')) return;
+      if (!line) return;
+
+      const nameMatch = line.match(/^#\s*Deck:\s*(.+)$/i);
+      if (nameMatch) { deckName = nameMatch[1].trim(); return; }
+      if (line.startsWith('#') || line.startsWith('//')) return;
 
       let qty = 1, name = '', artVersion = 1;
       let m = line.match(/^(\d+)x\s+(.+)$/i);
@@ -1372,6 +1378,9 @@
       }
     });
 
+    startNewDeck();
+    currentDeck.name = deckName || fallbackName || 'Imported Deck';
+    el.deckNameInput.value = currentDeck.name;
     currentDeck.cards = newCards;
     isDirty = true;
     saveDraft();
@@ -1436,7 +1445,8 @@
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = ev => importTxt(ev.target.result);
+    const fallbackName = file.name.replace(/\.txt$/i, '');
+    reader.onload = ev => importTxt(ev.target.result, fallbackName);
     reader.readAsText(file);
     e.target.value = '';
   });

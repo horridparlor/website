@@ -401,9 +401,10 @@ h1 {
 .sidebar-social {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.55rem;
+  row-gap: 0.55rem;
+  column-gap: 0.9rem;
   justify-content: center;
-  margin-top: 8px;
+  margin-top: 2px;
   padding: 1.2rem 0;
   border-bottom: 1px solid #181818;
   order: 2;
@@ -411,7 +412,7 @@ h1 {
 
 .sidebar-social a {
   color: #2e2e2e;
-  font-size: 1.25rem;
+  font-size: 1.45rem;
   text-decoration: none;
   display: flex;
   transition: color 0.15s, transform 0.15s;
@@ -494,7 +495,8 @@ h1 {
   .sidebar-social {
     grid-area: social;
     padding: 0.5rem 0 0;
-    gap: 0.55rem;
+    row-gap: 0.55rem;
+    column-gap: 0.9rem;
     border-bottom: none;
     border-left: none;
     border-top: 1px solid #111;

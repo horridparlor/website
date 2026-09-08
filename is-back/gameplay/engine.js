@@ -533,7 +533,7 @@ const GameEngine = (() => {
         if (!player.startOfRoundUsed) {
           const sorCards = (player.handIds || []).filter(id => {
             const c = allCardsMap[id];
-            return c && c.keywords && c.keywords.some(k => k && (k.toLowerCase() === 'greed' || k.toLowerCase() === 'natural-selection' || k.toLowerCase() === 'mega-greed'));
+            return c && c.keywords && c.keywords.some(k => k && (k.toLowerCase() === 'greed' || k.toLowerCase() === 'natural-selection' || k.toLowerCase() === 'mega-greed' || k.toLowerCase() === 'tutor'));
           });
           sorCards.forEach(id => actions.push({ type: 'useStartOfRound', cardId: id }));
         }

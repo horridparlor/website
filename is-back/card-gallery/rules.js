@@ -296,6 +296,18 @@ const RULES_SECTIONS = [
         content: `<p>If the non-passing player uses an <strong>[Opponent passes]</strong> effect that removes their own entire primary stack, the re-evaluation sees them with no primary card while the passing player still has one. The passing player wins the round.</p>
 <p>Example: Mikontalo reads <em>[Opponent passes] You may return this card from the field to hand. If you do, discard a card.</em> If Mikontalo is your only primary card and you return it to hand, you are left with no primary card. The re-evaluation finds the passing player still has a card — they win the round.</p>`,
       },
+      {
+        id: 'trump-card-lingering',
+        title: '8.7 Trump Card and Lingering Effects',
+        content: `<p>Trump Card's keyword reads: <em>[From hand] While you have 5 or less cards in hand, you may discard this card. If you do, negate all lingering effects. Also, hide all face-up prize cards.</em></p>
+<p>Trump Card resolves two independent things at once:</p>
+<ul>
+  <li><strong>Lingering effects:</strong> any effect currently marked as lingering (see the Glossary) ends immediately. Natural Selection is the only lingering effect at present — if it is active for the round, both players are freed of its one-card, face-down restriction the instant Trump Card is discarded.</li>
+  <li><strong>Face-up prize cards:</strong> the only way a prize card is ever face-up is Communism, which places itself as a player's bottom prize card and lets that player draw from their opponent's deck while it stays there. Trump Card hides any such card again — either player's — and the Communism card underneath immediately stops granting draws from the opponent's deck. The card itself is not removed; it remains a face-down prize card and can still be drawn normally when its owner wins a round.</li>
+</ul>
+<p>Hiding a prize card this way only cancels the Communism benefit for as long as that specific card sits there. If it is later replaced by a new bottom prize card — including a fresh Communism play — the new card is unaffected by the earlier negation.</p>
+<p>Trump Card has no effect on anything that is not currently a lingering effect or a face-up prize card. If neither condition applies, there is nothing for it to do.</p>`,
+      },
     ],
   },
   {
@@ -332,14 +344,23 @@ const RULES_SECTIONS = [
   <dt>Face-up</dt>
   <dd>A card placed or flipped on the field with its front visible.</dd>
 
+  <dt>Farm</dt>
+  <dd>A face-down pile of cards created by keywords such as Farming. Cards in a farm are hidden from both players, including its owner — nobody may look at them until the farm is reaped. Only the number of cards in a farm is public knowledge. A farm grows by 1 card at the end of every round for as long as it exists, in addition to any keyword effects that grow it directly. Reaping a farm empties it into its owner's hand and it stops existing — it will not grow again unless a new one is created.</dd>
+
   <dt>Field</dt>
   <dd>The play area in front of a player, consisting of the primary stack and up to two supporting stacks.</dd>
 
   <dt>Graveyard</dt>
   <dd>The face-up discard pile beside a player's deck. Cards that are removed from the field or used from hand go here.</dd>
 
+  <dt>Grow</dt>
+  <dd>To draw a card from the top of a deck face-down into a farm. If the deck is empty, the graveyard is reshuffled into it first, as with any other draw. Growing does not reveal the card to anyone.</dd>
+
   <dt>Hand</dt>
   <dd>The cards a player holds privately. The size of your hand is not hidden — opponents may ask how many cards you hold.</dd>
+
+  <dt>Lingering effect</dt>
+  <dd>An effect that continues to apply even after the card that caused it is no longer in play. It stays active until the current round ends or something negates it (such as Trump Card). Natural Selection is currently the only lingering effect.</dd>
 
   <dt>Mill</dt>
   <dd>To send cards from the top of a deck to the graveyard.</dd>
@@ -355,6 +376,9 @@ const RULES_SECTIONS = [
 
   <dt>Purge</dt>
   <dd>To permanently remove a card from the game entirely. A purged card does not go to the graveyard and cannot be retrieved by any effect. More permanent than discarding.</dd>
+
+  <dt>Reap</dt>
+  <dd>To draw every card in your farm into your hand, ending the farm. You may only reap a farm during your own turn. Reaping is a slow action — you cannot reap in response to anything, only when you would otherwise be free to act.</dd>
 
   <dt>Reshuffle</dt>
   <dd>To take cards from the graveyard and shuffle them back into the deck.</dd>

@@ -97,7 +97,46 @@ class GameEngine
         if (empty($p['prizeIds'])) return false;
         $bottom = $p['prizeIds'][0] ?? null;
         if (!$bottom) return false;
-        return $this->hasKeyword((int)$bottom, 'communism');
+        if (!$this->hasKeyword((int)$bottom, 'communism')) return false;
+        // Trump Card negates this specific placement of Communism until a new card takes the bottom slot.
+        if (($state['communismNegatedIds'][$playerIndex] ?? null) === (int)$bottom) return false;
+        return true;
+    }
+
+    // Treasure: [If milled] Draw a card.
+    public function applyTreasureIfMilled(array &$state, int $playerIndex, int $cardId): void
+    {
+        if (!$this->hasKeyword($cardId, 'treasure')) return;
+        $this->drawCards($state, $playerIndex, 1);
+        $state['log'][] = $state['players'][$playerIndex]['username'] . ' drew a card (Treasure).';
+    }
+
+    // Farming: grow the farm — draw a card face-down from the deck into the farm zone.
+    // Nobody, including the owner, may look at cards in the farm.
+    public function growFarm(array &$state, int $playerIndex, int $count = 1): int
+    {
+        $grown = 0;
+        for ($i = 0; $i < $count; $i++) {
+            $p = &$state['players'][$playerIndex];
+            if (empty($p['deckIds'])) {
+                if (empty($p['graveyardIds'])) break;
+                $justOkCards = array_filter($p['graveyardIds'], fn($cid) => $this->hasKeyword((int)$cid, 'just-ok'));
+                $p['deckIds'] = $p['graveyardIds'];
+                shuffle($p['deckIds']);
+                $p['graveyardIds'] = [];
+                $state['log'][] = $p['username'] . ' reshuffled graveyard into deck.';
+                foreach ($justOkCards as $joId) {
+                    $this->drawCards($state, $playerIndex, 1);
+                    enqueuePendingEffects($state, [['type' => 'just_ok', 'playerIndex' => $playerIndex, 'cardId' => (int)$joId]]);
+                }
+            }
+            if (empty($p['deckIds'])) break;
+            $drawn = array_shift($p['deckIds']);
+            if (!isset($p['farmIds']) || !is_array($p['farmIds'])) $p['farmIds'] = [];
+            $p['farmIds'][] = $drawn;
+            $grown++;
+        }
+        return $grown;
     }
 
     public function drawCards(array &$state, int $playerIndex, int $count, ?int $deckOwnerIndex = null, bool $allowCommunismChoice = true): int
@@ -371,6 +410,67 @@ class GameEngine
                 }
             }
         }
+
+        // Sinful: if evolved from a card with 2 000 or less power, mill 3 and opponent discards 1 per scissors milled.
+        if (in_array('sinful', array_map('strtolower', $newCard['keywords']))) {
+            $oldCard = $this->getCard($oldCardId);
+            if ((int)($oldCard['power'] ?? 0) <= 2000) {
+                $p = &$state['players'][$playerIndex];
+                $milledIds = [];
+                $treasureCardIds = [];
+                $scissorsCount = 0;
+                for ($i = 0; $i < 3; $i++) {
+                    if (empty($p['deckIds'])) break;
+                    $milledId = (int)array_shift($p['deckIds']);
+                    $p['graveyardIds'][] = $milledId;
+                    $milledIds[] = $milledId;
+                    $milledCard = $this->getCard($milledId);
+                    if (strtolower($milledCard['type'] ?? '') === 'scissors') $scissorsCount++;
+                    if ($this->hasKeyword($milledId, 'treasure')) $treasureCardIds[] = $milledId;
+                }
+
+                $state['lastSinfulEffect'] = ['ts' => nextEventStamp(), 'playerIndex' => $playerIndex, 'cardId' => $newCardId, 'slot' => $slot];
+                $state['lastSinfulEffectAcks'] = [0, 0];
+                $state['lastSinfulMill'] = [
+                    'ts' => nextEventStamp(),
+                    'playerIndex' => $playerIndex,
+                    'cardId' => $newCardId,
+                    'milledCardIds' => $milledIds,
+                    'treasureCardIds' => $treasureCardIds,
+                    'scissorsCount' => $scissorsCount,
+                ];
+                $state['lastSinfulMillAcks'] = [0, 0];
+                $state['log'][] = $p['username'] . ' milled ' . count($milledIds) . ' card(s) (Sinful).';
+
+                foreach ($treasureCardIds as $tId) {
+                    $this->applyTreasureIfMilled($state, $playerIndex, $tId);
+                }
+
+                if ($scissorsCount > 0) {
+                    $oppIdx = 1 - $playerIndex;
+                    $oppHandCount = count($state['players'][$oppIdx]['handIds']);
+                    if ($oppHandCount <= $scissorsCount) {
+                        $discarded = 0;
+                        while (!empty($state['players'][$oppIdx]['handIds'])) {
+                            $last = array_pop($state['players'][$oppIdx]['handIds']);
+                            $state['players'][$oppIdx]['graveyardIds'][] = $last;
+                            pushDiscardAnim($state, (int)$last, $oppIdx, 'sinful');
+                            $discarded++;
+                        }
+                        $state['log'][] = $state['players'][$oppIdx]['username'] . " discarded $discarded card(s) (Sinful).";
+                    } else {
+                        enqueuePendingEffects($state, [[
+                            'type' => 'sinful_discard',
+                            'playerIndex' => $oppIdx,
+                            'discardCount' => $scissorsCount,
+                            'sourcePlayerIndex' => $playerIndex,
+                        ]]);
+                        $state['log'][] = $state['players'][$oppIdx]['username'] . ' must choose ' . $scissorsCount . ' card(s) to discard (Sinful).';
+                    }
+                }
+            }
+        }
+
         $this->recalcDemocracy($state, $playerIndex);
     }
 
@@ -421,6 +521,22 @@ class GameEngine
         unset($p);
 
         $state['log'][] = '--- Round ' . $state['roundNumber'] . ' begins ---';
+
+        // Farming: at the end of each round, every existing farm grows by 1.
+        $farmGrows = [];
+        foreach ($state['players'] as $pIdx => $pData) {
+            if (!empty($pData['farmIds'])) {
+                $grown = $this->growFarm($state, $pIdx, 1);
+                if ($grown > 0) {
+                    $farmGrows[] = ['playerIndex' => $pIdx, 'amount' => $grown];
+                    $state['log'][] = $state['players'][$pIdx]['username'] . "'s farm grew.";
+                }
+            }
+        }
+        if (!empty($farmGrows)) {
+            $state['lastFarmGrow'] = ['ts' => nextEventStamp(), 'grows' => $farmGrows];
+            $state['lastFarmGrowAcks'] = [0, 0];
+        }
     }
 }
 
@@ -469,10 +585,14 @@ function syncRevealedPrizeBottom(array &$state, GameEngine $engine): void
     if (!isset($state['revealedPrizeBottom']) || !is_array($state['revealedPrizeBottom'])) {
         $state['revealedPrizeBottom'] = [null, null];
     }
+    if (!isset($state['communismNegatedIds']) || !is_array($state['communismNegatedIds'])) {
+        $state['communismNegatedIds'] = [null, null];
+    }
 
     foreach ([0, 1] as $idx) {
         $bottom = $state['players'][$idx]['prizeIds'][0] ?? null;
-        $state['revealedPrizeBottom'][$idx] = ($bottom && $engine->hasKeyword((int)$bottom, 'communism')) ? (int)$bottom : null;
+        $negated = $state['communismNegatedIds'][$idx] ?? null;
+        $state['revealedPrizeBottom'][$idx] = ($bottom && $engine->hasKeyword((int)$bottom, 'communism') && $negated !== (int)$bottom) ? (int)$bottom : null;
     }
 }
 
@@ -692,7 +812,7 @@ function handlePlayStartOfRound(array &$state, int $playerIndex, array $params, 
     $card = $engine->getCard($cardId);
     $kwLower = array_map('strtolower', $card['keywords']);
 
-    if (!in_array('greed', $kwLower) && !in_array('natural-selection', $kwLower) && !in_array('mega-greed', $kwLower)) {
+    if (!in_array('greed', $kwLower) && !in_array('natural-selection', $kwLower) && !in_array('mega-greed', $kwLower) && !in_array('tutor', $kwLower)) {
         return 'Card has no [Start of round] keyword';
     }
 
@@ -740,6 +860,29 @@ function handlePlayStartOfRound(array &$state, int $playerIndex, array $params, 
         $state['log'][] = '⚠️ Natural Selection: each player may play one card this round, face-down!';
     }
 
+    if (in_array('tutor', $kwLower)) {
+        $threshold = max((int)$card['power'] - 1000, 0);
+        $wantType  = strtolower($card['type'] ?? '');
+        $matches   = [];
+        foreach ($state['players'][$playerIndex]['deckIds'] as $did) {
+            $dc = $engine->getCard((int)$did);
+            if (strtolower($dc['type'] ?? '') === $wantType && (int)$dc['power'] <= $threshold) {
+                $matches[] = (int)$did;
+            }
+        }
+        enqueuePendingEffects($state, [[
+            'type'          => 'tutor_search',
+            'playerIndex'   => $playerIndex,
+            'cardType'      => $wantType,
+            'powerThreshold' => $threshold,
+            'matches'       => $matches,
+            // The player's own deckIds are normally redacted to nulls for the client (you can't
+            // normally see your deck's contents) — Tutor needs a real snapshot so "view all" works.
+            'deckIds'       => array_values(array_map('intval', $state['players'][$playerIndex]['deckIds'])),
+        ]]);
+        $state['log'][] = $state['players'][$playerIndex]['username'] . ' uses Tutor — searching their deck.';
+    }
+
     maybeStartMainPhase($state, $engine);
     return null;
 }
@@ -776,6 +919,23 @@ function maybeStartMainPhase(array &$state, GameEngine $engine): void
     $state['phase'] = 'main_phase';
     // Turn stays with the current player — they go right into their main phase
     $state['log'][] = 'Main phase begins. ' . $state['players'][$playerIndex]['username'] . ' goes first.';
+}
+
+function handleReapFarm(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
+{
+    if ($state['phase'] !== 'main_phase') return 'Not in main phase';
+    if ($state['turn'] !== $playerIndex) return 'Not your turn';
+
+    $p = &$state['players'][$playerIndex];
+    if (empty($p['farmIds'])) return 'Farm is empty';
+
+    $reaped = $p['farmIds'];
+    $p['farmIds'] = [];
+    foreach ($reaped as $rId) {
+        $p['handIds'][] = $rId;
+    }
+    $state['log'][] = $p['username'] . ' reaped the farm (' . count($reaped) . ' card(s)).';
+    return null;
 }
 
 function handleDraw(array &$state, int $playerIndex, array $params, GameEngine $engine): ?string
@@ -989,6 +1149,85 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
             $state['communismAcks'] = [0, 0];
             return null;
         }
+        case 'trump-card': {
+            if (!$cardId || !in_array($cardId, $state['players'][$playerIndex]['handIds'])) return 'Card not in hand';
+            if (!$engine->hasKeyword($cardId, 'trump-card')) return 'Card does not have Trump Card';
+            $p = &$state['players'][$playerIndex];
+            if (count($p['handIds']) > 5) return 'Trump Card requires 5 or fewer cards in hand';
+
+            $negatedEffects = [];
+            if ($state['naturalSelection'] ?? false) {
+                $negatedEffects[] = 'natural-selection';
+                $state['naturalSelection'] = false;
+                $state['naturalSelectionPlays'] = [0, 0];
+            }
+
+            if (!isset($state['communismNegatedIds']) || !is_array($state['communismNegatedIds'])) {
+                $state['communismNegatedIds'] = [null, null];
+            }
+            $negatedPrizes = [];
+            foreach ([0, 1] as $pIdx) {
+                $bottom = $state['players'][$pIdx]['prizeIds'][0] ?? null;
+                if ($bottom && $engine->hasKeyword((int)$bottom, 'communism') && $state['communismNegatedIds'][$pIdx] !== (int)$bottom) {
+                    $state['communismNegatedIds'][$pIdx] = (int)$bottom;
+                    $negatedPrizes[] = ['playerIndex' => $pIdx, 'cardId' => (int)$bottom];
+                }
+            }
+
+            $engine->discardFromHand($state, $playerIndex, $cardId);
+            pushDiscardAnim($state, $cardId, $playerIndex, 'trump_card');
+
+            $state['log'][] = $p['username'] . ' used Trump Card!';
+            foreach ($negatedEffects as $eff) {
+                $state['log'][] = 'Trump Card negated ' . $eff . '.';
+            }
+            foreach ($negatedPrizes as $np) {
+                $state['log'][] = "Trump Card hid " . $state['players'][$np['playerIndex']]['username'] . "'s prize card.";
+            }
+
+            $state['lastTrumpCard'] = [
+                'ts' => nextEventStamp(),
+                'playerIndex' => $playerIndex,
+                'cardId' => $cardId,
+                'negatedEffects' => $negatedEffects,
+                'negatedPrizes' => $negatedPrizes,
+            ];
+            $state['lastTrumpCardAcks'] = [0, 0];
+            return null;
+        }
+        case 'farming': {
+            if (!$cardId || !in_array($cardId, $state['players'][$playerIndex]['handIds'])) return 'Card not in hand';
+            if (!$engine->hasKeyword($cardId, 'farming')) return 'Card does not have Farming';
+            $p = &$state['players'][$playerIndex];
+
+            $extraIds = array_values(array_unique(array_map('intval', $params['extraDiscardIds'] ?? [])));
+            foreach ($extraIds as $eid) {
+                if ($eid === $cardId || !in_array($eid, $p['handIds'])) return 'Invalid discard selection';
+            }
+
+            $engine->discardFromHand($state, $playerIndex, $cardId);
+            pushDiscardAnim($state, $cardId, $playerIndex, 'farming');
+            foreach ($extraIds as $eid) {
+                $engine->discardFromHand($state, $playerIndex, $eid);
+                pushDiscardAnim($state, $eid, $playerIndex, 'farming');
+            }
+
+            $totalDiscarded = 1 + count($extraIds);
+            $grows = intdiv($totalDiscarded, 2);
+            $state['log'][] = $p['username'] . ' used Farming! Discarded ' . $totalDiscarded . ' card(s).';
+
+            if ($grows > 0) {
+                $grown = $engine->growFarm($state, $playerIndex, $grows);
+                if ($grown > 0) {
+                    $state['log'][] = $p['username'] . "'s farm grew by $grown.";
+                    $state['lastFarmGrow'] = ['ts' => nextEventStamp(), 'grows' => [['playerIndex' => $playerIndex, 'amount' => $grown]]];
+                    $state['lastFarmGrowAcks'] = [0, 0];
+                }
+            } else {
+                $state['log'][] = $p['username'] . ' did not grow the farm.';
+            }
+            return null;
+        }
         case 'cultism': {
             $p = &$state['players'][$playerIndex];
             // Cultism card must be in graveyard
@@ -1108,9 +1347,11 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
                 'guess' => $guess,
                 'actualType' => $actualType,
                 'correct' => $correct,
+                'treasure' => $engine->hasKeyword($milledId, 'treasure'),
             ];
             $state['lastExamMillAcks'] = [0, 0];
             $state['log'][] = $p['username'] . "'s top deck card was milled: " . ($milledCard['name'] ?? '?') . '. Guess was ' . ($correct ? 'correct!' : 'wrong.');
+            $engine->applyTreasureIfMilled($state, $playerIndex, $milledId);
             if ($correct) {
                 $engine->drawCards($state, $oppIdx, 1);
                 $state['log'][] = $state['players'][$oppIdx]['username'] . ' drew a card (Exam).';
@@ -1148,6 +1389,32 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
             }
             $state['log'][] = $state['players'][$playerIndex]['username'] . ' discarded ' . count($discardIds) . ' card(s) (Exam).';
             consumePendingEffect($state);
+            return null;
+        }
+        case 'tutor_search_respond': {
+            $pending = getCurrentPendingEffect($state);
+            if (!$pending || $pending['type'] !== 'tutor_search') return 'No Tutor search pending';
+            if ((int)($pending['playerIndex'] ?? -1) !== $playerIndex) return 'Not your response';
+
+            $p = &$state['players'][$playerIndex];
+            $chosenId = (int)($params['chosenId'] ?? 0);
+            $matches  = $pending['matches'] ?? [];
+            consumePendingEffect($state);
+
+            if ($chosenId && in_array($chosenId, $matches) && in_array($chosenId, $p['deckIds'])) {
+                $dIdx = array_search($chosenId, $p['deckIds']);
+                array_splice($p['deckIds'], $dIdx, 1);
+                $p['handIds'][] = $chosenId;
+                shuffle($p['deckIds']);
+                $state['log'][] = $p['username'] . ' found a card with Tutor.';
+                // Tutor's found card must be revealed — it's the only way the opponent can verify
+                // the type/power condition was actually honored.
+                $state['lastTutorReveal'] = ['ts' => nextEventStamp(), 'playerIndex' => $playerIndex, 'foundCardId' => $chosenId];
+                $state['lastTutorRevealAcks'] = [0, 0];
+            } else {
+                shuffle($p['deckIds']);
+                $state['log'][] = $p['username'] . ' failed to find a card with Tutor.';
+            }
             return null;
         }
         case 'rizz': {
@@ -1431,6 +1698,34 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
             if ($discarded < min($discardCount, $handCount)) return 'Invalid discard selection';
 
             $state['log'][] = $p['username'] . ' discarded ' . $discarded . ' card(s) (Elder-Slime).';
+            consumePendingEffect($state);
+            return null;
+        }
+        case 'sinful_discard_respond': {
+            $pending = getCurrentPendingEffect($state);
+            if (!$pending || $pending['type'] !== 'sinful_discard') return 'No Sinful discard pending';
+            if ((int)($pending['playerIndex'] ?? -1) !== $playerIndex) return 'Not your response';
+
+            $p = &$state['players'][$playerIndex];
+            $handCount = count($p['handIds']);
+            $discardCount = (int)($pending['discardCount'] ?? 1);
+            if ($handCount <= $discardCount) {
+                $discardIds = $p['handIds'];
+            } else {
+                $discardIds = array_values(array_unique(array_map('intval', $params['discardIds'] ?? [])));
+                if (count($discardIds) !== $discardCount) return 'Choose exactly ' . $discardCount . ' cards to discard';
+            }
+
+            $discarded = 0;
+            foreach ($discardIds as $dId) {
+                if ($engine->discardFromHand($state, $playerIndex, (int)$dId)) {
+                    pushDiscardAnim($state, (int)$dId, $playerIndex, 'sinful');
+                    $discarded++;
+                }
+            }
+            if ($discarded < min($discardCount, $handCount)) return 'Invalid discard selection';
+
+            $state['log'][] = $p['username'] . ' discarded ' . $discarded . ' card(s) (Sinful).';
             consumePendingEffect($state);
             return null;
         }
@@ -1994,6 +2289,51 @@ function handleAcknowledgeNotification(array &$state, int $playerIndex, array $p
         if ($current && $stamp === $current) {
             if (!isset($state['lastExamMillAcks']) || !is_array($state['lastExamMillAcks'])) $state['lastExamMillAcks'] = [0, 0];
             $state['lastExamMillAcks'][$playerIndex] = $stamp;
+        }
+        return null;
+    }
+
+    if ($kind === 'sinful_effect') {
+        $current = (int)($state['lastSinfulEffect']['ts'] ?? 0);
+        if ($current && $stamp === $current) {
+            if (!isset($state['lastSinfulEffectAcks']) || !is_array($state['lastSinfulEffectAcks'])) $state['lastSinfulEffectAcks'] = [0, 0];
+            $state['lastSinfulEffectAcks'][$playerIndex] = $stamp;
+        }
+        return null;
+    }
+
+    if ($kind === 'sinful_mill') {
+        $current = (int)($state['lastSinfulMill']['ts'] ?? 0);
+        if ($current && $stamp === $current) {
+            if (!isset($state['lastSinfulMillAcks']) || !is_array($state['lastSinfulMillAcks'])) $state['lastSinfulMillAcks'] = [0, 0];
+            $state['lastSinfulMillAcks'][$playerIndex] = $stamp;
+        }
+        return null;
+    }
+
+    if ($kind === 'trump_card') {
+        $current = (int)($state['lastTrumpCard']['ts'] ?? 0);
+        if ($current && $stamp === $current) {
+            if (!isset($state['lastTrumpCardAcks']) || !is_array($state['lastTrumpCardAcks'])) $state['lastTrumpCardAcks'] = [0, 0];
+            $state['lastTrumpCardAcks'][$playerIndex] = $stamp;
+        }
+        return null;
+    }
+
+    if ($kind === 'tutor_reveal') {
+        $current = (int)($state['lastTutorReveal']['ts'] ?? 0);
+        if ($current && $stamp === $current) {
+            if (!isset($state['lastTutorRevealAcks']) || !is_array($state['lastTutorRevealAcks'])) $state['lastTutorRevealAcks'] = [0, 0];
+            $state['lastTutorRevealAcks'][$playerIndex] = $stamp;
+        }
+        return null;
+    }
+
+    if ($kind === 'farm_grow') {
+        $current = (int)($state['lastFarmGrow']['ts'] ?? 0);
+        if ($current && $stamp === $current) {
+            if (!isset($state['lastFarmGrowAcks']) || !is_array($state['lastFarmGrowAcks'])) $state['lastFarmGrowAcks'] = [0, 0];
+            $state['lastFarmGrowAcks'][$playerIndex] = $stamp;
         }
         return null;
     }
@@ -2628,6 +2968,41 @@ function performAction(Database $database): string
 
     $playerIndex = $match['player1Id'] == $userId ? 0 : 1;
 
+    // acknowledgeNotification is small, pure, and idempotent (it only ever stamps an ack array),
+    // so on an optimistic-locking conflict (another request — typically the other player's own
+    // ack of the same broadcast event — saved first) it's safe to just reload and retry, rather
+    // than silently dropping the ack the way a single unchecked write would.
+    if ($action === 'acknowledgeNotification') {
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $gsRows = $database->query(
+                "SELECT id, stateJson, version FROM isBack_gameState WHERE matchId = :matchId AND status = 'active' ORDER BY gameNumber DESC LIMIT 1",
+                ['matchId' => ['value' => $matchId, 'type' => \PDO::PARAM_INT]]
+            );
+            if (!$gsRows) return Database::responseNotFound();
+            $gsId    = (int)$gsRows[0]['id'];
+            $version = (int)$gsRows[0]['version'];
+            $state   = json_decode($gsRows[0]['stateJson'], true);
+            ensureNotificationState($state);
+
+            $ackError = handleAcknowledgeNotification($state, $playerIndex, $paramsArr);
+            if ($ackError) return Database::responseBadRequest($ackError);
+
+            $result = $database->query(
+                'UPDATE isBack_gameState SET stateJson = :json, version = version + 1 WHERE id = :id AND version = :version',
+                [
+                    'json'    => ['value' => json_encode($state), 'type' => \PDO::PARAM_STR],
+                    'id'      => ['value' => $gsId, 'type' => \PDO::PARAM_INT],
+                    'version' => ['value' => $version, 'type' => \PDO::PARAM_INT],
+                ]
+            );
+            if ((int)($result['affected_rows'] ?? 0) > 0) {
+                return Database::responseSuccess(['ok' => true, 'version' => $version + 1]);
+            }
+            // Lost the race to a concurrent write — reload fresh state and try again.
+        }
+        return Database::responseBadRequest('Could not save acknowledgement, please retry');
+    }
+
     // Load game state with lock
     $gsRows = $database->query(
         "SELECT id, stateJson, version FROM isBack_gameState WHERE matchId = :matchId AND status = 'active' ORDER BY gameNumber DESC LIMIT 1",
@@ -2676,6 +3051,8 @@ function performAction(Database $database): string
         'reorderHand'              => handleReorderHand($state, $playerIndex, $paramsArr),
         'playCommunism'            => handleUseKeyword($state, $playerIndex, array_merge($paramsArr, ['keyword' => 'communism']), $engine),
         'useRizz'                  => handleUseKeyword($state, $playerIndex, array_merge($paramsArr, ['keyword' => 'rizz']), $engine),
+        'useTrumpCard'             => handleUseKeyword($state, $playerIndex, array_merge($paramsArr, ['keyword' => 'trump-card']), $engine),
+        'reapFarm'                 => handleReapFarm($state, $playerIndex, $paramsArr, $engine),
         'activateCultism'          => handleUseKeyword($state, $playerIndex, array_merge($paramsArr, ['keyword' => 'cultism']), $engine),
         'activateWatchQuick'       => handleUseKeyword($state, $playerIndex, array_merge($paramsArr, ['keyword' => 'watch-quick']), $engine),
         'pass'                     => handlePass($state, $playerIndex, $paramsArr, $engine),

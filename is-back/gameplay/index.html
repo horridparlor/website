@@ -171,6 +171,13 @@
     .grave-pile.watch-quick-trigger { border-color: #9b59b6 !important; box-shadow: 0 0 8px #9b59b666; }
     .grave-pile.purge-pile { border-color: #f85149; }
     .grave-pile.purge-pile:hover { border-color: #ff7b72; }
+    .grave-pile.farm-pile { border-color: #2ecc71; }
+    .grave-pile.farm-pile:hover { border-color: #58e08a; }
+    .grave-pile.farm-pile.can-reap { animation: farmGlow 1.4s ease-in-out infinite; }
+    @keyframes farmGlow {
+      0%, 100% { box-shadow: 0 0 4px 0 #2ecc7188; border-color: #2ecc71; }
+      50%      { box-shadow: 0 0 12px 4px #2ecc71cc; border-color: #7cf0a8; }
+    }
     .grave-count { position: absolute; top: -6px; right: -6px; background: var(--border); color: var(--text); border-radius: 10px; font-size: 10px; padding: 1px 5px; }
 
     /* Hand */
@@ -234,6 +241,36 @@
       100% { opacity:0; transform:translate(calc(-50% + var(--ex,0px)), calc(-50% + var(--ey,-60px))) scale(.9) rotate(var(--er,0deg)); }
     }
     .exam-emoji-pop { position:fixed; pointer-events:none; z-index:1150; font-size:22px; animation:examEmojiPop 1.1s ease-out forwards; }
+    /* ── Sinful played-card emoji burst ── */
+    @keyframes sinfulEmojiPop {
+      0%   { opacity:0; transform:translate(-50%,-50%) scale(.4) rotate(0deg); }
+      30%  { opacity:1; transform:translate(-50%,-50%) scale(1.15) rotate(var(--er,0deg)); }
+      100% { opacity:0; transform:translate(calc(-50% + var(--ex,0px)), calc(-50% + var(--ey,-60px))) scale(.9) rotate(var(--er,0deg)); }
+    }
+    .sinful-emoji-pop { position:fixed; pointer-events:none; z-index:1150; font-size:22px; animation:sinfulEmojiPop 1.1s ease-out forwards; }
+    /* ── Sinful mill animation ── */
+    .sinful-card-fly { position:fixed; top:86px; pointer-events:none; z-index:1200; width:74px; height:104px; border-radius:8px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,.8), 0 0 18px #c0392b; animation:cardSlide 2.2s cubic-bezier(.4,0,.2,1) forwards; }
+    .sinful-card-fly img { width:100%; height:100%; object-fit:cover; display:block; }
+    .sinful-scissor-badge { position:absolute; top:4px; right:4px; font-size:18px; filter:drop-shadow(0 0 4px #000); }
+    /* ── Treasure shine (applied to a fly-in card that is Treasure) ── */
+    .treasure-shine { box-shadow:0 4px 24px rgba(0,0,0,.8), 0 0 22px 6px gold !important; }
+    @keyframes treasureDiamondPop {
+      0%   { opacity:1; transform:translate(0,0) rotate(0deg); }
+      100% { opacity:0; transform:translate(var(--tx,0px),var(--ty,-70px)) rotate(var(--tr,180deg)); }
+    }
+    .treasure-diamond { position:fixed; pointer-events:none; z-index:1210; font-size:16px; animation:treasureDiamondPop var(--td,.9s) ease-out forwards; }
+    /* ── Tutor modal: non-matching deck cards shown but not selectable ── */
+    .modal-card-item.disabled { opacity:.35; filter:grayscale(1); cursor:not-allowed; }
+    .modal-card-item.disabled:hover { border-color:transparent; }
+    /* ── Farm growth: sprout burst + face-down cards flying into the farm pile ── */
+    @keyframes farmSproutPop {
+      0%   { opacity:0; transform:translate(-50%,-50%) scale(.4); }
+      35%  { opacity:1; transform:translate(-50%,-50%) scale(1.2); }
+      100% { opacity:0; transform:translate(calc(-50% + var(--fx,0px)), calc(-50% + var(--fy,-50px))) scale(.9); }
+    }
+    .farm-sprout-pop { position:fixed; pointer-events:none; z-index:1150; font-size:20px; animation:farmSproutPop 1.1s ease-out forwards; }
+    .farm-card-fly { position:fixed; pointer-events:none; z-index:1200; width:56px; height:78px; border-radius:6px; overflow:hidden; box-shadow:0 4px 18px rgba(0,0,0,.7), 0 0 12px #2ecc71; animation:cardSlide 1.4s cubic-bezier(.4,0,.2,1) forwards; }
+    .farm-card-fly img { width:100%; height:100%; object-fit:cover; display:block; }
     .hand-card:hover { transform: translateY(-12px) scale(1.48); border-color: var(--blue2); z-index: 10; }
     .hand-card.selected { border-color: var(--gold); transform: translateY(-16px) scale(1.48); }
     .hand-card img { width: 100%; height: 100%; object-fit: cover; border-radius: 5px; }
@@ -241,6 +278,7 @@
     .hand-card .hc-type { position: absolute; top: 3px; left: 3px; width: 8px; height: 8px; border-radius: 50%; }
     .hand-card[data-sor="1"] { border-color: var(--orange); }
     .hand-card.communism-card { border-color: #9b59b6; }
+    .hand-card.farm-card { border-color: #2ecc71; }
     .hand-card.rizz-card { border-color: #e74c3c; }
 
     /* Action bar */
@@ -559,6 +597,10 @@
           🔥
           <span class="grave-count" id="opp-purge-count">0</span>
         </div>
+        <div class="grave-pile farm-pile" id="opp-farm-pile" onclick="showOppFarm()" title="Opponent's farm" style="display:none;">
+          🌾
+          <span class="grave-count" id="opp-farm-count">0</span>
+        </div>
         <div class="thinking-indicator" id="opp-thinking" style="display:none;">Thinking…</div>
       </div>
       <div id="opp-field">
@@ -607,6 +649,10 @@
         <div class="grave-pile purge-pile" id="my-purge-pile" onclick="showMyPurge()" title="Your purge zone" style="display:none;">
           🔥
           <span class="grave-count" id="my-purge-count">0</span>
+        </div>
+        <div class="grave-pile farm-pile" id="my-farm-pile" onclick="onMyFarmClick()" title="Your farm" style="display:none;">
+          🌾
+          <span class="grave-count" id="my-farm-count">0</span>
         </div>
       </div>
     </div>
@@ -814,6 +860,11 @@ let lastWatchQuickRevealTs = 0;
 let lastCultismTs = 0;
 let lastExamEffectTs = 0;
 let lastExamMillTs = 0;
+let lastSinfulEffectTs = 0;
+let lastSinfulMillTs = 0;
+let lastTrumpCardTs = 0;
+let lastFarmGrowTs = 0;
+let lastTutorRevealTs = 0;
 let phaseToastTimeout = null;
 let activePendingModalSig = null;
 let pendingActionInFlight = false;
@@ -1219,6 +1270,56 @@ function processState(state) {
     }
   }
 
+  const sinfulEffectEvt = state.lastSinfulEffect;
+  if (sinfulEffectEvt && sinfulEffectEvt.ts) {
+    const sinfulEffectAck = state.lastSinfulEffectAcks?.[myIndex] ?? 0;
+    if (sinfulEffectEvt.ts !== lastSinfulEffectTs && sinfulEffectEvt.ts !== sinfulEffectAck) {
+      lastSinfulEffectTs = sinfulEffectEvt.ts;
+      showSinfulEffectBurst(sinfulEffectEvt);
+      acknowledgeNotification('sinful_effect', sinfulEffectEvt.ts);
+    }
+  }
+
+  const sinfulMillEvt = state.lastSinfulMill;
+  if (sinfulMillEvt && sinfulMillEvt.ts) {
+    const sinfulMillAck = state.lastSinfulMillAcks?.[myIndex] ?? 0;
+    if (sinfulMillEvt.ts !== lastSinfulMillTs && sinfulMillEvt.ts !== sinfulMillAck) {
+      lastSinfulMillTs = sinfulMillEvt.ts;
+      showSinfulMillAnimation(sinfulMillEvt);
+      acknowledgeNotification('sinful_mill', sinfulMillEvt.ts);
+    }
+  }
+
+  const trumpCardEvt = state.lastTrumpCard;
+  if (trumpCardEvt && trumpCardEvt.ts) {
+    const trumpCardAck = state.lastTrumpCardAcks?.[myIndex] ?? 0;
+    if (trumpCardEvt.ts !== lastTrumpCardTs && trumpCardEvt.ts !== trumpCardAck) {
+      lastTrumpCardTs = trumpCardEvt.ts;
+      showTrumpCardEffect(trumpCardEvt);
+      acknowledgeNotification('trump_card', trumpCardEvt.ts);
+    }
+  }
+
+  const tutorRevealEvt = state.lastTutorReveal;
+  if (tutorRevealEvt && tutorRevealEvt.ts) {
+    const tutorRevealAck = state.lastTutorRevealAcks?.[myIndex] ?? 0;
+    if (tutorRevealEvt.ts !== lastTutorRevealTs && tutorRevealEvt.ts !== tutorRevealAck) {
+      lastTutorRevealTs = tutorRevealEvt.ts;
+      showTutorRevealModal(tutorRevealEvt);
+      acknowledgeNotification('tutor_reveal', tutorRevealEvt.ts);
+    }
+  }
+
+  const farmGrowEvt = state.lastFarmGrow;
+  if (farmGrowEvt && farmGrowEvt.ts) {
+    const farmGrowAck = state.lastFarmGrowAcks?.[myIndex] ?? 0;
+    if (farmGrowEvt.ts !== lastFarmGrowTs && farmGrowEvt.ts !== farmGrowAck) {
+      lastFarmGrowTs = farmGrowEvt.ts;
+      showFarmGrowAnimation(farmGrowEvt);
+      acknowledgeNotification('farm_grow', farmGrowEvt.ts);
+    }
+  }
+
   // Win/complete — only the match (best-of-N series) ending should show the final
   // overlay and stop polling. state.phase === 'game_over' fires after every single
   // game in the series (not just the deciding one), so it must not gate this.
@@ -1263,6 +1364,8 @@ function isPendingResponder(effect, mi) {
     case 'sahkotalo':
     case 'herwood':
     case 'elder_slime_discard':
+    case 'sinful_discard':
+    case 'tutor_search':
     case 'mikontalo_discard':
     case 'communism_draw':
     case 'facism_resolve':
@@ -1340,6 +1443,12 @@ function openPendingEffectModal(effect, state) {
       return;
     case 'elder_slime_discard':
       openElderSlimeDiscardModal(effect, state);
+      return;
+    case 'sinful_discard':
+      openSinfulDiscardModal(effect, state);
+      return;
+    case 'tutor_search':
+      openTutorSearchModal(effect, state);
       return;
     case 'mikontalo_discard':
       openMikontaloDiscardModal(state);
@@ -1695,6 +1804,132 @@ function showOppPurge() {
   ]);
 }
 
+// Farm zones are always face-down — nobody, including the owner, may look at the cards inside.
+// Only the card count is public knowledge.
+function onMyFarmClick() {
+  if (!gameState) return;
+  const me = gameState.players[myIndex];
+  const count = (me.farmIds || []).length;
+  if (!count) { showPhaseMsg('Your farm is empty', '#888', 1200); return; }
+  const canReap = gameState.phase === 'main_phase' && gameState.turn === myIndex;
+  if (!canReap) {
+    showPhaseMsg(`Your farm has ${count} face-down card(s)`, '#2ecc71', 1500);
+    return;
+  }
+  openKwModalCustom(
+    'Your Farm',
+    `Your farm has ${count} face-down card(s), hidden even from you. Reap it now to draw all of them into your hand? The farm will stop existing.`,
+    [],
+    [
+      { label: 'Cancel', className: 'm-cancel', onClick: closeKwModal },
+      { label: `Reap (${count})`, className: 'm-confirm', onClick: () => { closeKwModal(); sendAction('reapFarm', {}); } },
+    ]
+  );
+}
+
+function showOppFarm() {
+  if (!gameState) return;
+  const opp = gameState.players[1 - myIndex];
+  const count = (opp.farmIds || []).length;
+  showPhaseMsg(count ? `Opponent's farm has ${count} face-down card(s)` : "Opponent's farm is empty", '#2ecc71', 1500);
+}
+
+function openFarmingModal(cardId) {
+  const me = gameState.players[myIndex];
+  const otherHandCards = (me.handIds || []).filter(id => id !== cardId).map(id => allCards[id]).filter(Boolean);
+  const selectedIds = new Set();
+
+  function summary() {
+    const total = 1 + selectedIds.size;
+    return `${total} card${total === 1 ? '' : 's'} (grows ${Math.floor(total / 2)})`;
+  }
+
+  function updateModal() {
+    document.getElementById('kw-modal-desc').textContent =
+      `Discard Farming and any number of other cards. Every 2 cards discarded grows your farm by 1. Discarding: ${summary()}.`;
+    document.querySelectorAll('#kw-modal-cards .modal-card-item').forEach(el => {
+      const id = Number(el.dataset.id);
+      el.classList.toggle('selected', selectedIds.has(id));
+    });
+  }
+
+  const okBtn = document.createElement('button');
+  okBtn.className = 'm-confirm';
+  okBtn.textContent = 'Farm';
+  okBtn.addEventListener('click', () => {
+    closeKwModal();
+    sendAction('useKeyword', { keyword: 'farming', cardId, extraDiscardIds: [...selectedIds] });
+  });
+
+  openKwModalCustom(
+    'Farming',
+    `Discard Farming and any number of other cards. Every 2 cards discarded grows your farm by 1. Discarding: ${summary()}.`,
+    otherHandCards,
+    [{
+      label: 'Cancel',
+      className: 'm-cancel',
+      onClick: () => {
+        if (selectedIds.size > 0) {
+          selectedIds.clear();
+          updateModal();
+        } else {
+          closeKwModal();
+        }
+      },
+    }],
+    null
+  );
+
+  window._kwModalCallback = null;
+  document.querySelectorAll('#kw-modal-cards .modal-card-item').forEach(el => {
+    el.onclick = () => {
+      const id = Number(el.dataset.id);
+      if (selectedIds.has(id)) selectedIds.delete(id);
+      else selectedIds.add(id);
+      updateModal();
+    };
+  });
+
+  document.getElementById('kw-modal-btns').appendChild(okBtn);
+}
+
+function showFarmGrowAnimation(evt) {
+  (evt.grows || []).forEach(g => {
+    const prefix = Number(g.playerIndex) === myIndex ? 'my' : 'opp';
+    const pileEl = document.getElementById(`${prefix}-farm-pile`);
+    if (!pileEl) return;
+    const rect = pileEl.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+
+    ['🌱','🌱','🌾'].forEach((emoji, i) => {
+      const el = document.createElement('div');
+      el.className = 'farm-sprout-pop';
+      el.textContent = emoji;
+      el.style.left = `${cx}px`;
+      el.style.top  = `${cy}px`;
+      el.style.setProperty('--fx', `${(Math.random() - 0.5) * 70}px`);
+      el.style.setProperty('--fy', `${-30 - Math.random() * 50}px`);
+      el.style.animationDelay = `${i * 90}ms`;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 1300);
+    });
+
+    const amount = Math.max(1, Number(g.amount || 1));
+    for (let i = 0; i < amount; i++) {
+      setTimeout(() => {
+        const flyCard = document.createElement('div');
+        flyCard.className = 'farm-card-fly';
+        flyCard.style.left = '50%';
+        flyCard.style.top = '86px';
+        flyCard.innerHTML = `<img src="${cardBack()}" alt="" />`;
+        document.body.appendChild(flyCard);
+        setTimeout(() => flyCard.remove(), 1500);
+      }, i * 220);
+    }
+  });
+}
+
 // ── End new Set 2 keyword modals ───────────────────────────────────────────────
 
 function getTopFaceDownSlots(player) {
@@ -2023,6 +2258,141 @@ function openElderSlimeDiscardModal(effect, state) {
   document.getElementById('kw-modal-btns').appendChild(okBtn);
 }
 
+function openSinfulDiscardModal(effect, state) {
+  const me = state.players[myIndex];
+  const required = Math.max(1, Number(effect.discardCount || 1));
+  const handIds = me.handIds || [];
+  if (handIds.length <= required) {
+    resolvePendingKeyword({ keyword: 'sinful_discard_respond', discardIds: [...handIds] });
+    return;
+  }
+
+  const cards = handIds.map(id => allCards[id]).filter(Boolean);
+  const selectedIds = new Set();
+
+  function updateModal() {
+    document.getElementById('kw-modal-desc').textContent =
+      `Sinful! Choose ${required} card(s) to discard (${selectedIds.size}/${required}).`;
+    const okBtn = document.getElementById('sinful-discard-ok');
+    if (okBtn) okBtn.disabled = selectedIds.size !== required;
+    document.querySelectorAll('#kw-modal-cards .modal-card-item').forEach(el => {
+      const id = Number(el.dataset.id);
+      el.classList.toggle('selected', selectedIds.has(id));
+    });
+  }
+
+  const okBtn = document.createElement('button');
+  okBtn.id = 'sinful-discard-ok';
+  okBtn.className = 'm-confirm';
+  okBtn.textContent = 'OK';
+  okBtn.disabled = true;
+  okBtn.addEventListener('click', () => {
+    closeKwModal();
+    resolvePendingKeyword({ keyword: 'sinful_discard_respond', discardIds: [...selectedIds] });
+  });
+
+  openKwModalCustom(
+    'Sinful',
+    `Sinful! Choose ${required} card(s) to discard (0/${required}).`,
+    cards,
+    [],
+    null
+  );
+
+  window._kwModalCallback = null;
+  document.querySelectorAll('#kw-modal-cards .modal-card-item').forEach(el => {
+    el.onclick = () => {
+      const id = Number(el.dataset.id);
+      if (selectedIds.has(id)) {
+        selectedIds.delete(id);
+      } else if (selectedIds.size < required) {
+        selectedIds.add(id);
+      }
+      updateModal();
+    };
+  });
+
+  document.getElementById('kw-modal-btns').appendChild(okBtn);
+}
+
+function openTutorSearchModal(effect, state) {
+  const matchIds = new Set((effect.matches || []).map(Number));
+  const matches = (effect.matches || []).map(id => allCards[id]).filter(Boolean);
+  // Your own deckIds in `state` are redacted to nulls (you can't normally see your deck) — Tutor's
+  // pending effect carries a real snapshot of the deck specifically so "view all" can show it.
+  const deckCards = (effect.deckIds || []).map(id => allCards[id]).filter(Boolean);
+  let viewAll = false;
+
+  function render() {
+    document.getElementById('kw-modal-title').textContent = 'Tutor';
+    document.getElementById('kw-modal-desc').innerHTML =
+      (matches.length
+        ? `Search your deck for a matching card, or skip to fail the search on purpose.`
+        : `No matching cards in your deck.`) +
+      `<label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:var(--muted);cursor:pointer;">` +
+      `<input type="checkbox" id="tutor-view-all"${viewAll ? ' checked' : ''}/> View all cards in deck</label>`;
+
+    const cardsToShow = viewAll ? deckCards : matches;
+    const list = document.getElementById('kw-modal-cards');
+    list.innerHTML = cardsToShow.map(c => {
+      const valid = matchIds.has(c.id);
+      return `<div class="modal-card-item ${valid ? '' : 'disabled'}" data-id="${c.id}">
+        <img src="${cardImg(c)}" alt="${stripBB(c.name)}" onerror="this.src=''" />
+        <div class="mci-name">${stripBB(c.name)}</div>
+      </div>`;
+    }).join('');
+
+    window._kwModalCallback = null;
+    list.querySelectorAll('.modal-card-item:not(.disabled)').forEach(el => {
+      el.onclick = () => {
+        const id = Number(el.dataset.id);
+        closeKwModal();
+        resolveTutorSearchPick(id);
+      };
+    });
+
+    const viewAllBox = document.getElementById('tutor-view-all');
+    if (viewAllBox) viewAllBox.addEventListener('change', (e) => { viewAll = e.target.checked; render(); });
+
+    const btns = document.getElementById('kw-modal-btns');
+    btns.innerHTML = '';
+    const skipBtn = document.createElement('button');
+    skipBtn.className = 'm-cancel';
+    skipBtn.textContent = 'Skip (fail search)';
+    skipBtn.addEventListener('click', () => {
+      closeKwModal();
+      resolvePendingKeyword({ keyword: 'tutor_search_respond' });
+    });
+    btns.appendChild(skipBtn);
+  }
+
+  document.getElementById('kw-modal-cards').innerHTML = '';
+  document.getElementById('kw-modal-btns').innerHTML = '';
+  document.getElementById('kw-modal').classList.add('open');
+  render();
+}
+
+function resolveTutorSearchPick(chosenId) {
+  // The searcher already knows what they picked — no need to show it back to them. The found
+  // card gets revealed to the opponent instead (see showTutorRevealModal), since that's the only
+  // way they can verify the type/power condition was actually honored.
+  showCardFlyAnim(chosenId);
+  resolvePendingKeyword({ keyword: 'tutor_search_respond', chosenId });
+}
+
+function showTutorRevealModal(evt) {
+  if (Number(evt.playerIndex) === myIndex) return;
+  const searcherName = gameState?.players?.[evt.playerIndex]?.username || 'Opponent';
+  const card = allCards[Number(evt.foundCardId)];
+  openKwModalCustom(
+    'Tutor',
+    `${searcherName} found a card with Tutor:`,
+    card ? [card] : [],
+    [{ label: 'OK', className: 'm-confirm', onClick: closeKwModal }],
+    null
+  );
+}
+
 function openCommunismDrawModal(state) {
   const me = state.players[myIndex];
   const opp = state.players[1 - myIndex];
@@ -2095,15 +2465,17 @@ function updatePlayerInfo(state, mi, oi) {
   const myFieldCount = ['primary','left','right'].reduce((n, s) => n + (me.field?.[s]?.length  || 0), 0);
   const myGraveCount = (me.graveyardIds || []).length;
   const myPrizeCount = me.prizeCount ?? (me.prizeIds ? me.prizeIds.length : 5);
+  const myFarmCount  = (me.farmIds || []).length;
   document.getElementById('my-hand').textContent = myHandCount;
-  document.getElementById('my-deck').textContent = me.deckCount ?? Math.max(0, DECK_SIZE - myFieldCount - myGraveCount - myPrizeCount - myHandCount);
+  document.getElementById('my-deck').textContent = me.deckCount ?? Math.max(0, DECK_SIZE - myFieldCount - myGraveCount - myPrizeCount - myHandCount - myFarmCount);
 
   const oppHandCount  = opp.handCount ?? (Array.isArray(opp.handIds) ? opp.handIds.length : 0);
   document.getElementById('opp-hand').textContent = oppHandCount;
   const oppFieldCount = ['primary','left','right'].reduce((n, s) => n + (opp.field?.[s]?.length || 0), 0);
   const oppGraveCount = (opp.graveyardIds || []).length;
   const oppPrizeCount = opp.prizeCount ?? (opp.prizeIds ? opp.prizeIds.length : 5);
-  document.getElementById('opp-deck').textContent = opp.deckCount ?? Math.max(0, DECK_SIZE - oppFieldCount - oppGraveCount - oppPrizeCount - oppHandCount);
+  const oppFarmCount  = (opp.farmIds || []).length;
+  document.getElementById('opp-deck').textContent = opp.deckCount ?? Math.max(0, DECK_SIZE - oppFieldCount - oppGraveCount - oppPrizeCount - oppHandCount - oppFarmCount);
   document.getElementById('my-grave-count').textContent  = (me.graveyardIds  || []).length;
   document.getElementById('opp-grave-count').textContent = (opp.graveyardIds || []).length;
 
@@ -2113,6 +2485,20 @@ function updatePlayerInfo(state, mi, oi) {
   const oppPurgePile = document.getElementById('opp-purge-pile');
   if (myPurgePile) { myPurgePile.style.display = myPurgeCount2 > 0 ? '' : 'none'; document.getElementById('my-purge-count').textContent = myPurgeCount2; }
   if (oppPurgePile) { oppPurgePile.style.display = oppPurgeCount2 > 0 ? '' : 'none'; document.getElementById('opp-purge-count').textContent = oppPurgeCount2; }
+
+  const myCanReap = state.phase === 'main_phase' && isMyTurn && myFarmCount > 0;
+  const myFarmPile = document.getElementById('my-farm-pile');
+  const oppFarmPile = document.getElementById('opp-farm-pile');
+  if (myFarmPile) {
+    myFarmPile.style.display = myFarmCount > 0 ? '' : 'none';
+    myFarmPile.classList.toggle('can-reap', myCanReap);
+    myFarmPile.title = myCanReap ? 'Your farm — click to reap' : 'Your farm';
+    document.getElementById('my-farm-count').textContent = myFarmCount;
+  }
+  if (oppFarmPile) {
+    oppFarmPile.style.display = oppFarmCount > 0 ? '' : 'none';
+    document.getElementById('opp-farm-count').textContent = oppFarmCount;
+  }
 
   const thinking = state.turn !== mi && state.phase !== 'setup' && state.phase !== 'completed';
   document.getElementById('opp-thinking').style.display = thinking ? '' : 'none';
@@ -2223,7 +2609,7 @@ function updateHand(state, mi) {
   handScroll.innerHTML = me.handIds.map(id => {
     const card = allCards[id];
     if (!card) return '';
-    const isSOR = card.keywords && card.keywords.some(k => k && (k.toLowerCase()==='greed'||k.toLowerCase()==='natural-selection'||k.toLowerCase()==='mega-greed'));
+    const isSOR = card.keywords && card.keywords.some(k => k && (k.toLowerCase()==='greed'||k.toLowerCase()==='natural-selection'||k.toLowerCase()==='mega-greed'||k.toLowerCase()==='tutor'));
     const isCommunism = card.keywords && card.keywords.some(k=>k&&k.toLowerCase()==='communism');
     const opp = state.players[1-mi];
     // Rizz only highlights when opponent has a face-down card
@@ -2236,6 +2622,14 @@ function updateHand(state, mi) {
     const oppHasFullField = state.phase === 'main_phase' && state.turn === mi && opp &&
       opp.field.primary?.length > 0 && opp.field.left?.length > 0 && opp.field.right?.length > 0;
     const isSuck = card.keywords && card.keywords.some(k=>k&&k.toLowerCase()==='suck') && oppHasFullField;
+    // Trump Card highlights only on your turn, with 5 or fewer cards in hand, while there's
+    // something for it to negate (a lingering effect or a face-up prize card).
+    const hasLingering = !!state.naturalSelection;
+    const hasFaceUpPrize = (state.revealedPrizeBottom || []).some(x => x != null);
+    const isTrumpCard = card.keywords && card.keywords.some(k=>k&&k.toLowerCase()==='trump-card') &&
+      state.phase === 'main_phase' && state.turn === mi && me.handIds.length <= 5 && (hasLingering || hasFaceUpPrize);
+    const isFarming = card.keywords && card.keywords.some(k=>k&&k.toLowerCase()==='farming') &&
+      state.phase === 'main_phase' && state.turn === mi;
     const isSelected = selectedHandCardId === id;
     const isNew = newIds.has(id);
     let cls = 'hand-card';
@@ -2244,6 +2638,8 @@ function updateHand(state, mi) {
     if (isCommunism) cls += ' communism-card';
     if (isRizz) cls += ' rizz-card';
     if (isSuck) cls += ' rizz-card';
+    if (isTrumpCard) cls += ' rizz-card';
+    if (isFarming) cls += ' farm-card';
     if (isNew && !isHandReorderInProgress) cls += ' dealing';
     return `
       <div class="${cls}" data-id="${id}" data-sor="${isSOR?1:0}"
@@ -2384,6 +2780,30 @@ function showGreedAnimation(cardId) {
   setTimeout(() => { flyCard.remove(); clearInterval(coinTimer); }, 2400);
 }
 
+// ── Treasure shine (attached to a fly-in card revealed by milling) ─────────────
+function addTreasureShine(flyCardEl) {
+  flyCardEl.classList.add('treasure-shine');
+  let spawned = 0;
+  const diamondTimer = setInterval(() => {
+    spawned++;
+    if (spawned > 10) { clearInterval(diamondTimer); return; }
+    const rect = flyCardEl.getBoundingClientRect();
+    if (!rect.width) { clearInterval(diamondTimer); return; }
+    const d = document.createElement('div');
+    d.className = 'treasure-diamond';
+    d.textContent = '💎';
+    d.style.left = `${rect.left + rect.width * Math.random()}px`;
+    d.style.top  = `${rect.top  + rect.height * Math.random()}px`;
+    d.style.setProperty('--tx', `${(Math.random() - 0.5) * 80}px`);
+    d.style.setProperty('--ty', `${-30 - Math.random() * 60}px`);
+    d.style.setProperty('--tr', `${(Math.random() - 0.5) * 260}deg`);
+    d.style.setProperty('--td', `${0.6 + Math.random() * 0.5}s`);
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), 1200);
+  }, 140);
+  setTimeout(() => clearInterval(diamondTimer), 2400);
+}
+
 function showExamMillAnimation(evt) {
   const card = allCards[Number(evt.milledCardId)];
   if (!card) return;
@@ -2392,6 +2812,7 @@ function showExamMillAnimation(evt) {
   flyCard.className = 'exam-card-fly';
   flyCard.innerHTML = `<img src="${cardImg(card)}" alt="" /><div class="exam-verdict">${evt.correct ? '✅' : '❌'}</div>`;
   document.body.appendChild(flyCard);
+  if (evt.treasure) addTreasureShine(flyCard);
 
   let spawned = 0;
   const skullTimer = setInterval(() => {
@@ -2433,6 +2854,45 @@ function showExamEffectBurst(evt) {
     el.style.animationDelay = `${i * 60}ms`;
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 1300);
+  });
+}
+
+function showSinfulEffectBurst(evt) {
+  const prefix = Number(evt.playerIndex) === myIndex ? 'my' : 'opp';
+  const slotEl = document.getElementById(`${prefix}-${evt.slot || 'primary'}`);
+  if (!slotEl) return;
+  const rect = slotEl.getBoundingClientRect();
+  const emojis = ['✂️', '😈', '✂️', '😈', '🔥'];
+  emojis.forEach((emoji, i) => {
+    const el = document.createElement('div');
+    el.className = 'sinful-emoji-pop';
+    el.textContent = emoji;
+    el.style.left = `${rect.left + rect.width / 2}px`;
+    el.style.top  = `${rect.top  + rect.height / 2}px`;
+    el.style.setProperty('--ex', `${(Math.random() - 0.5) * 100}px`);
+    el.style.setProperty('--ey', `${-40 - Math.random() * 60}px`);
+    el.style.setProperty('--er', `${(Math.random() - 0.5) * 60}deg`);
+    el.style.animationDelay = `${i * 60}ms`;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1300);
+  });
+}
+
+function showSinfulMillAnimation(evt) {
+  const milledIds = evt.milledCardIds || [];
+  const treasureIds = new Set((evt.treasureCardIds || []).map(Number));
+  milledIds.forEach((cardId, i) => {
+    setTimeout(() => {
+      const card = allCards[Number(cardId)];
+      if (!card) return;
+      const isScissors = String(card.type || '').toLowerCase() === 'scissors';
+      const flyCard = document.createElement('div');
+      flyCard.className = 'sinful-card-fly';
+      flyCard.innerHTML = `<img src="${cardImg(card)}" alt="" />${isScissors ? '<div class="sinful-scissor-badge">✂️</div>' : ''}`;
+      document.body.appendChild(flyCard);
+      if (treasureIds.has(Number(cardId))) addTreasureShine(flyCard);
+      setTimeout(() => flyCard.remove(), 2400);
+    }, i * 500);
   });
 }
 
@@ -2532,7 +2992,7 @@ function updateActionBar(state, mi) {
       maybeAutoSkipSOR(state, mi);
       const hasSorCard = (me.handIds || []).some(id => {
         const c = allCards[id];
-        return c && c.keywords && c.keywords.some(k => k && (k.toLowerCase() === 'greed' || k.toLowerCase() === 'natural-selection' || k.toLowerCase() === 'mega-greed'));
+        return c && c.keywords && c.keywords.some(k => k && (k.toLowerCase() === 'greed' || k.toLowerCase() === 'natural-selection' || k.toLowerCase() === 'mega-greed' || k.toLowerCase() === 'tutor'));
       });
       const hint = document.createElement('span');
       hint.style.cssText = 'font-size:13px;color:var(--muted);';
@@ -2660,7 +3120,7 @@ function onHandCardClick(cardId) {
   // [Start of round] card usage
   if (phase === 'start_of_round' && isMyTurn && !gameState.players[myIndex].startOfRoundUsed) {
     const card = allCards[cardId];
-    if (card && card.keywords && card.keywords.some(k=>k&&(k.toLowerCase()==='greed'||k.toLowerCase()==='natural-selection'||k.toLowerCase()==='mega-greed'))) {
+    if (card && card.keywords && card.keywords.some(k=>k&&(k.toLowerCase()==='greed'||k.toLowerCase()==='natural-selection'||k.toLowerCase()==='mega-greed'||k.toLowerCase()==='tutor'))) {
       sendAction('useStartOfRound', { cardId });
       return;
     }
@@ -2697,6 +3157,28 @@ function onHandCardClick(cardId) {
         return;
       }
       // Not triggerable, fall through to normal selection
+    }
+    if (card && GameEngine.cardHasKeyword(card, 'trump-card')) {
+      const handCount = gameState.players[myIndex].handIds.length;
+      const lingering = !!gameState.naturalSelection;
+      const facePrize = (gameState.revealedPrizeBottom || []).some(x => x != null);
+      if (handCount <= 5 && (lingering || facePrize)) {
+        openKwModalCustom(
+          'Trump Card',
+          'Discard Trump Card to negate all lingering effects and hide any face-up prize cards?',
+          [],
+          [
+            { label: 'Cancel', className: 'm-cancel', onClick: closeKwModal },
+            { label: 'Activate Trump Card', className: 'm-confirm', onClick: () => { closeKwModal(); sendAction('useTrumpCard', { cardId }); } },
+          ]
+        );
+        return;
+      }
+      // Nothing to negate right now → fall through to normal selection
+    }
+    if (card && GameEngine.cardHasKeyword(card, 'farming')) {
+      openFarmingModal(cardId);
+      return;
     }
   }
 
@@ -3541,7 +4023,7 @@ function maybeAutoSkipSOR(state, mi) {
   const me = state.players[mi];
   const hasSorCard = (me.handIds || []).some(id => {
     const c = allCards[id];
-    return c && c.keywords && c.keywords.some(k => k && (k.toLowerCase() === 'greed' || k.toLowerCase() === 'natural-selection' || k.toLowerCase() === 'mega-greed'));
+    return c && c.keywords && c.keywords.some(k => k && (k.toLowerCase() === 'greed' || k.toLowerCase() === 'natural-selection' || k.toLowerCase() === 'mega-greed' || k.toLowerCase() === 'tutor'));
   });
 
   if (!hasSorCard) {
@@ -3620,7 +4102,7 @@ function updateSorOverlay(state, mi) {
 
   const sorCardIds = (me.handIds || []).filter(id => {
     const c = allCards[id];
-    return c && c.keywords && c.keywords.some(k => k && (k.toLowerCase() === 'greed' || k.toLowerCase() === 'natural-selection' || k.toLowerCase() === 'mega-greed'));
+    return c && c.keywords && c.keywords.some(k => k && (k.toLowerCase() === 'greed' || k.toLowerCase() === 'natural-selection' || k.toLowerCase() === 'mega-greed' || k.toLowerCase() === 'tutor'));
   });
 
   if (sorCardIds.length > 0) {
@@ -3989,6 +4471,75 @@ function showNaturalSelectionEffect() {
   }
   document.body.appendChild(overlay);
   setTimeout(() => overlay.remove(), 3000);
+}
+
+// ── Trump Card animation ────────────────────────────────────────────────────────
+function showTrumpCardEffect(evt) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = [
+    'position:fixed;inset:0;z-index:1400;pointer-events:auto;',
+    'display:flex;flex-direction:column;align-items:center;justify-content:center;',
+    'background:radial-gradient(ellipse at center, rgba(120,20,20,0.45) 0%, rgba(0,0,0,0.82) 70%);',
+  ].join('');
+
+  const negatedEffects = evt.negatedEffects || [];
+  const negatedPrizes  = evt.negatedPrizes  || [];
+  const effectLabel = kw => (kw === 'natural-selection' ? 'Natural Selection' : kw);
+  const effectsHtml = negatedEffects.length
+    ? `<ul class="tc-list">${negatedEffects.map(e => `<li>🚫 ${effectLabel(e)}</li>`).join('')}</ul>`
+    : `<div class="tc-none">No lingering effects were active.</div>`;
+  const prizesHtml = negatedPrizes.length
+    ? `<ul class="tc-list">${negatedPrizes.map(p => {
+        const owner = Number(p.playerIndex) === myIndex ? 'Your' : "Opponent's";
+        const c = allCards[Number(p.cardId)];
+        return `<li>🃏 ${owner} prize card${c ? ` (${stripBB(c.name)})` : ''} hidden again</li>`;
+      }).join('')}</ul>`
+    : `<div class="tc-none">No face-up prize cards.</div>`;
+
+  overlay.innerHTML = `
+    <div class="tc-cross">
+      <div class="tc-beam tc-beam-v"></div>
+      <div class="tc-beam tc-beam-h"></div>
+      <div class="tc-flame">🔥</div>
+    </div>
+    <div class="tc-title">TRUMP CARD</div>
+    <div class="tc-box">
+      <div class="tc-section-title">Lingering Effects Negated</div>
+      ${effectsHtml}
+      <div class="tc-section-title">Prize Cards Hidden</div>
+      ${prizesHtml}
+      <button class="tc-ok" id="tc-ok-btn">OK</button>
+    </div>`;
+
+  if (!document.getElementById('tc-style')) {
+    const s = document.createElement('style');
+    s.id = 'tc-style';
+    s.textContent = [
+      '.tc-cross{position:relative;width:220px;height:220px;margin-bottom:8px;}',
+      '.tc-beam{position:absolute;background:linear-gradient(90deg,transparent,#ff5533,#ffcc33,#ff5533,transparent);box-shadow:0 0 24px 6px #ff5533;}',
+      '.tc-beam-v{left:50%;top:0;width:14px;height:100%;transform:translateX(-50%) scaleY(0);animation:tcBeamPopV .5s ease-out forwards;}',
+      '.tc-beam-h{top:50%;left:0;height:14px;width:100%;transform:translateY(-50%) scaleX(0);animation:tcBeamPopH .5s ease-out forwards;}',
+      '.tc-flame{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:46px;filter:drop-shadow(0 0 18px #ff8800);animation:tcFlamePulse 1s ease-in-out infinite;}',
+      '@keyframes tcBeamPopV{0%{transform:translateX(-50%) scaleY(0);opacity:0}60%{opacity:1}100%{transform:translateX(-50%) scaleY(1);opacity:1}}',
+      '@keyframes tcBeamPopH{0%{transform:translateY(-50%) scaleX(0);opacity:0}60%{opacity:1}100%{transform:translateY(-50%) scaleX(1);opacity:1}}',
+      '@keyframes tcFlamePulse{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.25)}}',
+      '.tc-title{font-size:30px;font-weight:900;color:#ffcc33;letter-spacing:5px;text-shadow:0 0 24px #ff5500;margin-bottom:14px;}',
+      '.tc-box{background:rgba(20,20,20,.9);border:1px solid #ff5533;border-radius:10px;padding:16px 22px;max-width:360px;width:90%;color:#eee;}',
+      '.tc-section-title{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#ff9966;margin:10px 0 4px;}',
+      '.tc-section-title:first-child{margin-top:0;}',
+      '.tc-list{list-style:none;padding:0;margin:0 0 4px;font-size:13px;}',
+      '.tc-list li{padding:3px 0;}',
+      '.tc-none{font-size:12px;color:#999;padding:3px 0;}',
+      '.tc-ok{margin-top:14px;width:100%;background:#ff5533;color:#fff;border:none;border-radius:6px;padding:8px;font-weight:700;cursor:pointer;}',
+      '.tc-ok:hover{opacity:.85;}',
+    ].join('');
+    document.head.appendChild(s);
+  }
+
+  document.body.appendChild(overlay);
+  const okBtn = document.getElementById('tc-ok-btn');
+  if (okBtn) okBtn.addEventListener('click', () => overlay.remove());
+  setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 12000);
 }
 
 // ── Set 2 animations ──────────────────────────────────────────────────────────
