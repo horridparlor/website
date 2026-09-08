@@ -1698,9 +1698,14 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
                 if ($chosenCard && $herwoodCard && (int)$chosenCard['power'] < (int)$herwoodCard['power']) {
                     $engine->removeTopFromStack($state, $playerIndex, $slot);
                     $p['field'][$slot][] = ['cardId' => $chosenId, 'faceDown' => false];
-                    // Others go to hand
+                    // Others go to hand (remove only the single chosen instance, keep any duplicates)
+                    $chosenRemoved = false;
                     foreach ($top3 as $t) {
-                        if ($t !== $chosenId) $p['handIds'][] = $t;
+                        if (!$chosenRemoved && $t === $chosenId) {
+                            $chosenRemoved = true;
+                            continue;
+                        }
+                        $p['handIds'][] = $t;
                     }
                     $state['log'][] = $p['username'] . ' devolved via Herwood.';
                 } else {
