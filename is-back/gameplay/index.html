@@ -1848,11 +1848,20 @@ function showOppFarm() {
 
 function openFarmingModal(cardId) {
   const me = gameState.players[myIndex];
-  const otherHandCards = (me.handIds || []).filter(id => id !== cardId).map(id => allCards[id]).filter(Boolean);
-  const selectedIds = new Set();
+  const hand = me.handIds || [];
+  // Build entries keyed by hand index (like Cultism) so duplicate card IDs stay independently
+  // selectable — a raw card-id Set would select/deselect every copy of that card at once.
+  const farmingSlot = hand.indexOf(cardId);
+  const otherEntries = [];
+  hand.forEach((id, handIdx) => {
+    if (handIdx === farmingSlot) return;
+    const c = allCards[id];
+    if (c) otherEntries.push({ handIdx, cardId: id, card: c });
+  });
+  const selectedIndices = new Set();
 
   function summary() {
-    const total = 1 + selectedIds.size;
+    const total = 1 + selectedIndices.size;
     return `${total} card${total === 1 ? '' : 's'} (grows ${Math.floor(total / 2)})`;
   }
 
@@ -1860,49 +1869,59 @@ function openFarmingModal(cardId) {
     document.getElementById('kw-modal-desc').textContent =
       `Discard Farming and any number of other cards. Every 2 cards discarded grows your farm by 1. Discarding: ${summary()}.`;
     document.querySelectorAll('#kw-modal-cards .modal-card-item').forEach(el => {
-      const id = Number(el.dataset.id);
-      el.classList.toggle('selected', selectedIds.has(id));
+      const handIdx = Number(el.dataset.handIdx);
+      el.classList.toggle('selected', selectedIndices.has(handIdx));
     });
   }
+
+  document.getElementById('kw-modal-title').textContent = 'Farming';
+  document.getElementById('kw-modal-desc').textContent =
+    `Discard Farming and any number of other cards. Every 2 cards discarded grows your farm by 1. Discarding: ${summary()}.`;
+  const list = document.getElementById('kw-modal-cards');
+  list.innerHTML = otherEntries.map(({ handIdx, card }) => `
+    <div class="modal-card-item" data-hand-idx="${handIdx}">
+      <img src="${cardImg(card)}" alt="${stripBB(card.name)}" onerror="this.src=''" />
+      <div class="mci-name">${stripBB(card.name)}</div>
+    </div>`).join('');
+
+  const btns = document.getElementById('kw-modal-btns');
+  btns.innerHTML = '';
+  window._kwModalCallback = null;
+  document.getElementById('kw-modal').classList.add('open');
+
+  list.querySelectorAll('.modal-card-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const handIdx = Number(el.dataset.handIdx);
+      if (selectedIndices.has(handIdx)) selectedIndices.delete(handIdx);
+      else selectedIndices.add(handIdx);
+      updateModal();
+    });
+  });
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'm-cancel';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', () => {
+    if (selectedIndices.size > 0) {
+      selectedIndices.clear();
+      updateModal();
+    } else {
+      closeKwModal();
+    }
+  });
+  btns.appendChild(cancelBtn);
 
   const okBtn = document.createElement('button');
   okBtn.className = 'm-confirm';
   okBtn.textContent = 'Farm';
   okBtn.addEventListener('click', () => {
     closeKwModal();
-    sendAction('useKeyword', { keyword: 'farming', cardId, extraDiscardIds: [...selectedIds] });
+    const extraDiscardIds = otherEntries
+      .filter(e => selectedIndices.has(e.handIdx))
+      .map(e => e.cardId);
+    sendAction('useKeyword', { keyword: 'farming', cardId, extraDiscardIds });
   });
-
-  openKwModalCustom(
-    'Farming',
-    `Discard Farming and any number of other cards. Every 2 cards discarded grows your farm by 1. Discarding: ${summary()}.`,
-    otherHandCards,
-    [{
-      label: 'Cancel',
-      className: 'm-cancel',
-      onClick: () => {
-        if (selectedIds.size > 0) {
-          selectedIds.clear();
-          updateModal();
-        } else {
-          closeKwModal();
-        }
-      },
-    }],
-    null
-  );
-
-  window._kwModalCallback = null;
-  document.querySelectorAll('#kw-modal-cards .modal-card-item').forEach(el => {
-    el.onclick = () => {
-      const id = Number(el.dataset.id);
-      if (selectedIds.has(id)) selectedIds.delete(id);
-      else selectedIds.add(id);
-      updateModal();
-    };
-  });
-
-  document.getElementById('kw-modal-btns').appendChild(okBtn);
+  btns.appendChild(okBtn);
 }
 
 function showFarmGrowAnimation(evt) {
