@@ -330,6 +330,15 @@ const RULES_SECTIONS = [
   <li><strong>You may fail on purpose:</strong> your deck itself is hidden information — your opponent cannot see its contents. Even if a valid card is present, you are permitted to search through your deck and declare that no matching card was found, shuffling without taking anything. Your opponent has no way to verify this.</li>
 </ul>`,
       },
+      {
+        id: 'sus-repeated-use',
+        title: '8.10 Sus — Reusable, Not a Permanent Reveal',
+        content: `<p>Sus's keyword reads: <em>If a face-down card would be revealed, you may reveal this card from your hand instead.</em></p>
+<ul>
+  <li><strong>Repeatable:</strong> Sus is not used up. You may reveal it this way every single time a face-down card of yours would be revealed, for as long as it remains in your hand.</li>
+  <li><strong>Not a lasting reveal:</strong> showing Sus this way does not flip it face-up or otherwise mark it as permanently revealed. It goes right back to being a normal, hidden card in your hand. Revealing it only tells your opponent that you hold a copy of Sus at that moment — it does not identify which of your face-down cards it was substituting for, and it does not stop you from using it again later.</li>
+</ul>`,
+      },
     ],
   },
   {
