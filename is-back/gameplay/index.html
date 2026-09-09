@@ -399,6 +399,12 @@
     .modal-card-item.selected { border-color: var(--gold); }
     .modal-card-item img { width: 140px; height: 196px; object-fit: cover; border-radius: 4px; display: block; }
     .modal-card-item .mci-name { font-size: 12px; color: var(--muted); text-align: center; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lingering-effect-item { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; width: 100%; }
+    .lingering-effect-item + .lingering-effect-item { border-top: 1px solid var(--border); }
+    .lingering-effect-item img { width: 56px; height: 78px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+    .lingering-effect-item .lei-name { font-size: 14px; font-weight: 700; color: var(--text); }
+    .lingering-effect-item .lei-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .lingering-effect-item .lei-desc { font-size: 12px; color: var(--text); margin-top: 6px; }
     .grave-section + .grave-section { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px; }
     .grave-section-header { cursor: pointer; font-size: 13px; font-weight: 700; color: var(--text); padding: 4px 0 8px; user-select: none; display: flex; align-items: center; justify-content: space-between; }
     .grave-section-header:hover { color: var(--blue2); }
@@ -677,7 +683,10 @@
     </div>
     <div id="action-btns" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
     <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
-      <div class="hand-ctrl-sep"></div>
+      <div id="lingering-effects-ctrl" style="display:none;align-items:center;gap:6px;">
+        <button class="btn-hand-ctrl" onclick="showLingeringEffects()" title="View currently active lingering effects">Lingering Effects</button>
+        <div class="hand-ctrl-sep"></div>
+      </div>
       <button class="btn-hand-ctrl" onclick="shuffleHand()" title="Shuffle your hand randomly">Shuffle Hand</button>
       <button class="btn-hand-ctrl" onclick="orderHand()" title="Order by type (Rock→Paper→Scissors→Gun) then power">Order Hand</button>
     </div>
@@ -1847,6 +1856,57 @@ function openJustOkModal(effect, state) {
   );
 }
 
+// Data describing every mechanic that can currently produce a lingering effect
+// (an effect that outlives the card that caused it — see rules glossary "Lingering effect").
+// To add a future lingering effect, add an entry here alongside its activation source in state.
+const LINGERING_EFFECTS = [
+  {
+    name: 'Natural Selection',
+    isActive: (state) => !!state.naturalSelection,
+    source: (state) => state.naturalSelectionSource || null,
+    desc: 'Each player may only play one more card this round, and it must be played face-down.',
+  },
+];
+
+function showLingeringEffects() {
+  if (!gameState) return;
+  const entries = LINGERING_EFFECTS.filter(e => e.isActive(gameState));
+  if (!entries.length) return;
+
+  document.getElementById('kw-modal-title').textContent = 'Lingering Effects';
+  document.getElementById('kw-modal-desc').textContent = 'Effects that persist beyond the card that caused them, until the round ends or something negates them.';
+
+  document.getElementById('kw-modal-cards').innerHTML = entries.map(e => {
+    const src = e.source(gameState);
+    const owner = src ? (src.playerIndex === myIndex ? 'You' : (gameState.players?.[src.playerIndex]?.username || 'Opponent')) : 'Unknown';
+    const card = src ? allCards[src.cardId] : null;
+    const when = src?.ts ? new Date(src.ts).toLocaleTimeString() : '';
+    const metaParts = [`Activated by ${owner}`];
+    if (card) metaParts.push(`with ${stripBB(card.name)}`);
+    if (when) metaParts.push(when);
+    return `
+      <div class="lingering-effect-item">
+        ${card ? `<img src="${cardImg(card)}" alt="${stripBB(card.name)}" onerror="this.src=''" />` : ''}
+        <div>
+          <div class="lei-name">${e.name}</div>
+          <div class="lei-meta">${metaParts.join(' · ')}</div>
+          <div class="lei-desc">${e.desc}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const btns = document.getElementById('kw-modal-btns');
+  btns.innerHTML = '';
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'm-cancel';
+  closeBtn.textContent = 'Close';
+  closeBtn.addEventListener('click', closeKwModal);
+  btns.appendChild(closeBtn);
+
+  window._kwModalCallback = null;
+  document.getElementById('kw-modal').classList.add('open');
+}
+
 function showMyPurge() {
   if (!gameState) return;
   const me = gameState.players[myIndex];
@@ -2681,6 +2741,9 @@ function updateHand(state, mi) {
   if (!me || !me.handIds) return;
   const phase = state.phase;
   const handScroll = document.getElementById('hand-scroll');
+
+  const lingeringCtrl = document.getElementById('lingering-effects-ctrl');
+  if (lingeringCtrl) lingeringCtrl.style.display = LINGERING_EFFECTS.some(e => e.isActive(state)) ? 'flex' : 'none';
 
   // Detect which cards are newly added
   const currentIds = new Set(me.handIds);

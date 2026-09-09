@@ -37,6 +37,7 @@ function buildInitialGameState(array $p1, array $p2, array $p1DeckIds, array $p2
         'firstPlayer'             => -1,
         'naturalSelection'        => false,
         'naturalSelectionPlays'   => [0, 0],
+        'naturalSelectionSource'  => null,
         'players' => [
             [
                 'userId'              => $p1['userId'],

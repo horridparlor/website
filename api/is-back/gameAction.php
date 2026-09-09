@@ -504,6 +504,7 @@ class GameEngine
         $state['turn']        = $firstPlayer;
         $state['naturalSelection'] = false;
         $state['naturalSelectionPlays'] = [0, 0];
+        $state['naturalSelectionSource'] = null;
 
         foreach ($state['players'] as &$p) {
             $p['diceRoll']         = null;
@@ -647,6 +648,7 @@ function clearRoundScopedFlags(array &$state): void
 {
     $state['naturalSelection'] = false;
     $state['naturalSelectionPlays'] = [0, 0];
+    $state['naturalSelectionSource'] = null;
     unset($state['revealQueueNextAt']);
 }
 
@@ -890,9 +892,11 @@ function handlePlayStartOfRound(array &$state, int $playerIndex, array $params, 
     }
 
     if (in_array('natural-selection', $kwLower)) {
+        $ts = nextEventStamp();
         $state['naturalSelection'] = true;
         $state['naturalSelectionPlays'] = [0, 0];
-        $state['lastNaturalSelection'] = nextEventStamp();
+        $state['naturalSelectionSource'] = ['playerIndex' => $playerIndex, 'cardId' => $cardId, 'ts' => $ts];
+        $state['lastNaturalSelection'] = $ts;
         $state['naturalSelectionAcks'] = [0, 0];
         $state['log'][] = $state['players'][$playerIndex]['username'] . ' used Natural Selection! Each player may only play one more card this round, face-down.';
         $state['log'][] = '⚠️ Natural Selection: each player may play one card this round, face-down!';
@@ -1198,6 +1202,7 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
                 $negatedEffects[] = 'natural-selection';
                 $state['naturalSelection'] = false;
                 $state['naturalSelectionPlays'] = [0, 0];
+                $state['naturalSelectionSource'] = null;
             }
 
             if (!isset($state['communismNegatedIds']) || !is_array($state['communismNegatedIds'])) {
