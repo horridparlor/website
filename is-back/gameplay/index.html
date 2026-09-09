@@ -3235,7 +3235,15 @@ function onHandCardClick(cardId) {
       const opp = gameState.players[1 - myIndex];
       const hasFullField = opp && opp.field.primary?.length > 0 && opp.field.left?.length > 0 && opp.field.right?.length > 0;
       if (hasFullField) {
-        sendAction('useSuck', { cardId });
+        openKwModalCustom(
+          'Suck This!',
+          'Discard Suck This! to destroy all cards on both fields?',
+          [],
+          [
+            { label: 'Cancel', className: 'm-cancel', onClick: closeKwModal },
+            { label: 'Activate Suck This!', className: 'm-confirm', onClick: () => { closeKwModal(); sendAction('useSuck', { cardId }); } },
+          ]
+        );
         return;
       }
       // Not triggerable, fall through to normal selection
