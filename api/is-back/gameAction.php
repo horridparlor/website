@@ -9,7 +9,7 @@ include(__DIR__ . "/gameHelper.php");
 
 // Card type that beats another: beater => loser
 // Rock beats Scissors, Paper beats Rock, Scissors beats Paper
-// (used by keyword mechanics like Infernoid — unaffected by Gun, stays on the classic 3-way cycle)
+// (used by keyword mechanics like Flush — unaffected by Gun, stays on the classic 3-way cycle)
 const BEATS = ['rock' => 'scissors', 'paper' => 'rock', 'scissors' => 'paper'];
 // Weak type of each card: the type that BEATS it (what each card is weak against)
 // Rock is weak to Paper, Paper is weak to Scissors, Scissors is weak to Rock
@@ -332,7 +332,7 @@ class GameEngine
                         }
                     }
                     break;
-                case 'infernoid':
+                case 'flush':
                     if ($slot !== 'primary' && !$isFaceDown) {
                         $primaryTop = $this->getTopCard($state['players'][$playerIndex]['field']['primary']);
                         if ($primaryTop && strtolower($primaryTop['type']) === strtolower($card['type'])) {
@@ -714,7 +714,7 @@ function handleSuck(array &$state, int $playerIndex, array $params, GameEngine $
     if ($state['turn'] !== $playerIndex) return 'Not your turn';
     $cardId = (int)($params['cardId'] ?? 0);
     if (!$cardId || !in_array($cardId, $state['players'][$playerIndex]['handIds'])) return 'Card not in hand';
-    if (!$engine->hasKeyword($cardId, 'suck')) return 'Card does not have Suck';
+    if (!$engine->hasKeyword($cardId, 'suck-this')) return 'Card does not have Suck This';
     $oppIdx = 1 - $playerIndex;
     $oppField = $state['players'][$oppIdx]['field'];
     if (empty($oppField['primary']) || empty($oppField['left']) || empty($oppField['right'])) {
@@ -1916,14 +1916,14 @@ function handleUseKeyword(array &$state, int $playerIndex, array $params, GameEn
                         array_splice($state['players'][$pIdx]['graveyardIds'], $gIdx, 1);
                         $state['players'][$pIdx]['purgedIds'][] = $purgeCardId;
                         $purgedCard = $engine->getCard($purgeCardId);
-                        $state['log'][] = $state['players'][$playerIndex]['username'] . ' purged ' . ($purgedCard['name'] ?? '?') . ' (Infernoid)!';
+                        $state['log'][] = $state['players'][$playerIndex]['username'] . ' purged ' . ($purgedCard['name'] ?? '?') . ' (Flush)!';
                         $found = true;
                         break;
                     }
                 }
                 if (!$found) return 'Card not in any graveyard';
             } else {
-                $state['log'][] = $state['players'][$playerIndex]['username'] . ' skipped Infernoid purge.';
+                $state['log'][] = $state['players'][$playerIndex]['username'] . ' skipped Flush purge.';
             }
             consumePendingEffect($state);
             return null;

@@ -1674,7 +1674,7 @@ function openInfernoidPurgeModal(effect, state) {
     </div>`;
   }
 
-  document.getElementById('kw-modal-title').textContent = 'Infernoid';
+  document.getElementById('kw-modal-title').textContent = 'Flush';
   document.getElementById('kw-modal-desc').textContent = `Choose a ${strongType}-type card from any graveyard to purge permanently, or skip.`;
   document.getElementById('kw-modal-cards').innerHTML =
     buildSection(oppTargets, "Opponent's Graveyard") +
@@ -2703,7 +2703,7 @@ function updateHand(state, mi) {
     // Suck highlights when opponent has full field
     const oppHasFullField = state.phase === 'main_phase' && state.turn === mi && opp &&
       opp.field.primary?.length > 0 && opp.field.left?.length > 0 && opp.field.right?.length > 0;
-    const isSuck = card.keywords && card.keywords.some(k=>k&&k.toLowerCase()==='suck') && oppHasFullField;
+    const isSuck = card.keywords && card.keywords.some(k=>k&&k.toLowerCase()==='suck-this') && oppHasFullField;
     // Trump Card highlights only on your turn, with 5 or fewer cards in hand, while there's
     // something for it to negate (a lingering effect or a face-up prize card).
     const hasLingering = !!state.naturalSelection;
@@ -3231,7 +3231,7 @@ function onHandCardClick(cardId) {
       }
       // No face-down cards → fall through to normal card selection
     }
-    if (card && GameEngine.cardHasKeyword(card, 'suck')) {
+    if (card && GameEngine.cardHasKeyword(card, 'suck-this')) {
       const opp = gameState.players[1 - myIndex];
       const hasFullField = opp && opp.field.primary?.length > 0 && opp.field.left?.length > 0 && opp.field.right?.length > 0;
       if (hasFullField) {
