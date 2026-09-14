@@ -75,8 +75,12 @@
   <section id="view-backups" class="pc-view" style="display:none;">
     <div class="pc-backup-block">
       <h3>Export Backup</h3>
-      <p>Saves one JSON file with every poem, book, tag, and version history entry — both here on the server and as a download to your device.</p>
-      <button id="btn-export-backup" class="button" type="button">Export &amp; Save</button>
+      <p>Saves one JSON file with every poem, book, tag, and version history entry — both here on the server and as a download to your device. Or import a backup file from this device to add it to the list below.</p>
+      <div class="pc-backup-actions">
+        <button id="btn-export-backup" class="button" type="button">Export &amp; Save</button>
+        <button id="btn-import-backup" class="button secondary" type="button">Import from Device…</button>
+        <input id="backup-import-input" type="file" accept="application/json,.json" style="display:none;" />
+      </div>
     </div>
 
     <div class="pc-backup-block pc-backup-danger">

@@ -51,16 +51,22 @@ function buildPoemsBackupData(Database $database): array
 
 // Writes $data to a timestamped file under backups/ and records it in the backup table.
 // Timestamp is to the second (not just the date) since this can now run more than once a
-// day — both from a manual export and as the automatic pre-reset snapshot.
+// day — both from a manual export and as the automatic pre-reset snapshot. The domain is
+// whichever server the data actually came from — $data['domain'] for an imported backup
+// (originally exported elsewhere), or this server's own host otherwise — so the backup
+// list can show which server each entry belongs to.
 function saveServerBackup(Database $database, array $data): array
 {
     ensureBackupDir();
 
+    $domain = trim((string)($data['domain'] ?? ($_SERVER['HTTP_HOST'] ?? '')));
+    $domainSlug = $domain !== '' ? preg_replace('/[^a-zA-Z0-9.\-]+/', '-', $domain) : 'unknown';
+
     $slug = date('Y-m-d_H-i-s');
-    $filename = "poems-backup-$slug.json";
+    $filename = "poems-backup-{$domainSlug}-{$slug}.json";
     $i = 2;
     while (file_exists(BACKUP_DIR . $filename)) {
-        $filename = "poems-backup-{$slug}-{$i}.json";
+        $filename = "poems-backup-{$domainSlug}-{$slug}-{$i}.json";
         $i++;
     }
 
@@ -71,15 +77,16 @@ function saveServerBackup(Database $database, array $data): array
     $relativePath = 'backups/' . $filename;
 
     $database->query(
-        'INSERT INTO backup (backupType, path, isValid) VALUES (:type, :path, 1)',
+        'INSERT INTO backup (backupType, path, domain, isValid) VALUES (:type, :path, :domain, 1)',
         [
             'type' => Database::getStringReplacement(BACKUP_TYPE_POEMS),
             'path' => Database::getStringReplacement($relativePath),
+            'domain' => ['value' => $domain !== '' ? $domain : null, 'type' => \PDO::PARAM_STR],
         ]
     );
     $id = $database->getInsertId();
     $row = $database->query(
-        'SELECT id, path, createdAt FROM backup WHERE id = :id',
+        'SELECT id, path, domain, createdAt FROM backup WHERE id = :id',
         ['id' => Database::getIntReplacement($id)]
     )[0];
 
@@ -87,6 +94,7 @@ function saveServerBackup(Database $database, array $data): array
         'id' => (int)$row['id'],
         'path' => $row['path'],
         'filename' => $filename,
+        'domain' => $row['domain'],
         'createdAt' => $row['createdAt'],
     ];
 }
@@ -117,7 +125,7 @@ function listBackups(Database $database): string
     poemCenterRequireAdmin($database);
 
     $rows = $database->query(
-        'SELECT id, path, createdAt FROM backup WHERE backupType = :type AND isValid = 1 ORDER BY createdAt DESC',
+        'SELECT id, path, domain, createdAt FROM backup WHERE backupType = :type AND isValid = 1 ORDER BY createdAt DESC',
         ['type' => Database::getStringReplacement(BACKUP_TYPE_POEMS)]
     );
 
@@ -135,6 +143,7 @@ function listBackups(Database $database): string
         $backups[] = [
             'id' => $id,
             'filename' => basename($row['path']),
+            'domain' => $row['domain'],
             'createdAt' => $row['createdAt'],
             'sizeBytes' => filesize($absPath),
         ];
@@ -382,12 +391,35 @@ function deleteBackup(Database $database): string
     return Database::responseSuccess(['id' => $backupId]);
 }
 
+// Saves a backup file uploaded from the admin's device onto the server, so it shows up
+// in the list and can be reset to the same way as any other server-side backup.
+function importBackup(Database $database): string
+{
+    poemCenterRequireAdmin($database);
+
+    $backup = $database->getArrayParam('backup');
+    if (!is_array($backup) || !isset($backup['books'], $backup['tags'], $backup['poems'], $backup['history'])) {
+        return Database::responseBadRequest('That file does not look like a valid poems backup.');
+    }
+
+    $saved = saveServerBackup($database, $backup);
+
+    return Database::responseSuccess([
+        'saved' => [
+            'id' => $saved['id'],
+            'filename' => $saved['filename'],
+            'createdAt' => $saved['createdAt'],
+        ],
+    ]);
+}
+
 function handleBackupPost(Database $database): string
 {
     $action = $database->getStringParam('action', '');
     return match ($action) {
         'reset' => resetFromBackup($database),
         'delete' => deleteBackup($database),
+        'import' => importBackup($database),
         default => Database::responseBadRequest('Unknown or missing action'),
     };
 }

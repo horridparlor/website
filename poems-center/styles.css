@@ -384,7 +384,8 @@
 .pc-backup-block p { margin: 0 0 0.9rem; color: #aaa; font-size: 0.9rem; line-height: 1.5; }
 .pc-backup-danger { border-color: rgba(255,68,102,0.35); }
 .pc-warning { color: #ff8fa3 !important; }
-#btn-export-backup { font-size: 1rem; }
+.pc-backup-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.pc-backup-actions .button { font-size: 1rem; }
 
 .pc-backup-list { display: flex; flex-direction: column; gap: 0.5rem; }
 .pc-backup-item {
@@ -400,6 +401,17 @@
 }
 .pc-backup-item-meta { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
 .pc-backup-date { color: #fff; font-size: 0.9rem; }
+.pc-backup-domain {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  background: #262626;
+  color: #999;
+  font-size: 0.72rem;
+  vertical-align: middle;
+}
+.pc-backup-domain.foreign { background: rgba(255,180,0,0.12); color: #ffd56a; }
 .pc-backup-filename { color: #999; font-size: 0.78rem; word-break: break-word; }
 .pc-backup-size { color: #666; font-size: 0.76rem; }
 .pc-backup-item-actions { display: flex; gap: 0.4rem; flex: 0 0 auto; }

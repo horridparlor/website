@@ -58,6 +58,8 @@
     tagList: document.getElementById('tag-list'),
     statsContent: document.getElementById('stats-content'),
     btnExportBackup: document.getElementById('btn-export-backup'),
+    btnImportBackup: document.getElementById('btn-import-backup'),
+    backupImportInput: document.getElementById('backup-import-input'),
     backupList: document.getElementById('backup-list'),
     backupResetModal: document.getElementById('backup-reset-modal'),
     backupResetModalText: document.getElementById('backup-reset-modal-text'),
@@ -179,10 +181,14 @@
     });
     el.backupList.innerHTML = state.backups.map(b => {
       const canDelete = dateCounts[(b.createdAt || '').slice(0, 10)] > 1;
+      const isForeign = b.domain && b.domain.toLowerCase() !== location.host.toLowerCase();
       return `
       <div class="pc-backup-item">
         <div class="pc-backup-item-meta">
-          <span class="pc-backup-date">${escapeHtml(fmtDate(b.createdAt))}</span>
+          <span class="pc-backup-date">
+            ${escapeHtml(fmtDate(b.createdAt))}
+            ${b.domain ? `<span class="pc-backup-domain${isForeign ? ' foreign' : ''}">${escapeHtml(b.domain)}</span>` : ''}
+          </span>
           <span class="pc-backup-filename">${escapeHtml(b.filename)}</span>
           <span class="pc-backup-size">${fmtBytes(b.sizeBytes)}</span>
         </div>
@@ -221,6 +227,33 @@
     downloadJSON(`poems-backup-${fullTimestampStr()}.json`, res.data.backup);
     showToast('Backup saved on the server and downloaded');
     if (state.view === 'backups') loadBackups();
+  });
+
+  el.btnImportBackup.addEventListener('click', () => el.backupImportInput.click());
+
+  el.backupImportInput.addEventListener('change', () => {
+    const file = el.backupImportInput.files[0];
+    el.backupImportInput.value = '';
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      let parsed;
+      try { parsed = JSON.parse(reader.result); }
+      catch { showToast('Could not parse that file as JSON.', true); return; }
+
+      if (!parsed || !Array.isArray(parsed.poems) || !Array.isArray(parsed.books) ||
+        !Array.isArray(parsed.tags) || !Array.isArray(parsed.history)) {
+        showToast('That file does not look like a valid poems backup.', true);
+        return;
+      }
+
+      const res = await api('POST', 'backup', { action: 'import', backup: parsed });
+      if (!res.ok) { showToast((res.data && res.data.error) || 'Failed to import backup', true); return; }
+      showToast(`Backup imported (${res.data.saved.filename})`);
+      if (state.view === 'backups') loadBackups();
+    };
+    reader.readAsText(file);
   });
 
   function openResetModal(backupId) {
