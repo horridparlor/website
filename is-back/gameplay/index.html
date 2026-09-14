@@ -138,7 +138,16 @@
     /* Sister Virus highlight */
     .card-slot.sister-trigger { border-color: #9b59b6 !important; box-shadow: 0 0 8px #9b59b666; cursor: pointer; }
     /* Rizz card highlight */
-    .hand-card.rizz-active { border-color: var(--orange) !important; box-shadow: 0 0 8px var(--orange)66; }
+    .hand-card.rizz-active .hand-card-inner { border-color: var(--orange) !important; box-shadow: 0 0 8px var(--orange)66; }
+
+    /* ── Idle card sway: whole card (border + art together) gently rocks, in lockstep
+       with every other card. The actual rotation is written as inline `transform`
+       by tickSway() in the script (cheaper than an inherited CSS variable); this
+       just marks the element so the browser can optimize for it. ── */
+    .card-slot.has-card, .hand-card-inner {
+      transform-origin: 50% 50%;
+      will-change: transform;
+    }
 
     /* End of round overlay */
     #round-result-overlay {
@@ -206,12 +215,18 @@
     .btn-hand-ctrl:hover { background: var(--border); color: var(--text); }
     .hand-ctrl-sep { width: 1px; background: var(--border); align-self: stretch; margin: 4px 0; }
     .hand-card {
-      flex-shrink: 0; width: 112px; height: 157px; border-radius: 7px; border: 2px solid var(--border);
-      cursor: pointer; position: relative; transition: transform .15s, border-color .15s;
-      background: var(--bg);
+      flex-shrink: 0; width: 112px; height: 157px;
+      cursor: pointer; position: relative; transition: transform .15s;
     }
     .hand-card.dealing {
       animation: dealCard 0.42s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    }
+    /* The rotating "physical card": border + art. Kept as its own element so
+       hover/selected zoom (on .hand-card) never has to stop-and-restart the
+       idle sway animation — it just keeps swaying underneath, always in sync. */
+    .hand-card-inner {
+      width: 100%; height: 100%; border-radius: 7px; border: 2px solid var(--border);
+      background: var(--bg); position: relative; transition: border-color .15s;
     }
 
     /* ── Prize draw animation ── */
@@ -271,15 +286,17 @@
     .farm-sprout-pop { position:fixed; pointer-events:none; z-index:1150; font-size:20px; animation:farmSproutPop 1.1s ease-out forwards; }
     .farm-card-fly { position:fixed; pointer-events:none; z-index:1200; width:56px; height:78px; border-radius:6px; overflow:hidden; box-shadow:0 4px 18px rgba(0,0,0,.7), 0 0 12px #2ecc71; animation:cardSlide 1.4s cubic-bezier(.4,0,.2,1) forwards; }
     .farm-card-fly img { width:100%; height:100%; object-fit:cover; display:block; }
-    .hand-card:hover { transform: translateY(-12px) scale(1.48); border-color: var(--blue2); z-index: 10; }
-    .hand-card.selected { border-color: var(--gold); transform: translateY(-16px) scale(1.48); }
+    .hand-card:hover { transform: translateY(-12px) scale(1.48); z-index: 10; }
+    .hand-card:hover .hand-card-inner { border-color: var(--blue2); }
+    .hand-card.selected { transform: translateY(-16px) scale(1.48); }
+    .hand-card.selected .hand-card-inner { border-color: var(--gold); }
     .hand-card img { width: 100%; height: 100%; object-fit: cover; border-radius: 5px; }
     .hand-card .hc-power { position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%); background: #000c; color: #fff; font-size: 9px; padding: 1px 5px; border-radius: 8px; white-space: nowrap; }
     .hand-card .hc-type { position: absolute; top: 3px; left: 3px; width: 8px; height: 8px; border-radius: 50%; }
-    .hand-card[data-sor="1"] { border-color: var(--orange); }
-    .hand-card.communism-card { border-color: #9b59b6; }
-    .hand-card.farm-card { border-color: #2ecc71; }
-    .hand-card.rizz-card { border-color: #e74c3c; }
+    .hand-card[data-sor="1"] .hand-card-inner { border-color: var(--orange); }
+    .hand-card.communism-card .hand-card-inner { border-color: #9b59b6; }
+    .hand-card.farm-card .hand-card-inner { border-color: #2ecc71; }
+    .hand-card.rizz-card .hand-card-inner { border-color: #e74c3c; }
 
     /* Action bar */
     #action-bar { background: var(--bg2); border-top: 1px solid var(--border); padding: 8px 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 52px; }
@@ -2646,6 +2663,25 @@ function updatePlayerInfo(state, mi, oi) {
   document.getElementById('opp-thinking').style.display = thinking ? '' : 'none';
 }
 
+// ── Idle card sway: one global clock drives every card's rotation, so any card,
+// however and whenever it's created, is automatically in lockstep with every
+// other — no per-card timer/delay state that can ever drift out of sync.
+// Written directly as inline `transform` on the handful of on-screen cards
+// (not via an inherited CSS variable, which forces the whole page to restyle
+// every frame — that was the perf/glitch culprit), every animation frame.
+const SWAY_DUR = 9; // seconds per full left-right-left cycle
+function tickSway(now) {
+  requestAnimationFrame(tickSway);
+  const a = (5 * Math.sin((now / 1000) / SWAY_DUR * Math.PI * 2)).toFixed(2) + 'deg';
+  document.querySelectorAll('.card-slot.has-card').forEach(el => {
+    el.style.transform = el.classList.contains('support-left')  ? `rotate(90deg) rotate(${a})`
+      : el.classList.contains('support-right') ? `rotate(-90deg) rotate(${a})`
+      : `rotate(${a})`;
+  });
+  document.querySelectorAll('.hand-card-inner').forEach(el => { el.style.transform = `rotate(${a})`; });
+}
+requestAnimationFrame(tickSway);
+
 // ── Field rendering ───────────────────────────────────────────────────────────
 function renderSlot(el, stack, canInteract, owner, forceReveal = false) {
   const slot = el.dataset.slot;
@@ -2658,6 +2694,7 @@ function renderSlot(el, stack, canInteract, owner, forceReveal = false) {
     let cls = 'card-slot';
     if (isSupport) cls += slot === 'left' ? ' support-left' : ' support-right';
     el.className = cls;
+    el.style.transform = ''; // drop any leftover sway rotation so the empty slot's border sits static
     return;
   }
   const top = stack[stack.length - 1];
@@ -2792,7 +2829,9 @@ function updateHand(state, mi) {
            oncontextmenu="onHandCardRightClick(event,${id})"
            onmouseenter="showTooltip(event,${id},true,${mi})"
            onmouseleave="hideTooltip()">
-        <img src="${cardImg(card, mi)}" alt="${stripBB(card.name)}" onerror="this.src=''" />
+        <div class="hand-card-inner">
+          <img src="${cardImg(card, mi)}" alt="${stripBB(card.name)}" onerror="this.src=''" />
+        </div>
       </div>`;
   }).join('');
 
@@ -2800,10 +2839,14 @@ function updateHand(state, mi) {
   if (newIds.size > 0) {
     let i = 0;
     handScroll.querySelectorAll('.hand-card.dealing').forEach(el => {
-      el.style.animationDelay = `${i * 90}ms`;
+      const dealDelay = i * 90;
+      el.style.animationDelay = `${dealDelay}ms`;
       el.style.setProperty('--deal-y', `${130 + Math.random() * 80}px`);
       el.style.setProperty('--deal-r', `${(Math.random() - 0.5) * 46}deg`);
       el.style.setProperty('--deal-x', `${(Math.random() - 0.5) * 28}px`);
+      // Drop 'dealing' once its one-shot animation actually finishes, so the
+      // card falls back to the idle-sway animation instead of sitting frozen.
+      setTimeout(() => el.classList.remove('dealing'), dealDelay + 460);
       i++;
     });
   }
@@ -3770,6 +3813,19 @@ function hideTooltip() {
   setTooltipFireFx(false);
   document.getElementById('card-tooltip').style.display = 'none';
 }
+// A prize card whose identity isn't known to the client (the normal case) still
+// gets a hover preview, just showing the card back instead of real card info.
+function showHiddenPrizeTooltip(e) {
+  const tt = document.getElementById('card-tooltip');
+  document.getElementById('ct-img').src = cardBack();
+  document.getElementById('ct-name').textContent = 'Hidden Prize';
+  document.getElementById('ct-type').textContent = 'Face-down';
+  document.getElementById('ct-power').textContent = '';
+  document.getElementById('ct-kw').innerHTML = '';
+  setTooltipFireFx(false);
+  tt.style.display = 'block';
+  moveTooltip(e);
+}
 
 function shouldShowPrimaryComebackFire(cardId, fromHandHover) {
   if (!fromHandHover || !gameState || myIndex < 0) return false;
@@ -4079,7 +4135,7 @@ function updatePrizePanel(state, mi, oi) {
   prevMyPrizeCount = myCount;
 
   // Draw face-down prize slots
-  function renderPrizeSlots(containerId, count, revealedBottomCardId) {
+  function renderPrizeSlots(containerId, count, revealedBottomCardId, ownerIdx) {
     const el = document.getElementById(containerId);
     if (!el) return;
     el.innerHTML = '';
@@ -4088,16 +4144,24 @@ function updatePrizePanel(state, mi, oi) {
       const slot = document.createElement('div');
       slot.className = 'prize-slot';
       if (i === 0 && revealedBottomCardId && allCards[revealedBottomCardId]) {
+        // Revealed bottom prize (Communism): the only prize card whose identity the
+        // client ever knows, so hover it just like a hand card to see it in full.
         const c = allCards[revealedBottomCardId];
-        slot.innerHTML = `<img src="${cardImg(c)}" alt="${stripBB(c.name)}" title="Revealed bottom prize (Communism)" />`;
+        slot.innerHTML = `<img src="${cardImg(c, ownerIdx)}" alt="${stripBB(c.name)}" />`;
+        slot.addEventListener('mouseenter', e => showTooltip(e, revealedBottomCardId, false, ownerIdx));
+        slot.addEventListener('mouseleave', hideTooltip);
       } else {
+        // Not revealed: identity is unknown even to its own owner, so hovering
+        // still previews it, just as a face-down card back.
         slot.innerHTML = `<img src="${cardBack()}" alt="Prize" />`;
+        slot.addEventListener('mouseenter', e => showHiddenPrizeTooltip(e));
+        slot.addEventListener('mouseleave', hideTooltip);
       }
       el.appendChild(slot);
     }
   }
-  renderPrizeSlots('prize-my-slots',  myCount, myRevealedBottom);
-  renderPrizeSlots('prize-opp-slots', oppCount, oppRevealedBottom);
+  renderPrizeSlots('prize-my-slots',  myCount, myRevealedBottom, mi);
+  renderPrizeSlots('prize-opp-slots', oppCount, oppRevealedBottom, oi);
 
   // Fire prize draw animation after slots are re-rendered
   if (prizeDrawRect) {
@@ -5516,22 +5580,41 @@ function initBg() {
   nc.putImageData(nd, 0, 0);
   const noisePattern = ctx.createPattern(noiseCanvas, 'repeat');
   const blobs = [
-    { ox: 0.20, oy: 0.24, r: 0.52, color: 'rgba(255,255,255,0.065)', sx: 0.9, sy: 0.7 },
-    { ox: 0.78, oy: 0.30, r: 0.46, color: 'rgba(0,0,0,0.16)', sx: 1.1, sy: 0.8 },
-    { ox: 0.60, oy: 0.72, r: 0.58, color: 'rgba(255,255,255,0.045)', sx: 0.8, sy: 1.1 },
+    { ox: 0.20, oy: 0.24, r: 0.52, color: 'rgba(110,90,190,0.05)', sx: 0.9, sy: 0.7 },
+    { ox: 0.78, oy: 0.30, r: 0.46, color: 'rgba(0,10,25,0.18)', sx: 1.1, sy: 0.8 },
+    { ox: 0.60, oy: 0.72, r: 0.58, color: 'rgba(60,95,170,0.04)', sx: 0.8, sy: 1.1 },
     { ox: 0.08, oy: 0.68, r: 0.36, color: 'rgba(0,0,0,0.20)', sx: 1.0, sy: 0.9 },
-    { ox: 0.46, oy: 0.48, r: 0.44, color: 'rgba(255,255,255,0.030)', sx: 1.3, sy: 1.0 },
+    { ox: 0.46, oy: 0.48, r: 0.44, color: 'rgba(140,80,160,0.028)', sx: 1.3, sy: 1.0 },
   ];
   const bands = [
-    { angle: -0.35, gap: 140, drift: 0.00022, alpha: 0.055 },
-    { angle: 0.18, gap: 95, drift: 0.00031, alpha: 0.040 },
+    { angle: -0.35, gap: 140, drift: 0.00022, alpha: 0.045 },
+    { angle: 0.18, gap: 95, drift: 0.00031, alpha: 0.032 },
   ];
+
+  // Slow "flying through space" starfield: stars drift outward from center and
+  // are recycled once they pass the viewport, giving a gentle zoom/parallax feel.
+  const STAR_COUNT = 110;
+  const STAR_MAX_Z = 900;
+  const STAR_FOCAL = 260;
+  const STAR_SPEED = 0.55;
+  const STAR_HUES = ['rgba(210,225,255,', 'rgba(225,210,255,', 'rgba(235,240,245,'];
+  let stars = [];
+  function resetStar(s, w, h, fresh) {
+    s.x = (Math.random() - 0.5) * w * 1.6;
+    s.y = (Math.random() - 0.5) * h * 1.6;
+    s.z = fresh ? Math.random() * STAR_MAX_Z : STAR_MAX_Z * (0.6 + Math.random() * 0.4);
+    s.hue = STAR_HUES[(Math.random() * STAR_HUES.length) | 0];
+  }
+  function initStars(w, h) {
+    stars = [];
+    for (let i = 0; i < STAR_COUNT; i++) { const s = {}; resetStar(s, w, h, true); stars.push(s); }
+  }
   let t = 0;
-  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; initStars(canvas.width, canvas.height); }
   window.addEventListener('resize', resize); resize();
   function draw() {
     const w = canvas.width, h = canvas.height;
-    ctx.fillStyle = '#08090a'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#05060c'; ctx.fillRect(0, 0, w, h);
 
     for (const band of bands) {
       ctx.save();
@@ -5561,6 +5644,23 @@ function initBg() {
       g.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
     }
+
+    for (const s of stars) {
+      s.z -= STAR_SPEED;
+      if (s.z <= 1) { resetStar(s, w, h, false); continue; }
+      const k = STAR_FOCAL / s.z;
+      const sx = w / 2 + s.x * k;
+      const sy = h / 2 + s.y * k;
+      if (sx < -20 || sx > w + 20 || sy < -20 || sy > h + 20) { resetStar(s, w, h, false); continue; }
+      const depth = 1 - s.z / STAR_MAX_Z;
+      const size = 0.4 + depth * 1.7;
+      const alpha = Math.min(0.7, 0.06 + depth * 0.55);
+      ctx.beginPath();
+      ctx.fillStyle = s.hue + alpha.toFixed(2) + ')';
+      ctx.arc(sx, sy, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     ctx.globalAlpha = 0.055; ctx.fillStyle = noisePattern; ctx.fillRect(0, 0, w, h); ctx.globalAlpha = 1;
     const vig = ctx.createRadialGradient(w/2, h/2, 0, w/2, h/2, Math.max(w, h) * 0.75);
     vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.72)');
