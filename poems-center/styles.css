@@ -519,7 +519,6 @@
 .stats-word-chip { cursor: pointer; user-select: none; transition: border-color 0.15s, background 0.15s; }
 .stats-word-chip:hover { border-color: #00ffcc; }
 .stats-word-chip.selected { border-color: #00ffcc; background: rgba(0,255,204,0.12); color: #fff; }
-.stats-match-card { padding: 0.6rem 1rem; }
 
 .pc-section-title {
   font-family: 'Playfair Display', 'Anton', sans-serif;
