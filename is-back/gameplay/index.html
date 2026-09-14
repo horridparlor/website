@@ -5594,6 +5594,11 @@ function initBg() {
     { ox: 0.10, oy: 0.66, r: 0.36, rgb: [55, 55, 90],   alpha: 0.06,  sx: 1.0, sy: 0.9, ex: 1.1, ey: 1.4, rot: -0.6 },
     { ox: 0.50, oy: 0.50, r: 0.34, rgb: [145, 120, 150],alpha: 0.05,  sx: 1.3, sy: 1.0, ex: 1.4, ey: 1.15, rot: 0.15 },
   ];
+  // Faint drifting light bands, dialed back so they read as texture, not a grid.
+  const bands = [
+    { angle: -0.35, gap: 140, drift: 0.00022, alpha: 0.026 },
+    { angle: 0.18, gap: 95, drift: 0.00031, alpha: 0.018 },
+  ];
 
   // Slow "flying through space" starfield: stars drift outward from center and
   // are recycled once they pass the viewport, giving a gentle zoom/parallax feel.
@@ -5619,6 +5624,24 @@ function initBg() {
   function draw() {
     const w = canvas.width, h = canvas.height;
     ctx.fillStyle = '#05060c'; ctx.fillRect(0, 0, w, h);
+
+    for (const band of bands) {
+      ctx.save();
+      ctx.translate(w / 2, h / 2);
+      ctx.rotate(band.angle);
+      ctx.globalCompositeOperation = 'screen';
+      for (let i = -8; i <= 8; i++) {
+        const offset = i * band.gap + Math.sin(t * band.drift + i * 0.85) * band.gap * 0.22;
+        const bandHeight = Math.max(28, band.gap * 0.42);
+        const grad = ctx.createLinearGradient(-w, offset - bandHeight, w, offset + bandHeight);
+        grad.addColorStop(0, 'rgba(255,255,255,0)');
+        grad.addColorStop(0.5, `rgba(255,255,255,${band.alpha})`);
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(-w, offset - bandHeight, w * 2, bandHeight * 2);
+      }
+      ctx.restore();
+    }
 
     for (const b of blobs) {
       const bx = w * (b.ox + Math.sin(t * 0.00018 * b.sx) * 0.05);
