@@ -5586,16 +5586,13 @@ function initBg() {
   }
   nc.putImageData(nd, 0, 0);
   const noisePattern = ctx.createPattern(noiseCanvas, 'repeat');
+  // Soft, elongated gas-cloud shapes (not perfect circles) for a low-key nebula feel.
   const blobs = [
-    { ox: 0.20, oy: 0.24, r: 0.52, color: 'rgba(110,90,190,0.05)', sx: 0.9, sy: 0.7 },
-    { ox: 0.78, oy: 0.30, r: 0.46, color: 'rgba(0,10,25,0.18)', sx: 1.1, sy: 0.8 },
-    { ox: 0.60, oy: 0.72, r: 0.58, color: 'rgba(60,95,170,0.04)', sx: 0.8, sy: 1.1 },
-    { ox: 0.08, oy: 0.68, r: 0.36, color: 'rgba(0,0,0,0.20)', sx: 1.0, sy: 0.9 },
-    { ox: 0.46, oy: 0.48, r: 0.44, color: 'rgba(140,80,160,0.028)', sx: 1.3, sy: 1.0 },
-  ];
-  const bands = [
-    { angle: -0.35, gap: 140, drift: 0.00022, alpha: 0.045 },
-    { angle: 0.18, gap: 95, drift: 0.00031, alpha: 0.032 },
+    { ox: 0.22, oy: 0.26, r: 0.50, rgb: [110, 95, 150], alpha: 0.055, sx: 0.9, sy: 0.7, ex: 1.6, ey: 0.85, rot: 0.4 },
+    { ox: 0.76, oy: 0.32, r: 0.46, rgb: [70, 85, 135],  alpha: 0.045, sx: 1.1, sy: 0.8, ex: 1.0, ey: 1.7, rot: -0.3 },
+    { ox: 0.58, oy: 0.76, r: 0.56, rgb: [95, 80, 140],  alpha: 0.045, sx: 0.8, sy: 1.1, ex: 1.8, ey: 0.9, rot: 0.9 },
+    { ox: 0.10, oy: 0.66, r: 0.36, rgb: [55, 55, 90],   alpha: 0.06,  sx: 1.0, sy: 0.9, ex: 1.1, ey: 1.4, rot: -0.6 },
+    { ox: 0.50, oy: 0.50, r: 0.34, rgb: [145, 120, 150],alpha: 0.05,  sx: 1.3, sy: 1.0, ex: 1.4, ey: 1.15, rot: 0.15 },
   ];
 
   // Slow "flying through space" starfield: stars drift outward from center and
@@ -5623,33 +5620,22 @@ function initBg() {
     const w = canvas.width, h = canvas.height;
     ctx.fillStyle = '#05060c'; ctx.fillRect(0, 0, w, h);
 
-    for (const band of bands) {
-      ctx.save();
-      ctx.translate(w / 2, h / 2);
-      ctx.rotate(band.angle);
-      ctx.globalCompositeOperation = 'screen';
-      for (let i = -8; i <= 8; i++) {
-        const offset = i * band.gap + Math.sin(t * band.drift + i * 0.85) * band.gap * 0.22;
-        const bandHeight = Math.max(28, band.gap * 0.42);
-        const grad = ctx.createLinearGradient(-w, offset - bandHeight, w, offset + bandHeight);
-        grad.addColorStop(0, 'rgba(255,255,255,0)');
-        grad.addColorStop(0.5, `rgba(255,255,255,${band.alpha})`);
-        grad.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = grad;
-        ctx.fillRect(-w, offset - bandHeight, w * 2, bandHeight * 2);
-      }
-      ctx.restore();
-    }
-
     for (const b of blobs) {
-      const bx = w * (b.ox + Math.sin(t * 0.00018 * b.sx) * 0.06);
-      const by = h * (b.oy + Math.cos(t * 0.00014 * b.sy) * 0.06);
+      const bx = w * (b.ox + Math.sin(t * 0.00018 * b.sx) * 0.05);
+      const by = h * (b.oy + Math.cos(t * 0.00014 * b.sy) * 0.05);
       const r  = Math.min(w, h) * b.r;
-      const g  = ctx.createRadialGradient(bx, by, 0, bx, by, r);
-      g.addColorStop(0, b.color);
-      g.addColorStop(0.55, b.color.replace(/0\.(\d+)/, '0.01'));
-      g.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+      const [cr, cg, cb] = b.rgb;
+      ctx.save();
+      ctx.translate(bx, by);
+      ctx.rotate(b.rot);
+      ctx.scale(b.ex, b.ey);
+      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+      g.addColorStop(0,    `rgba(${cr},${cg},${cb},${b.alpha})`);
+      g.addColorStop(0.55, `rgba(${cr},${cg},${cb},${(b.alpha * 0.28).toFixed(3)})`);
+      g.addColorStop(1,    `rgba(${cr},${cg},${cb},0)`);
+      ctx.fillStyle = g;
+      ctx.fillRect(-r, -r, r * 2, r * 2);
+      ctx.restore();
     }
 
     for (const s of stars) {
