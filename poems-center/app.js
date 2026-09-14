@@ -198,7 +198,7 @@
       <div class="pc-backup-item">
         <div class="pc-backup-item-meta">
           <span class="pc-backup-date">
-            ${escapeHtml(fmtDate(b.createdAt))}
+            ${escapeHtml(fmtBackupDate(b.createdAt))}
             ${b.domain ? `<span class="pc-backup-domain${isForeign ? ' foreign' : ''}">${escapeHtml(b.domain)}</span>` : ''}
           </span>
           <span class="pc-backup-filename">${escapeHtml(b.filename)}</span>
@@ -288,7 +288,7 @@
     state.pendingResetBackupId = backupId;
     el.backupResetModalText.textContent =
       `This will permanently erase all current poems, books, tags, and version history and replace them with ` +
-      `"${backup.filename}" (${fmtDate(backup.createdAt)}). This cannot be undone.`;
+      `"${backup.filename}" (${fmtBackupDate(backup.createdAt)}). This cannot be undone.`;
     el.backupResetAutobackup.checked = true;
     el.backupResetModal.style.display = 'flex';
   }
