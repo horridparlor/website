@@ -98,6 +98,13 @@
   };
 
   const fmtDate = (s) => s ? new Date(s.replace(' ', 'T')).toLocaleString() : '—';
+  // Finnish-style dd.mm.yyyy for the backups list, regardless of browser locale.
+  const fmtBackupDate = (s) => {
+    if (!s) return '—';
+    const d = new Date(s.replace(' ', 'T'));
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
   const todayStr = () => new Date().toISOString().slice(0, 10);
   // Full timestamp (to the second) rather than just a date, since a backup can now be
   // taken more than once a day (manual export, plus an automatic one before a reset).
