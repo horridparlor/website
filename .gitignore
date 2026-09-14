@@ -7,3 +7,6 @@ hardest/backups
 *error_log
 is-back/card-images
 is-back/card-art
+backups/*
+!backups/.gitkeep
+!backups/.htaccess

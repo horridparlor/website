@@ -35,12 +35,14 @@
       books: document.getElementById('tab-books'),
       tags: document.getElementById('tab-tags'),
       stats: document.getElementById('tab-stats'),
+      backups: document.getElementById('tab-backups'),
     },
     views: {
       poems: document.getElementById('view-poems'),
       books: document.getElementById('view-books'),
       tags: document.getElementById('view-tags'),
       stats: document.getElementById('view-stats'),
+      backups: document.getElementById('view-backups'),
     },
     poemBookFilter: document.getElementById('poem-book-filter'),
     poemSearch: document.getElementById('poem-search'),
@@ -55,6 +57,13 @@
     btnNewTag: document.getElementById('btn-new-tag'),
     tagList: document.getElementById('tag-list'),
     statsContent: document.getElementById('stats-content'),
+    btnExportBackup: document.getElementById('btn-export-backup'),
+    backupList: document.getElementById('backup-list'),
+    backupResetModal: document.getElementById('backup-reset-modal'),
+    backupResetModalText: document.getElementById('backup-reset-modal-text'),
+    backupResetAutobackup: document.getElementById('backup-reset-autobackup'),
+    backupResetCancel: document.getElementById('backup-reset-cancel'),
+    backupResetConfirm: document.getElementById('backup-reset-confirm'),
     toast: document.getElementById('toast'),
   };
 
@@ -72,6 +81,8 @@
     view: 'poems',
     collapsed: { preview: true, content: false },
     statsData: null,
+    backups: [],
+    pendingResetBackupId: null,
   };
 
   const showToast = (msg, isError) => {
@@ -83,6 +94,19 @@
 
   const fmtDate = (s) => s ? new Date(s.replace(' ', 'T')).toLocaleString() : '—';
   const todayStr = () => new Date().toISOString().slice(0, 10);
+  // Full timestamp (to the second) rather than just a date, since a backup can now be
+  // taken more than once a day (manual export, plus an automatic one before a reset).
+  const fullTimestampStr = () => {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
+  };
+  const fmtBytes = (n) => {
+    if (n == null) return '';
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+    return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  };
   const fmtWrittenDate = (iso) => {
     if (!iso) return '';
     const [y, m, d] = iso.split('-');
@@ -125,11 +149,141 @@
     if (view === 'books') loadBooks();
     if (view === 'tags') loadTags();
     if (view === 'stats') loadStats();
+    if (view === 'backups') loadBackups();
   }
   el.tabs.poems.addEventListener('click', () => switchTab('poems'));
   el.tabs.books.addEventListener('click', () => switchTab('books'));
   el.tabs.tags.addEventListener('click', () => switchTab('tags'));
   el.tabs.stats.addEventListener('click', () => switchTab('stats'));
+  el.tabs.backups.addEventListener('click', () => switchTab('backups'));
+
+  // ── Backups ──────────────────────────────────────────────────────────
+  async function loadBackups() {
+    const res = await api('GET', 'backup', { action: 'list' });
+    if (!res.ok) { showToast('Failed to load backups', true); return; }
+    state.backups = res.data.backups || [];
+    renderBackupList();
+  }
+
+  function renderBackupList() {
+    if (!state.backups.length) {
+      el.backupList.innerHTML = '<div class="pc-empty">No server backups yet. Export one above.</div>';
+      return;
+    }
+    // Deleting is only offered when another backup shares the same calendar date, so an
+    // admin can never delete their way down to zero backups for a given day.
+    const dateCounts = {};
+    state.backups.forEach(b => {
+      const d = (b.createdAt || '').slice(0, 10);
+      dateCounts[d] = (dateCounts[d] || 0) + 1;
+    });
+    el.backupList.innerHTML = state.backups.map(b => {
+      const canDelete = dateCounts[(b.createdAt || '').slice(0, 10)] > 1;
+      return `
+      <div class="pc-backup-item">
+        <div class="pc-backup-item-meta">
+          <span class="pc-backup-date">${escapeHtml(fmtDate(b.createdAt))}</span>
+          <span class="pc-backup-filename">${escapeHtml(b.filename)}</span>
+          <span class="pc-backup-size">${fmtBytes(b.sizeBytes)}</span>
+        </div>
+        <div class="pc-backup-item-actions">
+          <button class="button danger backup-reset-btn" data-id="${b.id}" type="button">Reset to This</button>
+          ${canDelete ? `<button class="button secondary backup-delete-btn" data-id="${b.id}" type="button">Delete</button>` : ''}
+        </div>
+      </div>
+    `; }).join('');
+    el.backupList.querySelectorAll('.backup-reset-btn').forEach(btn => {
+      btn.addEventListener('click', () => openResetModal(Number(btn.dataset.id)));
+    });
+    el.backupList.querySelectorAll('.backup-delete-btn').forEach(btn => {
+      btn.addEventListener('click', () => deleteBackupItem(Number(btn.dataset.id)));
+    });
+  }
+
+  async function deleteBackupItem(backupId) {
+    const backup = state.backups.find(b => b.id === backupId);
+    if (!backup) return;
+    if (!confirm(`Delete backup "${backup.filename}"? This cannot be undone.`)) return;
+    const res = await api('POST', 'backup', { action: 'delete', backupId });
+    if (!res.ok) { showToast((res.data && res.data.error) || 'Failed to delete backup', true); return; }
+    showToast('Backup deleted');
+    loadBackups();
+  }
+
+  el.btnExportBackup.addEventListener('click', async () => {
+    el.btnExportBackup.disabled = true;
+    const res = await api('GET', 'backup', { action: 'export' });
+    el.btnExportBackup.disabled = false;
+    if (!res.ok || !res.data || !res.data.backup) {
+      showToast((res.data && res.data.error) || 'Failed to export backup', true);
+      return;
+    }
+    downloadJSON(`poems-backup-${fullTimestampStr()}.json`, res.data.backup);
+    showToast('Backup saved on the server and downloaded');
+    if (state.view === 'backups') loadBackups();
+  });
+
+  function openResetModal(backupId) {
+    const backup = state.backups.find(b => b.id === backupId);
+    if (!backup) return;
+    state.pendingResetBackupId = backupId;
+    el.backupResetModalText.textContent =
+      `This will permanently erase all current poems, books, tags, and version history and replace them with ` +
+      `"${backup.filename}" (${fmtDate(backup.createdAt)}). This cannot be undone.`;
+    el.backupResetAutobackup.checked = true;
+    el.backupResetModal.style.display = 'flex';
+  }
+
+  function closeResetModal() {
+    el.backupResetModal.style.display = 'none';
+    state.pendingResetBackupId = null;
+  }
+
+  el.backupResetCancel.addEventListener('click', closeResetModal);
+  el.backupResetModal.addEventListener('click', (e) => { if (e.target === el.backupResetModal) closeResetModal(); });
+
+  el.backupResetConfirm.addEventListener('click', async () => {
+    const backupId = state.pendingResetBackupId;
+    if (!backupId) return;
+    const backupCurrentFirst = el.backupResetAutobackup.checked;
+    closeResetModal();
+
+    const payload = { action: 'reset', backupId, backupCurrentFirst };
+
+    // The domain-typing safety net only kicks in when the admin opted out of taking a
+    // fresh safety snapshot first — with that snapshot, a mistake is always recoverable.
+    if (!backupCurrentFirst) {
+      const domain = location.host; // includes the port (e.g. localhost:8000), matching HTTP_HOST server-side
+      const typed = prompt(`To confirm, type this site's domain exactly as shown, then press OK:\n\n${domain}`);
+      if (typed === null) return;
+      if (typed.trim().toLowerCase() !== domain.toLowerCase()) {
+        showToast("Domain didn't match. Reset cancelled.", true);
+        return;
+      }
+      payload.confirmDomain = typed.trim();
+    }
+
+    const res = await api('POST', 'backup', payload);
+    if (!res.ok) {
+      showToast((res.data && res.data.error) || 'Failed to reset from backup', true);
+      // The backend may have just invalidated this backup (e.g. its file went missing) —
+      // refresh so a now-gone entry doesn't linger in the list.
+      if (state.view === 'backups') loadBackups();
+      return;
+    }
+
+    showToast(res.data.preResetBackup
+      ? `All data reset from backup (safety backup saved as ${res.data.preResetBackup.filename})`
+      : 'All data reset from backup');
+
+    state.tags = [];
+    state.books = [];
+    state.currentPoem = null;
+    state.editorAnchor = null;
+    await loadPoems();
+    await loadBooks();
+    await loadBackups();
+  });
 
   // ── Tags (shared) ────────────────────────────────────────────────────
   async function ensureTagsLoaded() {
@@ -1115,6 +1269,18 @@
     return String(content || '').replace(/\r\n/g, '\n').split('\n')
       .map(l => `<div class="poem-line">${l.trim() === '' ? '&nbsp;' : escapeHtml(l)}</div>`)
       .join('');
+  }
+
+  function downloadJSON(filename, dataObj) {
+    const blob = new Blob([JSON.stringify(dataObj, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
   }
 
   function openPrintWindow(html) {

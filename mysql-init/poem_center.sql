@@ -77,3 +77,15 @@ CREATE TABLE poem_tag_link (
     CONSTRAINT fk_poem_tag_link_poem FOREIGN KEY (poemId) REFERENCES poem(id) ON DELETE CASCADE,
     CONSTRAINT fk_poem_tag_link_tag FOREIGN KEY (tagId) REFERENCES poem_tag(id) ON DELETE CASCADE
 );
+
+-- Generic table so other features can reuse it later — backupType is currently
+-- always 'poemsBackup'.
+CREATE TABLE backup (
+    id INT NOT NULL AUTO_INCREMENT,
+    backupType VARCHAR(32) NOT NULL,
+    path VARCHAR(500) NOT NULL,
+    isValid BOOLEAN NOT NULL DEFAULT 1,
+    createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    INDEX idx_backup_type (backupType)
+);

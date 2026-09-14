@@ -372,6 +372,73 @@
 .pc-history-actions .button { padding: 0.3rem 0.65rem; font-size: 0.78rem; }
 .pc-history-detail { margin-top: 0.65rem; padding-top: 0.65rem; border-top: 1px dashed #2a2a2a; }
 
+.pc-backup-block {
+  background: #181818;
+  border: 1px solid #222;
+  border-radius: 12px;
+  padding: 1.1rem 1.2rem;
+  margin-bottom: 1.25rem;
+  max-width: 620px;
+}
+.pc-backup-block h3 { margin: 0 0 0.5rem; color: #fff; font-family: 'Playfair Display', 'Anton', sans-serif; }
+.pc-backup-block p { margin: 0 0 0.9rem; color: #aaa; font-size: 0.9rem; line-height: 1.5; }
+.pc-backup-danger { border-color: rgba(255,68,102,0.35); }
+.pc-warning { color: #ff8fa3 !important; }
+#btn-export-backup { font-size: 1rem; }
+
+.pc-backup-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.pc-backup-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  background: #141414;
+  border: 1px solid #262626;
+  border-radius: 10px;
+  padding: 0.65rem 0.8rem;
+}
+.pc-backup-item-meta { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.pc-backup-date { color: #fff; font-size: 0.9rem; }
+.pc-backup-filename { color: #999; font-size: 0.78rem; word-break: break-word; }
+.pc-backup-size { color: #666; font-size: 0.76rem; }
+.pc-backup-item-actions { display: flex; gap: 0.4rem; flex: 0 0 auto; }
+.pc-backup-item .button { flex: 0 0 auto; padding: 0.35rem 0.75rem; font-size: 0.82rem; }
+
+.pc-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 1.25rem;
+  box-sizing: border-box;
+}
+.pc-modal-box {
+  background: #181818;
+  border: 1px solid rgba(255,68,102,0.4);
+  border-radius: 12px;
+  padding: 1.5rem 1.6rem;
+  width: 100%;
+  max-width: 460px;
+  box-sizing: border-box;
+}
+.pc-modal-box h3 { margin: 0 0 0.7rem; color: #fff; font-family: 'Playfair Display', 'Anton', sans-serif; }
+.pc-modal-box p { margin: 0 0 1rem; color: #ccc; font-size: 0.9rem; line-height: 1.5; }
+.pc-modal-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #ddd;
+  font-size: 0.9rem;
+  margin-bottom: 1.2rem;
+  cursor: pointer;
+}
+.pc-modal-checkbox input { width: 1rem; height: 1rem; cursor: pointer; }
+.pc-modal-actions { display: flex; justify-content: flex-end; gap: 0.6rem; flex-wrap: wrap; }
+
 .pc-diff-list { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.85rem; font-family: 'Roboto Mono', monospace; }
 .pc-diff-row { display: flex; gap: 0.5rem; padding: 0.3rem 0.5rem; border-radius: 6px; }
 .pc-diff-row.added { background: rgba(0,255,102,0.08); color: #7CFC9A; }

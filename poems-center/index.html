@@ -30,6 +30,7 @@
     <button id="tab-books" class="toggle-btn" type="button">📚 Books</button>
     <button id="tab-tags" class="toggle-btn" type="button">🏷️ Tags</button>
     <button id="tab-stats" class="toggle-btn" type="button">📊 Statistics</button>
+    <button id="tab-backups" class="toggle-btn" type="button">💾 Backups</button>
   </div>
 
   <!-- Poems -->
@@ -69,6 +70,37 @@
   <section id="view-stats" class="pc-view" style="display:none;">
     <div id="stats-content"></div>
   </section>
+
+  <!-- Backups -->
+  <section id="view-backups" class="pc-view" style="display:none;">
+    <div class="pc-backup-block">
+      <h3>Export Backup</h3>
+      <p>Saves one JSON file with every poem, book, tag, and version history entry — both here on the server and as a download to your device.</p>
+      <button id="btn-export-backup" class="button" type="button">Export &amp; Save</button>
+    </div>
+
+    <div class="pc-backup-block pc-backup-danger">
+      <h3>Reset From Backup</h3>
+      <p class="pc-warning">⚠ Resetting permanently erases <strong>all</strong> current poems, books, tags, and version history and replaces them with the contents of the chosen backup.</p>
+      <div id="backup-list" class="pc-backup-list"></div>
+    </div>
+  </section>
+</div>
+
+<!-- Reset-from-backup confirmation modal -->
+<div id="backup-reset-modal" class="pc-modal-backdrop" style="display:none;">
+  <div class="pc-modal-box">
+    <h3>Reset all poem data?</h3>
+    <p id="backup-reset-modal-text"></p>
+    <label class="pc-modal-checkbox">
+      <input type="checkbox" id="backup-reset-autobackup" checked />
+      Backup current poems environment first
+    </label>
+    <div class="pc-modal-actions">
+      <button id="backup-reset-cancel" class="button secondary" type="button">Cancel</button>
+      <button id="backup-reset-confirm" class="button danger" type="button">Continue</button>
+    </div>
+  </div>
 </div>
 
 <div id="toast" class="toast"></div>
