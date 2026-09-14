@@ -49,24 +49,45 @@ function buildPoemsBackupData(Database $database): array
     ];
 }
 
-// Writes $data to a timestamped file under backups/ and records it in the backup table.
-// Timestamp is to the second (not just the date) since this can now run more than once a
-// day — both from a manual export and as the automatic pre-reset snapshot. The domain is
-// whichever server the data actually came from — $data['domain'] for an imported backup
-// (originally exported elsewhere), or this server's own host otherwise — so the backup
-// list can show which server each entry belongs to.
+// Derives the domain and base filename for a backup from its own content — the domain it
+// was exported from, and the moment it was exported (not the moment it's being saved) —
+// so the same backup content always maps to the same filename. That's what lets an import
+// notice it's seeing a file it already has.
+function backupNamingInfo(array $data): array
+{
+    $domain = trim((string)($data['domain'] ?? ($_SERVER['HTTP_HOST'] ?? '')));
+    $domainSlug = $domain !== '' ? preg_replace('/[^a-zA-Z0-9.\-]+/', '-', $domain) : 'unknown';
+
+    $exportedAt = $data['exportedAt'] ?? null;
+    $timestamp = $exportedAt ? strtotime((string)$exportedAt) : false;
+    if ($timestamp === false) {
+        $timestamp = time();
+    }
+    $timeSlug = date('Y-m-d_H-i-s', $timestamp);
+
+    return [
+        'domain' => $domain,
+        'timestamp' => $timestamp,
+        'filename' => "poems-backup-{$domainSlug}-{$timeSlug}.json",
+    ];
+}
+
+// Writes $data to a file under backups/ (named from its own domain + export time — see
+// backupNamingInfo) and records it in the backup table, with createdAt set to that same
+// export time — not the moment it's being saved — so an imported backup keeps the date it
+// actually represents rather than the date it happened to be imported on.
 function saveServerBackup(Database $database, array $data): array
 {
     ensureBackupDir();
 
-    $domain = trim((string)($data['domain'] ?? ($_SERVER['HTTP_HOST'] ?? '')));
-    $domainSlug = $domain !== '' ? preg_replace('/[^a-zA-Z0-9.\-]+/', '-', $domain) : 'unknown';
+    $naming = backupNamingInfo($data);
+    $domain = $naming['domain'];
+    $createdAt = date('Y-m-d H:i:s', $naming['timestamp']);
 
-    $slug = date('Y-m-d_H-i-s');
-    $filename = "poems-backup-{$domainSlug}-{$slug}.json";
+    $filename = $naming['filename'];
     $i = 2;
     while (file_exists(BACKUP_DIR . $filename)) {
-        $filename = "poems-backup-{$domainSlug}-{$slug}-{$i}.json";
+        $filename = preg_replace('/\.json$/', '', $naming['filename']) . "-{$i}.json";
         $i++;
     }
 
@@ -77,11 +98,12 @@ function saveServerBackup(Database $database, array $data): array
     $relativePath = 'backups/' . $filename;
 
     $database->query(
-        'INSERT INTO backup (backupType, path, domain, isValid) VALUES (:type, :path, :domain, 1)',
+        'INSERT INTO backup (backupType, path, domain, isValid, createdAt) VALUES (:type, :path, :domain, 1, :createdAt)',
         [
             'type' => Database::getStringReplacement(BACKUP_TYPE_POEMS),
             'path' => Database::getStringReplacement($relativePath),
             'domain' => ['value' => $domain !== '' ? $domain : null, 'type' => \PDO::PARAM_STR],
+            'createdAt' => Database::getStringReplacement($createdAt),
         ]
     );
     $id = $database->getInsertId();
@@ -152,12 +174,51 @@ function listBackups(Database $database): string
     return Database::responseSuccess(['backups' => $backups]);
 }
 
+// Returns a specific server-stored backup's content so the browser can download it.
+function downloadBackup(Database $database): string
+{
+    poemCenterRequireAdmin($database);
+
+    $backupId = $database->getIntParam('backupId');
+    if (!$backupId) return Database::responseBadRequest('backupId required');
+
+    $rows = $database->query(
+        'SELECT id, path, isValid FROM backup WHERE id = :id AND backupType = :type',
+        [
+            'id' => Database::getIntReplacement($backupId),
+            'type' => Database::getStringReplacement(BACKUP_TYPE_POEMS),
+        ]
+    );
+    if (!$rows) return Database::responseNotFound(['error' => 'Backup not found.']);
+    $backupRow = $rows[0];
+    if (!(int)$backupRow['isValid']) {
+        return Database::responseBadRequest('That backup is no longer available.');
+    }
+
+    $absPath = __DIR__ . '/../../' . $backupRow['path'];
+    if (!file_exists($absPath)) {
+        $database->query(
+            'UPDATE backup SET isValid = 0 WHERE id = :id',
+            ['id' => Database::getIntReplacement($backupId)]
+        );
+        return Database::responseBadRequest('That backup file no longer exists on the server. It has been removed from the list — please pick another.');
+    }
+
+    $data = json_decode(file_get_contents($absPath), true);
+    if (!is_array($data)) {
+        return Database::responseBadRequest('That backup file is invalid or corrupted.');
+    }
+
+    return Database::responseSuccess(['backup' => $data, 'filename' => basename($backupRow['path'])]);
+}
+
 function handleBackupGet(Database $database): string
 {
     $action = $database->getStringParam('action', 'export');
     return match ($action) {
         'list' => listBackups($database),
         'export' => exportBackup($database),
+        'download' => downloadBackup($database),
         default => Database::responseBadRequest('Unknown action'),
     };
 }
@@ -352,8 +413,8 @@ function resetFromBackup(Database $database): string
     ]);
 }
 
-// Deleting is only allowed when another backup exists for the same calendar date, so an
-// admin can never be left without any backup for a given day.
+// Deleting is only allowed when another backup exists for the same calendar date AND the
+// same domain, so an admin can never be left without any backup for a given day/server.
 function deleteBackup(Database $database): string
 {
     poemCenterRequireAdmin($database);
@@ -362,7 +423,7 @@ function deleteBackup(Database $database): string
     if (!$backupId) return Database::responseBadRequest('backupId required');
 
     $rows = $database->query(
-        'SELECT id, path, DATE(createdAt) backupDate FROM backup WHERE id = :id AND backupType = :type AND isValid = 1',
+        'SELECT id, path, domain, DATE(createdAt) backupDate FROM backup WHERE id = :id AND backupType = :type AND isValid = 1',
         [
             'id' => Database::getIntReplacement($backupId),
             'type' => Database::getStringReplacement(BACKUP_TYPE_POEMS),
@@ -372,14 +433,15 @@ function deleteBackup(Database $database): string
     $backupRow = $rows[0];
 
     $sameDateCount = $database->query(
-        'SELECT COUNT(*) cnt FROM backup WHERE backupType = :type AND isValid = 1 AND DATE(createdAt) = :date',
+        'SELECT COUNT(*) cnt FROM backup WHERE backupType = :type AND isValid = 1 AND DATE(createdAt) = :date AND domain <=> :domain',
         [
             'type' => Database::getStringReplacement(BACKUP_TYPE_POEMS),
             'date' => Database::getStringReplacement($backupRow['backupDate']),
+            'domain' => ['value' => $backupRow['domain'], 'type' => \PDO::PARAM_STR],
         ]
     )[0]['cnt'];
     if ((int)$sameDateCount <= 1) {
-        return Database::responseBadRequest('Cannot delete the only backup for this date.');
+        return Database::responseBadRequest('Cannot delete the only backup for this date from this domain.');
     }
 
     $absPath = __DIR__ . '/../../' . $backupRow['path'];
@@ -400,6 +462,21 @@ function importBackup(Database $database): string
     $backup = $database->getArrayParam('backup');
     if (!is_array($backup) || !isset($backup['books'], $backup['tags'], $backup['poems'], $backup['history'])) {
         return Database::responseBadRequest('That file does not look like a valid poems backup.');
+    }
+
+    // The filename is derived from the backup's own domain + export time (see
+    // backupNamingInfo), so re-importing the exact same file always maps to the exact
+    // same name — a collision here means it's already been imported.
+    $naming = backupNamingInfo($backup);
+    $duplicate = $database->query(
+        'SELECT id FROM backup WHERE backupType = :type AND isValid = 1 AND path = :path',
+        [
+            'type' => Database::getStringReplacement(BACKUP_TYPE_POEMS),
+            'path' => Database::getStringReplacement('backups/' . $naming['filename']),
+        ]
+    );
+    if ($duplicate) {
+        return Database::responseBadRequest('That backup already exists — it looks like it was already imported.');
     }
 
     $saved = saveServerBackup($database, $backup);

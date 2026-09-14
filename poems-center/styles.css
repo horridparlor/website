@@ -400,16 +400,22 @@
   padding: 0.65rem 0.8rem;
 }
 .pc-backup-item-meta { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
-.pc-backup-date { color: #fff; font-size: 0.9rem; }
+.pc-backup-date {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #fff;
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
 .pc-backup-domain {
   display: inline-block;
-  margin-left: 0.5rem;
   padding: 0.05rem 0.5rem;
   border-radius: 999px;
   background: #262626;
   color: #999;
   font-size: 0.72rem;
-  vertical-align: middle;
+  line-height: 1.4;
 }
 .pc-backup-domain.foreign { background: rgba(255,180,0,0.12); color: #ffd56a; }
 .pc-backup-filename { color: #999; font-size: 0.78rem; word-break: break-word; }

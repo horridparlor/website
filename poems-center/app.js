@@ -87,9 +87,12 @@
     pendingResetBackupId: null,
   };
 
-  const showToast = (msg, isError) => {
+  // variant: true/'error' → red, 'info' → blue (in-progress notices), otherwise green (success).
+  const showToast = (msg, variant) => {
     el.toast.textContent = msg;
-    el.toast.style.background = isError ? '#ff0066' : '#00aa77';
+    el.toast.style.background = (variant === true || variant === 'error') ? '#ff0066'
+      : variant === 'info' ? '#0088ff'
+      : '#00aa77';
     el.toast.style.display = 'block';
     setTimeout(() => { el.toast.style.display = 'none'; }, 3200);
   };
@@ -172,15 +175,17 @@
       el.backupList.innerHTML = '<div class="pc-empty">No server backups yet. Export one above.</div>';
       return;
     }
-    // Deleting is only offered when another backup shares the same calendar date, so an
-    // admin can never delete their way down to zero backups for a given day.
-    const dateCounts = {};
+    // Deleting is only offered when another backup shares the same calendar date AND
+    // domain, so an admin can never delete their way down to zero backups for a given
+    // day/server.
+    const dateDomainKey = (b) => `${(b.createdAt || '').slice(0, 10)}|${b.domain || ''}`;
+    const dateDomainCounts = {};
     state.backups.forEach(b => {
-      const d = (b.createdAt || '').slice(0, 10);
-      dateCounts[d] = (dateCounts[d] || 0) + 1;
+      const key = dateDomainKey(b);
+      dateDomainCounts[key] = (dateDomainCounts[key] || 0) + 1;
     });
     el.backupList.innerHTML = state.backups.map(b => {
-      const canDelete = dateCounts[(b.createdAt || '').slice(0, 10)] > 1;
+      const canDelete = dateDomainCounts[dateDomainKey(b)] > 1;
       const isForeign = b.domain && b.domain.toLowerCase() !== location.host.toLowerCase();
       return `
       <div class="pc-backup-item">
@@ -193,17 +198,31 @@
           <span class="pc-backup-size">${fmtBytes(b.sizeBytes)}</span>
         </div>
         <div class="pc-backup-item-actions">
+          <button class="button secondary backup-download-btn" data-id="${b.id}" type="button">Download</button>
           <button class="button danger backup-reset-btn" data-id="${b.id}" type="button">Reset to This</button>
           ${canDelete ? `<button class="button secondary backup-delete-btn" data-id="${b.id}" type="button">Delete</button>` : ''}
         </div>
       </div>
     `; }).join('');
+    el.backupList.querySelectorAll('.backup-download-btn').forEach(btn => {
+      btn.addEventListener('click', () => downloadBackupItem(Number(btn.dataset.id)));
+    });
     el.backupList.querySelectorAll('.backup-reset-btn').forEach(btn => {
       btn.addEventListener('click', () => openResetModal(Number(btn.dataset.id)));
     });
     el.backupList.querySelectorAll('.backup-delete-btn').forEach(btn => {
       btn.addEventListener('click', () => deleteBackupItem(Number(btn.dataset.id)));
     });
+  }
+
+  async function downloadBackupItem(backupId) {
+    const res = await api('GET', 'backup', { action: 'download', backupId });
+    if (!res.ok || !res.data || !res.data.backup) {
+      showToast((res.data && res.data.error) || 'Failed to download backup', true);
+      if (state.view === 'backups') loadBackups();
+      return;
+    }
+    downloadJSON(res.data.filename || `poems-backup-${fullTimestampStr()}.json`, res.data.backup);
   }
 
   async function deleteBackupItem(backupId) {
@@ -296,6 +315,7 @@
       payload.confirmDomain = typed.trim();
     }
 
+    showToast('Restoring backup — this can take a couple of minutes…', 'info');
     const res = await api('POST', 'backup', payload);
     if (!res.ok) {
       showToast((res.data && res.data.error) || 'Failed to reset from backup', true);
