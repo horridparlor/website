@@ -378,7 +378,7 @@
   border-radius: 12px;
   padding: 1.1rem 1.2rem;
   margin-bottom: 1.25rem;
-  max-width: 620px;
+  max-width: 920px;
 }
 .pc-backup-block h3 { margin: 0 0 0.5rem; color: #fff; font-family: 'Playfair Display', 'Anton', sans-serif; }
 .pc-backup-block p { margin: 0 0 0.9rem; color: #aaa; font-size: 0.9rem; line-height: 1.5; }
@@ -393,13 +393,13 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   background: #141414;
   border: 1px solid #262626;
   border-radius: 10px;
   padding: 0.65rem 0.8rem;
 }
-.pc-backup-item-meta { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.pc-backup-item-meta { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; flex: 1 1 auto; overflow: hidden; }
 .pc-backup-date {
   display: flex;
   align-items: center;
