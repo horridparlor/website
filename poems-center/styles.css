@@ -107,7 +107,7 @@
   color: #888;
   line-height: 1;
 }
-.pc-card-meta { color: #999; font-size: 0.82rem; margin-top: 0.25rem; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.pc-card-meta { color: #999; font-size: 0.82rem; margin-top: 0.25rem; display: flex; flex-wrap: wrap; row-gap: 0.35rem; column-gap: 0.5rem; align-items: center; }
 #tag-list .pc-card-meta { margin-top: 0.65rem; }
 .pc-badge {
   display: inline-block;
