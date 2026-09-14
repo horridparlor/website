@@ -70,6 +70,21 @@ function poemTagsFor(Database $database, int $poemId): array
     return $tags;
 }
 
+// Finds the smallest positive position number not already taken by another poem in the
+// same book (or in "Unsorted", for $bookId === null) — so a book like "1, 2, 3, 99" gets
+// "4" for its next poem rather than "100".
+function poemNextFreeSortOrder(Database $database, ?int $bookId): int
+{
+    $rows = $database->query(
+        'SELECT sortOrder FROM poem WHERE isDeleted = 0 AND ' . ($bookId ? 'bookId = :bookId' : 'bookId IS NULL'),
+        $bookId ? ['bookId' => ['value' => $bookId, 'type' => PDO::PARAM_INT]] : []
+    );
+    $occupied = array_flip(array_map(fn($r) => (int)$r['sortOrder'], $rows));
+    $n = 1;
+    while (isset($occupied[$n])) $n++;
+    return $n;
+}
+
 // Replaces a poem's tag links with exactly the given set of tag ids.
 function poemSyncTags(Database $database, int $poemId, array $tagIds): void
 {

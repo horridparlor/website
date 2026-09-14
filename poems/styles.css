@@ -96,7 +96,6 @@
 .tag-chip-filter {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
   padding: 0.3rem 0.8rem;
   border-radius: 999px;
   font-size: 0.85rem;
@@ -106,7 +105,7 @@
   background: #1a1a1a;
   color: #ccc;
 }
-.tag-chip-filter .dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; }
+.tag-chip-filter .dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; margin-right: 0.35rem; }
 .tag-chip-filter.active { border-color: #00ffcc; color: #00ffcc; box-shadow: 0 0 0 2px rgba(0,255,204,.12); }
 
 .pw-book {
@@ -235,6 +234,9 @@
   margin-bottom: 1.25rem;
 }
 .pw-poem-tags .tag-chip-filter { cursor: default; font-size: 0.72rem; padding: 0.15rem 0.6rem; }
+.pw-poem-tags .tag-chip-clickable { cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; }
+.pw-poem-tags .tag-chip-clickable:hover { border-color: currentColor; box-shadow: 0 0 0 1px currentColor inset; }
+.tag-chip-count { font-size: inherit; font-weight: 500; margin-left: 0.2em; }
 
 .poem-body {
   font-family: 'Cormorant Garamond', Georgia, serif;
@@ -243,6 +245,7 @@
   font-size: 34px;
 }
 .poem-body .poem-line { white-space: nowrap; line-height: 1.4; }
+.poem-highlight { background: rgba(0,255,204,0.35); color: inherit; border-radius: 0.15em; padding: 0 0.05em; }
 
 .pw-empty {
   text-align: center;

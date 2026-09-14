@@ -47,7 +47,6 @@
     btnNewPoem: document.getElementById('btn-new-poem'),
     btnExportPoems: document.getElementById('btn-export-poems'),
     poemList: document.getElementById('poem-list'),
-    poemEditor: document.getElementById('poem-editor'),
     newBookTitle: document.getElementById('new-book-title'),
     btnNewBook: document.getElementById('btn-new-book'),
     bookList: document.getElementById('book-list'),
@@ -65,10 +64,14 @@
     languages: [],
     poems: [],
     currentPoem: null,
+    editorAnchor: null,
+    bookReorder: null,
+    bookAddPoem: null,
     selectedTagIds: new Set(),
     expandedBookId: null,
     view: 'poems',
     collapsed: { preview: true, content: false },
+    statsData: null,
   };
 
   const showToast = (msg, isError) => {
@@ -215,6 +218,11 @@
     renderBookList();
   }
 
+  function tagPoemCount(tagId) {
+    const t = state.tags.find(x => x.id === tagId);
+    return t ? (t.poemCount || 0) : 0;
+  }
+
   function populateBookFilter() {
     const current = el.poemBookFilter.value;
     el.poemBookFilter.innerHTML = '<option value="">All poems</option><option value="0">Unsorted</option>' +
@@ -232,6 +240,8 @@
         <div class="pc-card-title">${escapeHtml(b.title)}</div>
         <div class="pc-card-meta">
           <span class="pc-badge">${b.poemCount} poem${b.poemCount === 1 ? '' : 's'}</span>
+          ${(b.tags || []).map(t => `<span class="pc-tag-chip" style="cursor:default;color:${escapeHtml(t.color || '#00ffcc')};background:${escapeHtml(t.color || '#00ffcc')}22;">${escapeHtml(t.name)}<span class="tag-chip-count">(${t.count})</span></span>`).join('')}
+          ${(b.languages || []).map(l => `<span class="pc-tag-chip" style="cursor:default;">${escapeHtml(l.name)}<span class="tag-chip-count">(${l.count})</span></span>`).join('')}
           ${b.isPublished ? '<span class="pc-badge published">Published</span>' : ''}
         </div>
         ${state.expandedBookId === b.id ? `<div class="pc-book-detail" data-detail-for="${b.id}"><div class="pc-loading">Loading…</div></div>` : ''}
@@ -240,7 +250,7 @@
 
     el.bookList.querySelectorAll('.pc-card').forEach(card => {
       card.addEventListener('click', (e) => {
-        if (e.target.closest('[data-detail-for]')) return;
+        if (e.target.closest('[data-detail-for]') || e.target.closest('.pc-tag-chip')) return;
         const id = Number(card.dataset.bookId);
         state.expandedBookId = state.expandedBookId === id ? null : id;
         renderBookList();
@@ -249,30 +259,73 @@
     });
   }
 
+  const ARROW_UP_SVG = '<svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 7.5L6 4l3.5 3.5"/></svg>';
+  const ARROW_DOWN_SVG = '<svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.5L6 8l3.5-3.5"/></svg>';
+
+  let bookAddPoemDebounce = null;
+
   async function loadBookDetail(bookId) {
     const book = state.books.find(b => b.id === bookId);
+    await ensureTagsLoaded();
     const res = await api('GET', 'poems', { bookId });
-    const poems = res.ok ? (res.data.poems || []) : [];
+    const poems = (res.ok ? (res.data.poems || []) : []).slice().sort((a, b) => a.sortOrder - b.sortOrder);
     const detail = document.querySelector(`[data-detail-for="${bookId}"]`);
-    if (!detail) return;
+    if (!detail || !book) return;
+
+    const addPoem = state.bookAddPoem && state.bookAddPoem.bookId === bookId ? state.bookAddPoem : null;
+
+    const reorder = state.bookReorder && state.bookReorder.bookId === bookId ? state.bookReorder : null;
+    const rows = reorder ? reorder.staged : poems;
+    const isTight = poems.length === 0 || poems.every((p, i) => p.sortOrder === i + 1);
+
     detail.innerHTML = `
       <div class="pc-editor-row"><label>Title</label><input type="text" class="book-title-input" value="${escapeHtml(book.title)}" /></div>
       <div class="pc-editor-row"><label>Description</label><textarea class="book-desc-input" style="min-height:70px;">${escapeHtml(book.description || '')}</textarea></div>
       <div class="pc-actions">
         <button class="button secondary book-save-btn" type="button">Save</button>
         <button class="button ${book.isPublished ? 'danger' : 'secondary'} book-publish-btn" type="button">${book.isPublished ? 'Unpublish' : 'Publish'}</button>
+        ${reorder
+          ? `<button class="button book-reorder-confirm-btn" type="button">Confirm Order</button>
+             <button class="button secondary book-reorder-cancel-btn" type="button">Cancel</button>`
+          : `<button class="button secondary book-reorder-btn" type="button" ${poems.length < 2 ? 'disabled' : ''}>Reorder</button>`}
         <button class="button secondary book-export-btn" type="button">Export Book PDF</button>
+        ${!reorder && !isTight ? '<button class="button secondary book-tighten-btn" type="button">Tighten</button>' : ''}
         <button class="button danger book-delete-btn" type="button">Delete Book</button>
       </div>
-      <div class="pc-section-title" style="margin-top:1rem;">Poems in this book</div>
-      ${poems.length ? poems.map((p, i) => `
-        <div class="pc-book-poem-row" data-poem-id="${p.id}">
-          <button class="pc-reorder-btn" data-dir="up" ${i === 0 ? 'disabled' : ''} type="button">↑</button>
-          <button class="pc-reorder-btn" data-dir="down" ${i === poems.length - 1 ? 'disabled' : ''} type="button">↓</button>
-          <span class="title">${escapeHtml(p.title)}</span>
-          <button class="button secondary open-poem-btn" type="button" style="padding:0.25rem 0.6rem;font-size:0.78rem;">Open</button>
+      <div class="pc-section-title" style="margin-top:1rem;display:flex;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap;">
+        <span>Poems in this book</span>
+        ${!reorder ? `<button class="button secondary book-add-poem-toggle-btn" type="button" style="padding:0.25rem 0.6rem;font-size:0.78rem;">${addPoem ? 'Cancel' : '+ Add Poem'}</button>` : ''}
+      </div>
+      ${addPoem ? `
+        <div class="pc-add-poem-panel">
+          <input type="text" class="book-add-poem-search" placeholder="Search poems to add…" value="${escapeHtml(addPoem.query)}" />
+          <div class="pc-add-poem-results" id="book-add-poem-results"></div>
         </div>
-      `).join('') : '<div class="pc-empty">No poems in this book yet.</div>'}
+      ` : ''}
+      ${rows.length ? rows.map((p, i) => {
+        const isOpen = !reorder && state.currentPoem && state.currentPoem.id === p.id &&
+          state.editorAnchor && state.editorAnchor.view === 'books' && state.editorAnchor.bookId === bookId;
+        return `
+        <div class="pc-book-poem-wrap" data-poem-wrap="${p.id}">
+          <div class="pc-book-poem-row ${isOpen ? 'active' : ''} ${reorder ? 'reorder-mode' : ''}" data-poem-id="${p.id}">
+            <span class="pc-position-wrap"><input type="text" inputmode="numeric" class="pc-position-input" value="${p.sortOrder}." data-poem-id="${p.id}" ${reorder ? 'disabled' : ''} /></span>
+            ${reorder ? `
+              <button class="pc-reorder-btn" data-dir="up" ${i === 0 ? 'disabled' : ''} type="button" aria-label="Move up">${ARROW_UP_SVG}</button>
+              <button class="pc-reorder-btn" data-dir="down" ${i === rows.length - 1 ? 'disabled' : ''} type="button" aria-label="Move down">${ARROW_DOWN_SVG}</button>
+            ` : ''}
+            <div class="pc-book-poem-info">
+              <div class="pc-card-title"><span class="title-text">${escapeHtml(p.title)}</span><span class="pc-card-date">${escapeHtml(fmtWrittenDate(p.writtenDate))}</span></div>
+              <div class="pc-card-meta">
+                <span>${escapeHtml(p.author)}</span>
+                ${p.isPublished ? '<span class="pc-badge published">Published</span>' : ''}
+                ${(p.tags || []).map(t => `<span class="pc-tag-chip" style="color:${escapeHtml(t.color || '#00ffcc')};background:${escapeHtml(t.color || '#00ffcc')}22;">${escapeHtml(t.name)}<span class="tag-chip-count">(${tagPoemCount(t.id)})</span></span>`).join('')}
+                ${p.languageName ? `<span class="pc-tag-chip">${escapeHtml(p.languageName)}</span>` : ''}
+              </div>
+            </div>
+          </div>
+          ${isOpen ? `<div class="pc-inline-editor-slot" data-editor-for="${p.id}"></div>` : ''}
+        </div>
+      `; }).join('') : '<div class="pc-empty">No poems in this book yet.</div>'}
     `;
 
     detail.querySelector('.book-save-btn').addEventListener('click', async () => {
@@ -280,41 +333,188 @@
       const description = detail.querySelector('.book-desc-input').value;
       if (!title) return showToast('Title required', true);
       const r = await api('PUT', 'books', { id: bookId, title, description });
-      if (r.ok) { showToast('Book saved'); loadBooks(); } else showToast('Failed to save book', true);
+      if (r.ok) { showToast('Book saved'); await loadBooks(); loadBookDetail(bookId); } else showToast('Failed to save book', true);
     });
     detail.querySelector('.book-publish-btn').addEventListener('click', async () => {
       const r = await api('POST', 'publish', { type: 'book', id: bookId, isPublished: !book.isPublished });
-      if (r.ok) { showToast(book.isPublished ? 'Unpublished' : 'Published'); loadBooks(); } else showToast('Failed', true);
+      if (r.ok) { showToast(book.isPublished ? 'Unpublished' : 'Published'); await loadBooks(); loadBookDetail(bookId); } else showToast('Failed', true);
     });
     detail.querySelector('.book-delete-btn').addEventListener('click', async () => {
       if (!confirm('Delete this book? Its poems will become unsorted, not deleted.')) return;
       const r = await api('DELETE', 'books', { id: bookId });
-      if (r.ok) { showToast('Book deleted'); state.expandedBookId = null; loadBooks(); } else showToast('Failed to delete book', true);
+      if (r.ok) { showToast('Book deleted'); state.expandedBookId = null; state.bookReorder = null; state.bookAddPoem = null; loadBooks(); } else showToast('Failed to delete book', true);
     });
     detail.querySelector('.book-export-btn').addEventListener('click', () => exportBookPDF(book, poems));
 
-    detail.querySelectorAll('.open-poem-btn').forEach(btn => {
+    const reorderBtn = detail.querySelector('.book-reorder-btn');
+    if (reorderBtn) {
+      reorderBtn.addEventListener('click', () => {
+        state.bookAddPoem = null;
+        state.bookReorder = {
+          bookId,
+          original: poems.map(p => ({ id: p.id, sortOrder: p.sortOrder })),
+          staged: poems.map(p => ({ id: p.id, title: p.title, sortOrder: p.sortOrder })),
+        };
+        loadBookDetail(bookId);
+      });
+    }
+    const tightenBtn = detail.querySelector('.book-tighten-btn');
+    if (tightenBtn) tightenBtn.addEventListener('click', () => tightenBookOrder(bookId, poems));
+
+    const addPoemToggleBtn = detail.querySelector('.book-add-poem-toggle-btn');
+    if (addPoemToggleBtn) {
+      addPoemToggleBtn.addEventListener('click', () => {
+        state.bookAddPoem = addPoem ? null : { bookId, query: '' };
+        loadBookDetail(bookId);
+      });
+    }
+    const addPoemSearchInput = detail.querySelector('.book-add-poem-search');
+    if (addPoemSearchInput) {
+      addPoemSearchInput.focus();
+      addPoemSearchInput.setSelectionRange(addPoemSearchInput.value.length, addPoemSearchInput.value.length);
+      addPoemSearchInput.addEventListener('input', () => {
+        state.bookAddPoem.query = addPoemSearchInput.value;
+        clearTimeout(bookAddPoemDebounce);
+        bookAddPoemDebounce = setTimeout(() => renderAddPoemResults(bookId), 300);
+      });
+      renderAddPoemResults(bookId);
+    }
+
+    if (reorder) {
+      detail.querySelector('.book-reorder-confirm-btn').addEventListener('click', () => confirmBookReorder(bookId));
+      detail.querySelector('.book-reorder-cancel-btn').addEventListener('click', () => {
+        state.bookReorder = null;
+        loadBookDetail(bookId);
+      });
+      detail.querySelectorAll('.pc-reorder-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const row = btn.closest('[data-poem-id]');
+          const id = Number(row.dataset.poemId);
+          const staged = state.bookReorder.staged;
+          const idx = staged.findIndex(p => p.id === id);
+          const dir = btn.dataset.dir;
+          const swapIdx = dir === 'up' ? idx - 1 : idx + 1;
+          if (swapIdx < 0 || swapIdx >= staged.length) return;
+          const tmp = staged[idx].sortOrder;
+          staged[idx].sortOrder = staged[swapIdx].sortOrder;
+          staged[swapIdx].sortOrder = tmp;
+          staged.sort((a, b) => a.sortOrder - b.sortOrder);
+          loadBookDetail(bookId);
+        });
+      });
+    } else {
+      detail.querySelectorAll('.pc-position-input').forEach(input => {
+        input.addEventListener('change', () => handlePositionEdit(bookId, poems, input));
+      });
+      detail.querySelectorAll('.pc-book-poem-row').forEach(row => {
+        row.addEventListener('click', async (e) => {
+          if (e.target.closest('.pc-position-input')) return;
+          const id = Number(row.dataset.poemId);
+          const alreadyOpen = state.currentPoem && state.currentPoem.id === id &&
+            state.editorAnchor && state.editorAnchor.view === 'books' && state.editorAnchor.bookId === bookId;
+          if (alreadyOpen) { closeEditor(); return; }
+          await openEditorById(id, { view: 'books', bookId });
+        });
+      });
+      mountEditorIntoSlot();
+    }
+  }
+
+  // Searches all poems (any book, or unsorted) so an existing poem can be moved into
+  // this one — excludes poems already in this book from the results.
+  async function renderAddPoemResults(bookId) {
+    const panel = document.getElementById('book-add-poem-results');
+    if (!panel) return;
+    const query = (state.bookAddPoem && state.bookAddPoem.query || '').trim();
+    if (!query) { panel.innerHTML = '<div class="pc-empty" style="padding:0.75rem;">Type to search poems…</div>'; return; }
+    panel.innerHTML = '<div class="pc-loading">Searching…</div>';
+    const res = await api('GET', 'poems', { q: query });
+    if (!document.getElementById('book-add-poem-results')) return;
+    if (!state.bookAddPoem || state.bookAddPoem.bookId !== bookId) return;
+    // The API's `q` matches title OR content — filter down to title matches only, since
+    // this search is "find a poem by name", not a full-text search.
+    const queryLower = query.toLowerCase();
+    const results = (res.ok ? (res.data.poems || []) : [])
+      .filter(p => p.bookId !== bookId && p.title.toLowerCase().includes(queryLower));
+    panel.innerHTML = results.length ? results.map(p => `
+      <div class="pc-add-poem-result" data-poem-id="${p.id}">
+        <span class="title">${escapeHtml(p.title)}</span>
+        <span class="pc-badge">${p.bookTitle ? escapeHtml(p.bookTitle) : 'Unsorted'}</span>
+        <button class="button secondary add-poem-btn" type="button">Add</button>
+      </div>
+    `).join('') : '<div class="pc-empty" style="padding:0.75rem;">No matching poems.</div>';
+    panel.querySelectorAll('.add-poem-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = Number(btn.closest('[data-poem-id]').dataset.poemId);
-        switchTab('poems');
-        el.tabs.poems.classList.add('active');
-        await openEditorById(id);
-      });
-    });
-    detail.querySelectorAll('.pc-reorder-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const row = btn.closest('[data-poem-id]');
-        const id = Number(row.dataset.poemId);
-        const idx = poems.findIndex(p => p.id === id);
-        const dir = btn.dataset.dir;
-        const swapIdx = dir === 'up' ? idx - 1 : idx + 1;
-        if (swapIdx < 0 || swapIdx >= poems.length) return;
-        const a = poems[idx], b2 = poems[swapIdx];
-        await api('PUT', 'poem', { id: a.id, sortOrder: b2.sortOrder });
-        await api('PUT', 'poem', { id: b2.id, sortOrder: a.sortOrder });
+        const r = await api('PUT', 'poem', { id, bookId });
+        if (!r.ok) { showToast('Failed to add poem to book', true); return; }
+        showToast('Poem added to book');
+        state.bookAddPoem = null;
+        // loadBooks() re-renders the whole book list (resetting this book's detail panel
+        // to its "Loading…" placeholder) — it must finish before we repopulate it, or the
+        // two renders race and can leave the placeholder stuck.
+        await loadBooks();
         loadBookDetail(bookId);
       });
     });
+  }
+
+  // Sets a poem's position to `value`, pushing whatever else occupies that slot (and any
+  // contiguous run right after it) up by one — so inserting at an existing number never
+  // silently overwrites it.
+  async function handlePositionEdit(bookId, poems, input) {
+    const id = Number(input.dataset.poemId);
+    const poem = poems.find(p => p.id === id);
+    if (!poem) return;
+    // The field reads like "2." — pull out just the digits, ignoring the trailing dot
+    // (or its absence, since it's re-added below regardless of what the user typed).
+    const digits = input.value.replace(/[^0-9]/g, '');
+    const value = digits ? parseInt(digits, 10) : NaN;
+    if (!Number.isFinite(value) || value < 1) {
+      showToast('Position must be a positive number', true);
+      input.value = `${poem.sortOrder}.`;
+      return;
+    }
+    if (value === poem.sortOrder) { input.value = `${value}.`; return; }
+
+    const others = poems.filter(p => p.id !== id);
+    const occupied = new Map(others.map(p => [p.sortOrder, p]));
+    const changes = new Map();
+    let k = value;
+    while (occupied.has(k)) {
+      changes.set(occupied.get(k).id, k + 1);
+      k += 1;
+    }
+    changes.set(id, value);
+
+    await Promise.all(Array.from(changes.entries()).map(([pid, newOrder]) => api('PUT', 'poem', { id: pid, sortOrder: newOrder })));
+    showToast('Order updated');
+    loadBookDetail(bookId);
+  }
+
+  async function confirmBookReorder(bookId) {
+    const reorder = state.bookReorder;
+    if (!reorder || reorder.bookId !== bookId) return;
+    const originalById = new Map(reorder.original.map(p => [p.id, p.sortOrder]));
+    const updates = reorder.staged.filter(p => originalById.get(p.id) !== p.sortOrder);
+    if (updates.length) {
+      await Promise.all(updates.map(u => api('PUT', 'poem', { id: u.id, sortOrder: u.sortOrder })));
+      showToast('Order updated');
+    }
+    state.bookReorder = null;
+    loadBookDetail(bookId);
+  }
+
+  // Renumbers every poem in the book to a contiguous 1..N sequence (in current order),
+  // closing whatever gaps exist (e.g. from a poem set to "99" or ones deleted in between).
+  async function tightenBookOrder(bookId, poems) {
+    const sorted = poems.slice().sort((a, b) => a.sortOrder - b.sortOrder);
+    const updates = [];
+    sorted.forEach((p, i) => { if (p.sortOrder !== i + 1) updates.push({ id: p.id, sortOrder: i + 1 }); });
+    if (!updates.length) return;
+    await Promise.all(updates.map(u => api('PUT', 'poem', { id: u.id, sortOrder: u.sortOrder })));
+    showToast('Order tightened');
+    loadBookDetail(bookId);
   }
 
   el.btnNewBook.addEventListener('click', async () => {
@@ -332,7 +532,7 @@
     searchDebounce = setTimeout(loadPoems, 250);
   });
   el.poemBookFilter.addEventListener('change', loadPoems);
-  el.btnNewPoem.addEventListener('click', () => openEditor(null));
+  el.btnNewPoem.addEventListener('click', () => openEditor(null, { view: 'poems' }));
   el.btnExportPoems.addEventListener('click', () => {
     if (state.currentPoem && state.currentPoem.id) {
       exportPoemPDF(currentEditorPoem());
@@ -350,6 +550,7 @@
   });
 
   async function loadPoems() {
+    await ensureTagsLoaded();
     const params = { q: el.poemSearch.value.trim() || undefined };
     if (el.poemBookFilter.value !== '') params.bookId = el.poemBookFilter.value;
     const res = await api('GET', 'poems', params);
@@ -372,35 +573,39 @@
       el.poemList.innerHTML = '<div class="pc-empty">No poems found.</div>';
       return;
     }
-    el.poemList.innerHTML = state.poems.map(p => `
-      <div class="pc-card ${state.currentPoem && state.currentPoem.id === p.id ? 'active' : ''}" data-poem-id="${p.id}">
-        <div class="pc-card-title">${escapeHtml(p.title)}<span class="pc-card-date">${escapeHtml(fmtWrittenDate(p.writtenDate))}</span></div>
-        <div class="pc-card-meta">
-          <span>${escapeHtml(p.author)}</span>
-          ${p.bookTitle ? `<span class="pc-badge">${escapeHtml(p.bookTitle)}</span>` : '<span class="pc-badge">Unsorted</span>'}
-          ${p.isPublished ? '<span class="pc-badge published">Published</span>' : ''}
-          ${p.originalPoemId ? '<span class="pc-badge variant">Variant</span>' : ''}
-          ${(p.tags || []).map(t => `<span class="pc-tag-chip" style="color:${escapeHtml(t.color || '#00ffcc')};background:${escapeHtml(t.color || '#00ffcc')}22;">${escapeHtml(t.name)}</span>`).join('')}
-          ${p.languageName ? `<span class="pc-tag-chip">${escapeHtml(p.languageName)}</span>` : ''}
+    el.poemList.innerHTML = state.poems.map(p => {
+      const isOpen = state.currentPoem && state.currentPoem.id === p.id &&
+        state.editorAnchor && state.editorAnchor.view === 'poems';
+      return `
+      <div class="pc-poem-wrap" data-poem-wrap="${p.id}">
+        <div class="pc-card ${isOpen ? 'active' : ''}" data-poem-id="${p.id}">
+          <div class="pc-card-title"><span class="title-text">${escapeHtml(p.title)}</span><span class="pc-card-date">${escapeHtml(fmtWrittenDate(p.writtenDate))}</span></div>
+          <div class="pc-card-meta">
+            <span>${escapeHtml(p.author)}</span>
+            ${p.bookTitle ? `<span class="pc-badge">${escapeHtml(p.bookTitle)}</span>` : '<span class="pc-badge">Unsorted</span>'}
+            ${p.isPublished ? '<span class="pc-badge published">Published</span>' : ''}
+            ${p.originalPoemId ? '<span class="pc-badge variant">Variant</span>' : ''}
+            ${(p.tags || []).map(t => `<span class="pc-tag-chip" style="color:${escapeHtml(t.color || '#00ffcc')};background:${escapeHtml(t.color || '#00ffcc')}22;">${escapeHtml(t.name)}<span class="tag-chip-count">(${tagPoemCount(t.id)})</span></span>`).join('')}
+            ${p.languageName ? `<span class="pc-tag-chip">${escapeHtml(p.languageName)}</span>` : ''}
+          </div>
+          <div class="pc-card-meta" style="color:#777;font-style:italic;">${escapeHtml(poemSnippet(p.content))}</div>
         </div>
-        <div class="pc-card-meta" style="color:#777;font-style:italic;">${escapeHtml(poemSnippet(p.content))}</div>
+        ${isOpen ? `<div class="pc-inline-editor-slot" data-editor-for="${p.id}"></div>` : ''}
       </div>
-    `).join('');
+    `; }).join('');
 
     el.poemList.querySelectorAll('.pc-card').forEach(card => {
       card.addEventListener('click', () => {
         const id = Number(card.dataset.poemId);
-        if (state.currentPoem && state.currentPoem.id === id) {
-          state.currentPoem = null;
-          el.poemEditor.innerHTML = '';
-          renderPoemList();
-          return;
-        }
-        openEditorById(id);
+        const isOpen = state.currentPoem && state.currentPoem.id === id &&
+          state.editorAnchor && state.editorAnchor.view === 'poems';
+        if (isOpen) { closeEditor(); return; }
+        openEditorById(id, { view: 'poems' });
       });
     });
 
     updateExportButtonState();
+    mountEditorIntoSlot();
   }
 
   function updateExportButtonState() {
@@ -409,32 +614,59 @@
   }
 
   // ── Editor ───────────────────────────────────────────────────────────
-  async function openEditorById(id) {
+  // The editor expands in place — inside the Poems list or inside a book's poem row,
+  // whichever it was opened from (`anchor`) — rather than in one fixed container, so
+  // opening/closing a poem never jumps the page around.
+  async function openEditorById(id, anchor) {
     const res = await api('GET', 'poem', { id });
     if (!res.ok) { showToast('Failed to load poem', true); return; }
-    openEditor(res.data.poem);
+    await openEditor(res.data.poem, anchor);
   }
 
-  async function openEditor(poem) {
+  async function openEditor(poem, anchor) {
     await ensureTagsLoaded();
     await ensureLanguagesLoaded();
+    const prevAnchor = state.editorAnchor;
     state.currentPoem = poem;
+    state.editorAnchor = anchor;
     state.selectedTagIds = new Set((poem && poem.tags || []).map(t => t.id));
     const lineCount = ((poem && poem.content) || '').split(/\r?\n/).filter(l => l.trim() !== '').length;
     state.collapsed.content = lineCount > 10;
-    renderEditor();
-    renderPoemList();
-    el.poemEditor.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    // If the editor was open elsewhere, that host's DOM still holds its old slot —
+    // re-render it so we don't end up with two mounted editors (duplicate element ids).
+    if (prevAnchor && (prevAnchor.view !== anchor.view || (anchor.view === 'books' && prevAnchor.bookId !== anchor.bookId))) {
+      if (prevAnchor.view === 'poems') renderPoemList();
+      else if (prevAnchor.view === 'books') await loadBookDetail(prevAnchor.bookId);
+    }
+
+    if (anchor.view === 'poems') renderPoemList();
+    else if (anchor.view === 'books') await loadBookDetail(anchor.bookId);
   }
 
-  function renderEditor() {
+  function closeEditor() {
+    const anchor = state.editorAnchor;
+    state.currentPoem = null;
+    state.editorAnchor = null;
+    if (anchor && anchor.view === 'books') loadBookDetail(anchor.bookId);
+    else renderPoemList();
+  }
+
+  function mountEditorIntoSlot() {
+    if (!state.currentPoem) return;
+    const slot = document.querySelector(`[data-editor-for="${state.currentPoem.id}"]`);
+    if (!slot) return;
+    renderEditor(slot);
+  }
+
+  function renderEditor(container) {
     const p = state.currentPoem || {
       id: null, title: '', author: 'Eero Laine', content: '', bookId: null, languageId: null,
       writtenDate: todayStr(), geniusUrl: null, isPublished: false, originalPoemId: null, originalTitle: null, historyCount: 0,
     };
     const defaultLanguageId = p.languageId || (state.languages.find(l => l.code === 'fi') || {}).id || null;
 
-    el.poemEditor.innerHTML = `
+    container.innerHTML = `
       <div class="pc-editor">
         ${p.originalPoemId ? `<div class="pc-based-on">Based on: <a href="#" id="jump-to-original">${escapeHtml(p.originalTitle || ('#' + p.originalPoemId))}</a></div>` : ''}
 
@@ -548,7 +780,7 @@
     authorInput.addEventListener('input', updatePreview);
     window.addEventListener('resize', updatePreview);
 
-    document.querySelectorAll('.pc-collapsible-toggle').forEach(btn => {
+    container.querySelectorAll('.pc-collapsible-toggle').forEach(btn => {
       btn.addEventListener('click', () => {
         const wrap = btn.closest('.pc-collapsible');
         const collapsed = wrap.classList.toggle('pc-collapsed');
@@ -566,7 +798,7 @@
     bookSelect.addEventListener('change', () => handleBookSelectChange(bookSelect));
     document.getElementById('ed-manage-books').addEventListener('click', () => switchTab('books'));
 
-    document.getElementById('btn-close-editor').addEventListener('click', () => { state.currentPoem = null; el.poemEditor.innerHTML = ''; renderPoemList(); });
+    document.getElementById('btn-close-editor').addEventListener('click', () => closeEditor());
     document.getElementById('btn-save-poem').addEventListener('click', savePoem);
     if (p.id) {
       document.getElementById('btn-publish-poem').addEventListener('click', () => togglePublishPoem(p));
@@ -578,7 +810,8 @@
     if (p.originalPoemId) {
       document.getElementById('jump-to-original').addEventListener('click', (e) => {
         e.preventDefault();
-        openEditorById(p.originalPoemId);
+        switchTab('poems');
+        openEditorById(p.originalPoemId, { view: 'poems' });
       });
     }
   }
@@ -589,7 +822,7 @@
     const scrollY = window.scrollY;
     wrap.innerHTML = state.tags.map(t => `
       <span class="pc-tag-chip tag-toggle ${state.selectedTagIds.has(t.id) ? 'selected' : ''}" data-id="${t.id}" style="color:${escapeHtml(t.color || '#00ffcc')};background:${escapeHtml(t.color || '#00ffcc')}${state.selectedTagIds.has(t.id) ? '33' : '15'};">
-        <span class="dot" style="background:${escapeHtml(t.color || '#00ffcc')};"></span>${escapeHtml(t.name)}
+        <span class="dot" style="background:${escapeHtml(t.color || '#00ffcc')};"></span>${escapeHtml(t.name)}<span class="tag-chip-count">(${tagPoemCount(t.id)})</span>
       </span>
     `).join('') + `<span class="pc-tag-chip add-new" id="tag-add-new-btn" type="button">+ New Tag</span>`;
     window.scrollTo(0, scrollY);
@@ -696,21 +929,19 @@
 
     if (!res.ok) { showToast((res.data && res.data.error) || 'Failed to save poem', true); return; }
     showToast('Poem saved');
-    const scrollY = window.scrollY;
     state.currentPoem = res.data.poem;
     const lineCount = content.split(/\r?\n/).filter(l => l.trim() !== '').length;
     state.collapsed.preview = true;
     state.collapsed.content = lineCount > 10;
-    renderEditor();
     await loadPoems();
-    window.scrollTo(0, scrollY);
+    if (state.editorAnchor && state.editorAnchor.view === 'books') await loadBookDetail(state.editorAnchor.bookId);
   }
 
   async function togglePublishPoem(p) {
     const res = await api('POST', 'publish', { type: 'poem', id: p.id, isPublished: !p.isPublished });
     if (!res.ok) return showToast('Failed to update publish state', true);
     showToast(p.isPublished ? 'Unpublished' : 'Published');
-    await openEditorById(p.id);
+    await openEditorById(p.id, state.editorAnchor);
     loadPoems();
   }
 
@@ -718,7 +949,7 @@
     const res = await api('POST', 'variant', { poemId: p.id });
     if (!res.ok) return showToast('Failed to create new version', true);
     showToast('New version created');
-    await openEditor(res.data.poem);
+    await openEditor(res.data.poem, state.editorAnchor);
     loadPoems();
   }
 
@@ -727,8 +958,10 @@
     const res = await api('DELETE', 'poem', { id: p.id });
     if (!res.ok) return showToast('Failed to delete poem', true);
     showToast(res.data.mode === 'soft' ? 'Poem archived' : 'Poem deleted');
+    const anchor = state.editorAnchor;
     state.currentPoem = null;
-    el.poemEditor.innerHTML = '';
+    state.editorAnchor = null;
+    if (anchor && anchor.view === 'books') loadBookDetail(anchor.bookId);
     loadPoems();
   }
 
@@ -827,7 +1060,7 @@
         const r = await api('POST', 'history', { action: 'restore', historyId: h.id });
         if (!r.ok) return showToast('Failed to restore', true);
         showToast('Version restored');
-        await openEditor(r.data.poem);
+        await openEditor(r.data.poem, state.editorAnchor);
         loadPoems();
       });
     });
@@ -935,13 +1168,54 @@
   }
 
   // ── Statistics ───────────────────────────────────────────────────────
+  let statsAllPoemsCache = null;
+  const statsSelectedWords = new Set();
+
+  // Fetches every poem's full content once, so clicking "most used words" can find
+  // matches locally without re-querying per click. Not the same list as state.poems,
+  // which is scoped to whatever the Poems tab's filters currently show.
+  async function ensureStatsPoemsLoaded() {
+    if (statsAllPoemsCache) return statsAllPoemsCache;
+    const res = await api('GET', 'poems');
+    statsAllPoemsCache = res.ok ? (res.data.poems || []) : [];
+    return statsAllPoemsCache;
+  }
+
+  // Mirrors stats.php's tokenization (strip [Verse]-style tags, lowercase, split on
+  // non-letter/number runs) so a word click matches the same tokens it was counted from.
+  function tokenizeContent(content) {
+    const stripped = String(content || '').replace(/\[[^\]]*\]/g, ' ');
+    return new Set(
+      stripped.toLowerCase().split(/[^\p{L}\p{N}']+/u)
+        .map(t => t.replace(/^'+|'+$/g, ''))
+        .filter(Boolean)
+    );
+  }
+
+  function poemsMatchingWords(poems, words) {
+    if (!words.size) return [];
+    const wordList = Array.from(words);
+    return poems
+      .filter(p => {
+        const tokens = tokenizeContent(p.content);
+        return wordList.every(w => tokens.has(w));
+      })
+      .sort((a, b) => (b.writtenDate || '').localeCompare(a.writtenDate || ''));
+  }
+
   async function loadStats() {
     el.statsContent.innerHTML = '<div class="pc-loading">Loading statistics…</div>';
     const res = await api('GET', 'stats');
     if (!res.ok) { el.statsContent.innerHTML = '<div class="pc-empty">Failed to load statistics.</div>'; return; }
-    const s = res.data;
+    state.statsData = res.data;
+    statsSelectedWords.clear();
+    renderStats();
+  }
+
+  function renderStats() {
+    const s = state.statsData;
+    if (!s) return;
     const maxMonth = Math.max(1, ...s.poemsPerMonth.map(m => m.count));
-    const maxWord = Math.max(1, ...s.topWords.map(w => w.count));
 
     el.statsContent.innerHTML = `
       <div class="pc-stats-grid">
@@ -960,11 +1234,50 @@
         </div>
       `).join('') : '<div class="pc-empty">No poems yet.</div>'}
 
-      <div class="pc-section-title">Most Used Words <span class="pc-section-subtitle">(by poems it appears in, not raw occurrences)</span></div>
+      <div class="pc-section-title">Most Used Words <span class="pc-section-subtitle">(by poems it appears in, not raw occurrences — click one or more to find poems using them)</span></div>
       <div class="pc-word-list">
-        ${s.topWords.length ? s.topWords.map(w => `<span class="pc-word-chip">${escapeHtml(w.word)} <strong>${w.count}</strong></span>`).join('') : '<div class="pc-empty">No poems yet.</div>'}
+        ${s.topWords.length ? s.topWords.map(w => `<span class="pc-word-chip stats-word-chip ${statsSelectedWords.has(w.word) ? 'selected' : ''}" data-word="${escapeHtml(w.word)}">${escapeHtml(w.word)} <strong>${w.count}</strong></span>`).join('') : '<div class="pc-empty">No poems yet.</div>'}
       </div>
+
+      <div id="stats-word-matches"></div>
     `;
+
+    el.statsContent.querySelectorAll('.stats-word-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const word = chip.dataset.word;
+        if (statsSelectedWords.has(word)) statsSelectedWords.delete(word); else statsSelectedWords.add(word);
+        renderStats();
+      });
+    });
+
+    renderStatsWordMatches();
+  }
+
+  async function renderStatsWordMatches() {
+    const panel = document.getElementById('stats-word-matches');
+    if (!panel) return;
+    if (!statsSelectedWords.size) { panel.innerHTML = ''; return; }
+    panel.innerHTML = '<div class="pc-loading">Finding matches…</div>';
+    const poems = await ensureStatsPoemsLoaded();
+    if (!document.getElementById('stats-word-matches')) return; // tab changed while loading
+    const matches = poemsMatchingWords(poems, statsSelectedWords);
+    const n = statsSelectedWords.size;
+    panel.innerHTML = `
+      <div class="pc-section-title" style="margin-top:1.5rem;">${n} word${n === 1 ? '' : 's'} in (${matches.length} poem${matches.length === 1 ? '' : 's'})</div>
+      ${matches.length ? matches.map(p => `
+        <div class="pc-card stats-match-card" data-poem-id="${p.id}">
+          <div class="pc-card-title"><span class="title-text">${escapeHtml(p.title)}</span><span class="pc-card-date">${escapeHtml(fmtWrittenDate(p.writtenDate))}</span></div>
+        </div>
+      `).join('') : '<div class="pc-empty">No poems contain all the selected words.</div>'}
+    `;
+    panel.querySelectorAll('.stats-match-card').forEach(card => {
+      card.addEventListener('click', async () => {
+        const id = Number(card.dataset.poemId);
+        switchTab('poems');
+        el.tabs.poems.classList.add('active');
+        await openEditorById(id, { view: 'poems' });
+      });
+    });
   }
 
   // ── Init / auth gate ─────────────────────────────────────────────────
@@ -974,6 +1287,7 @@
     if (res.status === 401 || res.status === 403) { el.authGate.style.display = ''; return; }
     if (!res.ok) { el.authGate.style.display = ''; return; }
     el.app.style.display = '';
+    await ensureTagsLoaded();
     state.poems = res.data.poems || [];
     renderPoemList();
     await loadBooks();

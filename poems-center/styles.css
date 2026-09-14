@@ -91,6 +91,13 @@
   font-size: 1.1rem;
   font-weight: 700;
   color: #fff;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.pc-card-title .title-text {
+  position: relative;
+  top: -0.08em;
 }
 .pc-card-date {
   margin-left: 0.6rem;
@@ -98,8 +105,10 @@
   font-size: 0.75rem;
   font-weight: 400;
   color: #888;
+  line-height: 1;
 }
 .pc-card-meta { color: #999; font-size: 0.82rem; margin-top: 0.25rem; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+#tag-list .pc-card-meta { margin-top: 0.65rem; }
 .pc-badge {
   display: inline-block;
   padding: 0.1rem 0.5rem;
@@ -114,7 +123,6 @@
 .pc-tag-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
   padding: 0.1rem 0.55rem;
   border-radius: 999px;
   font-size: 0.72rem;
@@ -123,7 +131,8 @@
   border: 1px solid transparent;
   background: rgba(255,255,255,0.06);
 }
-.pc-tag-chip .dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; flex: 0 0 auto; }
+.pc-tag-chip .dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; flex: 0 0 auto; margin-right: 0.3rem; }
+.tag-chip-count { font-size: inherit; font-weight: 400; margin-left: 0.2em; }
 .pc-tag-chip.selected { border-color: currentColor; }
 .pc-tag-chip.add-new { border-style: dashed; border-color: #555; color: #999; }
 
@@ -382,12 +391,23 @@
 .pc-book-poem-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0;
+  gap: 0.6rem;
+  padding: 0.6rem 0.5rem;
+  margin: 0 -0.5rem;
   border-bottom: 1px solid #1e1e1e;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
 }
-.pc-book-poem-row .title { flex: 1; color: #ddd; font-size: 0.92rem; }
+.pc-book-poem-row:hover { background: rgba(255,255,255,0.03); }
+.pc-book-poem-row.reorder-mode { cursor: default; }
+.pc-book-poem-row.reorder-mode:hover { background: none; }
+.pc-book-poem-row.active .pc-card-title { color: #00ffcc; }
+.pc-book-poem-info { flex: 1; min-width: 0; }
 .pc-reorder-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: #1a1a1a;
   border: 1px solid #333;
   color: #ccc;
@@ -395,8 +415,70 @@
   width: 1.8rem;
   height: 1.8rem;
   cursor: pointer;
+  flex: 0 0 auto;
 }
-.pc-reorder-btn:hover { border-color: #00ffcc; color: #00ffcc; }
+.pc-reorder-btn:hover:not(:disabled) { border-color: #00ffcc; color: #00ffcc; }
+.pc-reorder-btn:disabled { opacity: 0.35; cursor: default; }
+
+/* Reads as plain "N." text until you actually interact with it. */
+.pc-position-wrap {
+  display: inline-flex;
+  align-items: baseline;
+  flex: 0 0 auto;
+  margin-right: 0.5rem;
+  font-family: 'Playfair Display', 'Anton', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 400;
+  color: #ccc;
+}
+.pc-position-input {
+  width: 3ch;
+  min-width: 1.8ch;
+  background: transparent;
+  color: inherit;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 0.05rem 0.15rem;
+  font: inherit;
+  text-align: left;
+}
+.pc-position-input:hover:not(:disabled), .pc-position-input:focus {
+  background: #1a1a1a;
+  border-color: #333;
+  outline: none;
+}
+.pc-position-input:disabled { opacity: 0.45; }
+.pc-inline-editor-slot { margin-top: 0.6rem; }
+
+.pc-add-poem-panel {
+  margin: 0.6rem 0 0.9rem;
+  padding: 0.75rem;
+  background: #141414;
+  border: 1px solid #262626;
+  border-radius: 10px;
+}
+.pc-add-poem-panel .book-add-poem-search {
+  width: 100%;
+  box-sizing: border-box;
+  background: #1a1a1a;
+  color: #fff;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.92rem;
+  font-family: inherit;
+}
+.pc-add-poem-results { margin-top: 0.5rem; max-height: 260px; overflow-y: auto; }
+.pc-add-poem-result {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.1rem;
+  border-bottom: 1px solid #222;
+}
+.pc-add-poem-result:last-child { border-bottom: none; }
+.pc-add-poem-result .title { flex: 1; min-width: 0; color: #ddd; font-size: 0.9rem; }
+.pc-add-poem-result .add-poem-btn { padding: 0.25rem 0.7rem; font-size: 0.78rem; }
 
 /* ── Statistics tab ─────────────────────────────────────────────────── */
 .pc-stats-grid {
@@ -434,6 +516,10 @@
   color: #ddd;
 }
 .pc-word-chip strong { color: #00ffcc; }
+.stats-word-chip { cursor: pointer; user-select: none; transition: border-color 0.15s, background 0.15s; }
+.stats-word-chip:hover { border-color: #00ffcc; }
+.stats-word-chip.selected { border-color: #00ffcc; background: rgba(0,255,204,0.12); color: #fff; }
+.stats-match-card { padding: 0.6rem 1rem; }
 
 .pc-section-title {
   font-family: 'Playfair Display', 'Anton', sans-serif;

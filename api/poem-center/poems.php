@@ -116,12 +116,7 @@ function createPoem(Database $database): string
         $languageId = $finnish ? (int)$finnish[0]['id'] : null;
     }
 
-    $maxSort = $database->query(
-        'SELECT MAX(sortOrder) maxSort FROM poem WHERE isDeleted = 0 AND ' .
-        ($bookId ? 'bookId = :bookId' : 'bookId IS NULL'),
-        $bookId ? ['bookId' => ['value' => $bookId, 'type' => \PDO::PARAM_INT]] : []
-    );
-    $sortOrder = ((int)($maxSort[0]['maxSort'] ?? -1)) + 1;
+    $sortOrder = poemNextFreeSortOrder($database, $bookId ?: null);
 
     $database->query(
         <<<SQL

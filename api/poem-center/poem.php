@@ -28,11 +28,12 @@ function updatePoem(Database $database): string
     if (!$id) return Database::responseBadRequest('id required');
 
     $existing = $database->query(
-        'SELECT id, title, author, content FROM poem WHERE id = :id AND isDeleted = 0',
+        'SELECT id, title, author, content, bookId FROM poem WHERE id = :id AND isDeleted = 0',
         ['id' => ['value' => $id, 'type' => \PDO::PARAM_INT]]
     );
     if (!$existing) return Database::responseNotFound();
     $current = $existing[0];
+    $currentBookId = $current['bookId'] !== null ? (int)$current['bookId'] : null;
 
     $title = $database->getRawStringParam('title');
     $author = $database->getRawStringParam('author');
@@ -93,6 +94,13 @@ function updatePoem(Database $database): string
         }
         $updates[] = 'bookId = :bookId';
         $replacements['bookId'] = ['value' => $bookIdInt ?: null, 'type' => \PDO::PARAM_INT];
+
+        // Moving into a different book (or into/out of Unsorted): unless the caller explicitly
+        // asked for a position, drop it into the next free slot rather than inheriting whatever
+        // sortOrder it had in its old book.
+        if (is_null($sortOrder) && ($bookIdInt ?: null) !== $currentBookId) {
+            $sortOrder = poemNextFreeSortOrder($database, $bookIdInt ?: null);
+        }
     }
     if ($hasLanguageId) {
         if ($languageIdInt) {

@@ -7,6 +7,7 @@
     filterBadge: document.getElementById('filter-badge'),
     filtersSection: document.getElementById('filters-section'),
     name: document.getElementById('f-name'),
+    text: document.getElementById('f-text'),
     start: document.getElementById('f-start'),
     end: document.getElementById('f-end'),
     tag: document.getElementById('f-tag'),
@@ -21,10 +22,13 @@
   let rawPoems = [];
   let allTags = [];
   let allLanguages = [];
+  let tagCountById = new Map();
+  let languageCountById = new Map();
   const poemsById = new Map();
 
   const qs = new URLSearchParams(location.search);
   el.name.value = qs.get('name') || '';
+  el.text.value = qs.get('text') || '';
   el.start.value = qs.get('start') || '';
   el.end.value = qs.get('end') || '';
   el.contentType.value = qs.get('contentType') || 'single';
@@ -38,21 +42,32 @@
     el.filterToggleBtn.setAttribute('aria-expanded', String(isOpen));
   });
 
+  // Also tallies how many published poems carry each tag, so the tag chips shown on
+  // poem cards can display a "(N)" count next to the name.
   function collectTags() {
     const map = new Map();
-    rawPoems.forEach(p => (p.tags || []).forEach(t => map.set(t.id, t)));
-    rawBooks.forEach(b => (b.poems || []).forEach(p => (p.tags || []).forEach(t => map.set(t.id, t))));
+    const bump = (t) => {
+      const entry = map.get(t.id) || { id: t.id, name: t.name, color: t.color, count: 0 };
+      entry.count += 1;
+      map.set(t.id, entry);
+    };
+    rawPoems.forEach(p => (p.tags || []).forEach(bump));
+    rawBooks.forEach(b => (b.poems || []).forEach(p => (p.tags || []).forEach(bump)));
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }
 
+  // Also tallies how many published poems use each language, mirroring collectTags.
   function collectLanguages() {
     const map = new Map();
-    const add = (p) => { if (p.languageId) map.set(p.languageId, p.languageName || p.languageCode); };
-    rawPoems.forEach(add);
-    rawBooks.forEach(b => (b.poems || []).forEach(add));
-    return Array.from(map.entries())
-      .map(([id, name]) => ({ id, name }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    const bump = (p) => {
+      if (!p.languageId) return;
+      const entry = map.get(p.languageId) || { id: p.languageId, name: p.languageName || p.languageCode, count: 0 };
+      entry.count += 1;
+      map.set(p.languageId, entry);
+    };
+    rawPoems.forEach(bump);
+    rawBooks.forEach(b => (b.poems || []).forEach(bump));
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }
 
   function renderTagFilterList() {
@@ -75,6 +90,7 @@
   const countActiveFilters = () => {
     let n = 0;
     if (el.name.value.trim()) n++;
+    if (el.text.value.trim()) n++;
     if (el.start.value) n++;
     if (el.end.value) n++;
     if (el.tag.value) n++;
@@ -94,6 +110,8 @@
   function poemMatches(p) {
     const name = el.name.value.trim().toLowerCase();
     if (name && !p.title.toLowerCase().includes(name)) return false;
+    const text = el.text.value.trim().toLowerCase();
+    if (text && !(p.content || '').toLowerCase().includes(text)) return false;
     if (el.start.value && (!p.writtenDate || p.writtenDate < el.start.value)) return false;
     if (el.end.value && (!p.writtenDate || p.writtenDate > el.end.value)) return false;
     if (el.tag.value && !(p.tags || []).some(t => String(t.id) === el.tag.value)) return false;
@@ -107,6 +125,7 @@
       if (value) url.searchParams.set(key, value); else url.searchParams.delete(key);
     };
     setOrDelete('name', el.name.value.trim());
+    setOrDelete('text', el.text.value.trim());
     setOrDelete('start', el.start.value);
     setOrDelete('end', el.end.value);
     setOrDelete('tag', el.tag.value);
@@ -122,8 +141,18 @@
     ctrl.addEventListener('change', () => { controlsToURL(); applyFilters(); });
   });
 
+  // The text field searches full poem content across possibly ~100 poems, so it
+  // waits for a pause in typing rather than filtering on every keystroke.
+  let textFilterDebounce = null;
+  el.text.addEventListener('input', () => {
+    clearTimeout(textFilterDebounce);
+    textFilterDebounce = setTimeout(() => { controlsToURL(); applyFilters(); }, 400);
+  });
+
   el.clear.addEventListener('click', () => {
+    clearTimeout(textFilterDebounce);
     el.name.value = '';
+    el.text.value = '';
     el.start.value = '';
     el.end.value = '';
     el.tag.value = '';
@@ -146,7 +175,7 @@
         <div class="pw-poem-author">${escapeHtml(p.author)}</div>
         <div class="pw-poem-collapsible">
           ${p.writtenDate ? `<div class="pw-poem-date">${escapeHtml(p.writtenDate)}</div>` : ''}
-          ${(p.tags || []).length || p.languageName ? `<div class="pw-poem-tags">${(p.tags || []).map(t => `<span class="tag-chip-filter" style="color:${escapeHtml(t.color || '#00ffcc')};"><span class="dot" style="background:${escapeHtml(t.color || '#00ffcc')};"></span>${escapeHtml(t.name)}</span>`).join('')}${p.languageName ? `<span class="tag-chip-filter">${escapeHtml(p.languageName)}</span>` : ''}</div>` : ''}
+          ${(p.tags || []).length || p.languageName ? `<div class="pw-poem-tags">${(p.tags || []).map(t => `<span class="tag-chip-filter tag-chip-clickable" data-tag-id="${t.id}" style="color:${escapeHtml(t.color || '#00ffcc')};"><span class="dot" style="background:${escapeHtml(t.color || '#00ffcc')};"></span>${escapeHtml(t.name)}<span class="tag-chip-count">(${tagCountById.get(t.id) ?? 0})</span></span>`).join('')}${p.languageName ? `<span class="tag-chip-filter tag-chip-clickable" data-language-id="${p.languageId}">${escapeHtml(p.languageName)}<span class="tag-chip-count">(${languageCountById.get(p.languageId) ?? 0})</span></span>` : ''}</div>` : ''}
           <div class="poem-body" data-poem-id="${p.id}"></div>
         </div>
       </article>
@@ -225,10 +254,11 @@
       });
     }, { rootMargin: '600px 0px' });
 
+    const highlightTerm = el.text.value.trim();
     document.querySelectorAll('.poem-body').forEach(box => {
       const p = poemsById.get(box.dataset.poemId);
       if (!p) return;
-      renderPoemLines(box, p.content);
+      renderPoemLines(box, p.content, highlightTerm);
       delete box.dataset.fitted;
       fitObserver.observe(box);
     });
@@ -248,7 +278,29 @@
     if (collapseBtn) { toggleCollapse(collapseBtn); return; }
     const copyBtn = e.target.closest('.pw-copy-btn');
     if (copyBtn) { copyPoem(copyBtn); return; }
+    const tagChip = e.target.closest('.tag-chip-clickable');
+    if (tagChip) {
+      if (tagChip.dataset.tagId) filterByTag(Number(tagChip.dataset.tagId));
+      else if (tagChip.dataset.languageId) filterByLanguage(Number(tagChip.dataset.languageId));
+      return;
+    }
   });
+
+  // Jumps straight to "only poems with this tag/language", clearing every other filter first.
+  function resetFiltersTo(overrides) {
+    el.name.value = '';
+    el.text.value = '';
+    el.start.value = '';
+    el.end.value = '';
+    el.tag.value = overrides.tag ? String(overrides.tag) : '';
+    el.language.value = overrides.language ? String(overrides.language) : '';
+    el.contentType.value = 'single';
+    controlsToURL();
+    applyFilters();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  function filterByTag(tagId) { resetFiltersTo({ tag: tagId }); }
+  function filterByLanguage(languageId) { resetFiltersTo({ language: languageId }); }
 
   function toggleCollapse(btn) {
     const card = btn.closest('.pw-poem-card');
@@ -298,7 +350,9 @@
       rawBooks = data.books || [];
       rawPoems = data.poems || [];
       allTags = collectTags();
+      tagCountById = new Map(allTags.map(t => [t.id, t.count]));
       allLanguages = collectLanguages();
+      languageCountById = new Map(allLanguages.map(l => [l.id, l.count]));
       renderTagFilterList();
       renderLanguageFilterList();
       applyFilters();

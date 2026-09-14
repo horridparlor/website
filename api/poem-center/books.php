@@ -24,11 +24,56 @@ function listBooks(Database $database): string
             ORDER BY b.sortOrder ASC, b.title ASC
         SQL
     );
+
+    // How many of each tag a book's poems carry — most common first, alphabetical as
+    // the tie-breaker — so the book list can show a "TagName (N)" breakdown per book.
+    $tagRows = $database->query(
+        <<<SQL
+            SELECT p.bookId, t.id tagId, t.name, t.color, COUNT(*) cnt
+            FROM poem p
+            JOIN poem_tag_link l ON l.poemId = p.id
+            JOIN poem_tag t ON t.id = l.tagId
+            WHERE p.isDeleted = 0 AND p.bookId IS NOT NULL
+            GROUP BY p.bookId, t.id
+        SQL
+    );
+    $tagsByBook = [];
+    foreach ($tagRows as $row) {
+        $tagsByBook[(int)$row['bookId']][] = [
+            'id' => (int)$row['tagId'], 'name' => $row['name'], 'color' => $row['color'], 'count' => (int)$row['cnt'],
+        ];
+    }
+    foreach ($tagsByBook as &$tags) {
+        usort($tags, fn($a, $b) => $b['count'] <=> $a['count'] ?: strcasecmp($a['name'], $b['name']));
+    }
+
+    // Same idea, but for the languages a book's poems use.
+    $langRows = $database->query(
+        <<<SQL
+            SELECT p.bookId, lang.id languageId, lang.name, COUNT(*) cnt
+            FROM poem p
+            JOIN poem_language lang ON lang.id = p.languageId
+            WHERE p.isDeleted = 0 AND p.bookId IS NOT NULL
+            GROUP BY p.bookId, lang.id
+        SQL
+    );
+    $languagesByBook = [];
+    foreach ($langRows as $row) {
+        $languagesByBook[(int)$row['bookId']][] = [
+            'id' => (int)$row['languageId'], 'name' => $row['name'], 'count' => (int)$row['cnt'],
+        ];
+    }
+    foreach ($languagesByBook as &$langs) {
+        usort($langs, fn($a, $b) => $b['count'] <=> $a['count'] ?: strcasecmp($a['name'], $b['name']));
+    }
+
     foreach ($books as &$book) {
         $book['id'] = (int)$book['id'];
         $book['sortOrder'] = (int)$book['sortOrder'];
         $book['isPublished'] = (bool)(int)$book['isPublished'];
         $book['poemCount'] = (int)$book['poemCount'];
+        $book['tags'] = $tagsByBook[$book['id']] ?? [];
+        $book['languages'] = $languagesByBook[$book['id']] ?? [];
     }
 
     return Database::responseSuccess(['books' => $books]);

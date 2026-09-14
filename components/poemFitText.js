@@ -10,10 +10,28 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
-  function renderPoemLines(container, content) {
+  // Wraps every case-insensitive occurrence of `term` in a line with <mark>, escaping the
+  // rest of the text normally. Used by /poems' Text filter to show where a poem matched.
+  function highlightLine(line, term) {
+    if (!term) return escapeHtml(line);
+    const lower = line.toLowerCase();
+    const termLower = term.toLowerCase();
+    let out = '';
+    let i = 0;
+    while (i < line.length) {
+      const idx = lower.indexOf(termLower, i);
+      if (idx === -1) { out += escapeHtml(line.slice(i)); break; }
+      out += escapeHtml(line.slice(i, idx));
+      out += '<mark class="poem-highlight">' + escapeHtml(line.slice(idx, idx + term.length)) + '</mark>';
+      i = idx + term.length;
+    }
+    return out;
+  }
+
+  function renderPoemLines(container, content, highlightTerm) {
     const lines = String(content || '').replace(/\r\n/g, '\n').split('\n');
     container.innerHTML = lines
-      .map(line => `<div class="poem-line">${line.trim() === '' ? '&nbsp;' : escapeHtml(line)}</div>`)
+      .map(line => `<div class="poem-line">${line.trim() === '' ? '&nbsp;' : highlightLine(line, highlightTerm)}</div>`)
       .join('');
   }
 
